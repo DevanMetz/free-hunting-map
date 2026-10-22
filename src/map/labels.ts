@@ -5,6 +5,7 @@
 import type {
   ExpressionSpecification,
   FilterSpecification,
+  LineLayerSpecification,
   SymbolLayerSpecification,
   VectorSourceSpecification,
 } from '@maplibre/maplibre-gl-style-spec';
@@ -98,4 +99,43 @@ export function labelLayers(theme: LabelTheme, visible: boolean): SymbolLayerSpe
     layer('place-town', 'place', 8, classIn('town'), point(BOLD, scaled(8, 11, 14, 16)), p.text),
     layer('place-city', 'place', 5, classIn('city'), point(BOLD, scaled(5, 12, 12, 20)), p.text),
   ];
+}
+
+type RoadTier = 'major' | 'mid' | 'minor' | 'trail';
+
+const ROAD_TIERS: { tier: RoadTier; classes: string[]; minzoom: number; width: [number, number, number, number]; color: string; dash?: number[] }[] = [
+  { tier: 'trail', classes: ['path', 'track'], minzoom: 13, width: [13, 0.8, 18, 2.5], color: 'rgba(255,233,176,0.7)', dash: [2, 1.5] },
+  { tier: 'minor', classes: ['minor', 'service'], minzoom: 12, width: [12, 0.7, 18, 6], color: 'rgba(255,255,255,0.62)' },
+  { tier: 'mid', classes: ['secondary', 'tertiary'], minzoom: 9, width: [9, 0.8, 18, 8], color: 'rgba(255,236,160,0.65)' },
+  { tier: 'major', classes: ['motorway', 'trunk', 'primary'], minzoom: 6, width: [6, 0.6, 18, 8], color: 'rgba(255,205,80,0.75)' },
+];
+
+/** Hybrid road lines for the satellite basemap (thin dark casing + light/yellow line), ordered bottom to top. */
+export function roadLineLayers(visible: boolean): LineLayerSpecification[] {
+  const visibility = visible ? 'visible' : 'none';
+  const w = ([z0, w0, z1, w1]: [number, number, number, number], extra = 0): ExpressionSpecification => ['interpolate', ['exponential', 1.5], ['zoom'], z0, w0 + extra, z1, w1 + extra];
+  return ROAD_TIERS.flatMap(({ tier, classes, minzoom, width, color, dash }) => {
+    const filter: FilterSpecification = [
+      'all',
+      ['==', ['geometry-type'], 'LineString'],
+      ['in', ['get', 'class'], ['literal', classes]],
+      ['!=', ['get', 'brunnel'], 'tunnel'],
+    ];
+    const base = { type: 'line' as const, source: LABELS_SOURCE_ID, 'source-layer': 'transportation', minzoom, filter };
+    const layout: LineLayerSpecification['layout'] = { 'line-cap': 'round', 'line-join': 'round', visibility };
+    return [
+      {
+        ...base,
+        id: `${LABELS_LAYER_PREFIX}roads-${tier}-casing`,
+        layout,
+        paint: { 'line-color': 'rgba(0,0,0,0.35)', 'line-width': w(width, 1.5) },
+      },
+      {
+        ...base,
+        id: `${LABELS_LAYER_PREFIX}roads-${tier}`,
+        layout,
+        paint: { 'line-color': color, 'line-width': w(width), ...(dash ? { 'line-dasharray': dash } : {}) },
+      },
+    ];
+  });
 }

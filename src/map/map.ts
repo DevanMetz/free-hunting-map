@@ -11,7 +11,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { FeatureCollection } from 'geojson';
 import { WAYPOINT_ICONS, type Item, type LngLat } from '../types';
 import { loadIconImage } from './icons';
-import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, labelLayers, labelsSource } from './labels';
+import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, labelLayers, labelsSource, roadLineLayers } from './labels';
 import { basemapStyle, PADUS_ATTR, PADUS_EXPORT, type BasemapId } from './sources';
 
 // MapLibre v6 ships its worker as a separate module; point it at the bundled asset.
@@ -122,6 +122,8 @@ export class HuntMap {
     const { basemap } = this.state;
     if (basemap !== 'streets' && !m.getSource(LABELS_SOURCE_ID)) {
       m.addSource(LABELS_SOURCE_ID, labelsSource());
+      // Satellite is a hybrid: draw the road network under the names so streets are visible over imagery.
+      if (basemap === 'satellite') for (const layer of roadLineLayers(this.state.labels)) m.addLayer(layer);
       for (const layer of labelLayers(basemap, this.state.labels)) m.addLayer(layer);
     }
     if (!m.getSource(SRC_ITEMS_LN)) {

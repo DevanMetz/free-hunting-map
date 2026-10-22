@@ -1,6 +1,6 @@
 import { validateStyleMin, type StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { describe, expect, it } from 'vitest';
-import { LABEL_FONTS, LABELS_SOURCE_ID, labelLayers, labelsSource } from './labels';
+import { LABEL_FONTS, LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, labelLayers, labelsSource, roadLineLayers } from './labels';
 import { OPENFREEMAP_GLYPHS } from './sources';
 
 const THEMES = ['topo', 'satellite'] as const;
@@ -56,5 +56,35 @@ describe('labelLayers', () => {
       };
       expect(validateStyleMin(style)).toEqual([]);
     }
+  });
+});
+
+describe('roadLineLayers', () => {
+  it('draws prefixed line layers for every road class on the transportation layer', () => {
+    const layers = roadLineLayers(true);
+    expect(layers.length).toBeGreaterThan(0);
+    for (const l of layers) {
+      expect(l.type).toBe('line');
+      expect(l.id.startsWith(LABELS_LAYER_PREFIX)).toBe(true);
+      expect(l.source).toBe(LABELS_SOURCE_ID);
+      expect(l['source-layer']).toBe('transportation');
+    }
+    const classes = JSON.stringify(layers.map((l) => l.filter));
+    for (const c of ['motorway', 'primary', 'secondary', 'minor', 'service', 'path', 'track']) expect(classes).toContain(`"${c}"`);
+  });
+
+  it('follows the visibility flag', () => {
+    expect(roadLineLayers(true).every((l) => l.layout?.visibility === 'visible')).toBe(true);
+    expect(roadLineLayers(false).every((l) => l.layout?.visibility === 'none')).toBe(true);
+  });
+
+  it('forms a valid hybrid style with the labels', () => {
+    const style: StyleSpecification = {
+      version: 8,
+      glyphs: OPENFREEMAP_GLYPHS,
+      sources: { [LABELS_SOURCE_ID]: labelsSource() },
+      layers: [...roadLineLayers(true), ...labelLayers('satellite', true)],
+    };
+    expect(validateStyleMin(style)).toEqual([]);
   });
 });
