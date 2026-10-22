@@ -136,17 +136,18 @@ export function labelTextSizes(theme: LabelTheme, scale: number): Record<string,
 type RoadTier = 'major' | 'mid' | 'minor' | 'trail';
 
 const ROAD_TIERS: { tier: RoadTier; classes: string[]; minzoom: number; width: [number, number, number, number]; color: string; dash?: number[] }[] = [
-  { tier: 'trail', classes: ['path', 'track'], minzoom: 13, width: [13, 0.8, 18, 2.5], color: 'rgba(255,233,176,0.7)', dash: [2, 1.5] },
+  { tier: 'trail', classes: ['path', 'track'], minzoom: 12, width: [12, 0.8, 18, 2.5], color: 'rgba(255,233,176,0.7)', dash: [2, 1.5] },
   { tier: 'minor', classes: ['minor', 'service'], minzoom: 12, width: [12, 0.7, 18, 6], color: 'rgba(255,255,255,0.62)' },
   { tier: 'mid', classes: ['secondary', 'tertiary'], minzoom: 9, width: [9, 0.8, 18, 8], color: 'rgba(255,236,160,0.65)' },
   { tier: 'major', classes: ['motorway', 'trunk', 'primary'], minzoom: 6, width: [6, 0.6, 18, 8], color: 'rgba(255,205,80,0.75)' },
 ];
 
-/** Hybrid road lines for the satellite basemap (thin dark casing + light/yellow line), ordered bottom to top. */
-export function roadLineLayers(visible: boolean): LineLayerSpecification[] {
+/** Cased road lines for satellite, or just trails for topo, ordered bottom to top. */
+export function roadLineLayers(visible: boolean, theme: LabelTheme = 'satellite'): LineLayerSpecification[] {
   const visibility = visible ? 'visible' : 'none';
   const w = ([z0, w0, z1, w1]: [number, number, number, number], extra = 0): ExpressionSpecification => ['interpolate', ['exponential', 1.5], ['zoom'], z0, w0 + extra, z1, w1 + extra];
-  return ROAD_TIERS.flatMap(({ tier, classes, minzoom, width, color, dash }) => {
+  const tiers = theme === 'topo' ? ROAD_TIERS.filter(({ tier }) => tier === 'trail') : ROAD_TIERS;
+  return tiers.flatMap(({ tier, classes, minzoom, width, color, dash }) => {
     const filter: FilterSpecification = [
       'all',
       ['==', ['geometry-type'], 'LineString'],
@@ -160,13 +161,13 @@ export function roadLineLayers(visible: boolean): LineLayerSpecification[] {
         ...base,
         id: `${LABELS_LAYER_PREFIX}roads-${tier}-casing`,
         layout,
-        paint: { 'line-color': 'rgba(0,0,0,0.35)', 'line-width': w(width, 1.5) },
+        paint: { 'line-color': theme === 'topo' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.35)', 'line-width': w(width, 1.5) },
       },
       {
         ...base,
         id: `${LABELS_LAYER_PREFIX}roads-${tier}`,
         layout,
-        paint: { 'line-color': color, 'line-width': w(width), ...(dash ? { 'line-dasharray': dash } : {}) },
+        paint: { 'line-color': theme === 'topo' ? 'rgba(110,70,30,0.85)' : color, 'line-width': w(width), ...(dash ? { 'line-dasharray': dash } : {}) },
       },
     ];
   });

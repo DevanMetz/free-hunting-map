@@ -40,6 +40,9 @@ describe('labelLayers', () => {
   });
 
   it('labels roads, trails, water, peaks and places', () => {
+    for (const theme of THEMES) {
+      expect(labelLayers(theme, true).find((l) => l.id === `${LABELS_LAYER_PREFIX}trail`)?.minzoom).toBe(13);
+    }
     const bySourceLayer = new Set(labelLayers('topo', true).map((l) => l['source-layer']));
     for (const sl of ['transportation_name', 'waterway', 'water_name', 'mountain_peak', 'place']) expect(bySourceLayer).toContain(sl);
     const roads = labelLayers('topo', true).filter((l) => l['source-layer'] === 'transportation_name');
@@ -62,7 +65,12 @@ describe('labelLayers', () => {
 describe('roadLineLayers', () => {
   it('draws prefixed line layers for every road class on the transportation layer', () => {
     const layers = roadLineLayers(true);
-    expect(layers.length).toBeGreaterThan(0);
+    expect(layers).toHaveLength(8);
+    expect(layers).toEqual(roadLineLayers(true, 'satellite'));
+    for (const tier of ['trail', 'minor', 'mid', 'major']) {
+      expect(layers.map((l) => l.id)).toContain(`${LABELS_LAYER_PREFIX}roads-${tier}`);
+      expect(layers.map((l) => l.id)).toContain(`${LABELS_LAYER_PREFIX}roads-${tier}-casing`);
+    }
     for (const l of layers) {
       expect(l.type).toBe('line');
       expect(l.id.startsWith(LABELS_LAYER_PREFIX)).toBe(true);
@@ -74,18 +82,56 @@ describe('roadLineLayers', () => {
   });
 
   it('follows the visibility flag', () => {
-    expect(roadLineLayers(true).every((l) => l.layout?.visibility === 'visible')).toBe(true);
-    expect(roadLineLayers(false).every((l) => l.layout?.visibility === 'none')).toBe(true);
+    for (const theme of THEMES) {
+      expect(roadLineLayers(true, theme).every((l) => l.layout?.visibility === 'visible')).toBe(true);
+      expect(roadLineLayers(false, theme).every((l) => l.layout?.visibility === 'none')).toBe(true);
+    }
+  });
+
+  it('draws only cased path and track lines on topo, excluding tunnels', () => {
+    const layers = roadLineLayers(true, 'topo');
+    expect(layers.map((l) => l.id)).toEqual([
+      `${LABELS_LAYER_PREFIX}roads-trail-casing`,
+      `${LABELS_LAYER_PREFIX}roads-trail`,
+    ]);
+    for (const l of layers) {
+      expect(l.type).toBe('line');
+      expect(l.source).toBe(LABELS_SOURCE_ID);
+      expect(l['source-layer']).toBe('transportation');
+      expect(l.filter).toEqual([
+        'all',
+        ['==', ['geometry-type'], 'LineString'],
+        ['in', ['get', 'class'], ['literal', ['path', 'track']]],
+        ['!=', ['get', 'brunnel'], 'tunnel'],
+      ]);
+    }
+  });
+
+  it('shows dashed trails from zoom 12 with theme-specific colors and casing', () => {
+    for (const theme of THEMES) {
+      const layers = roadLineLayers(true, theme);
+      const casing = layers.find((l) => l.id === `${LABELS_LAYER_PREFIX}roads-trail-casing`)!;
+      const trail = layers.find((l) => l.id === `${LABELS_LAYER_PREFIX}roads-trail`)!;
+      expect(casing.minzoom).toBe(12);
+      expect(trail.minzoom).toBe(12);
+      expect(trail.paint?.['line-width']).toEqual(['interpolate', ['exponential', 1.5], ['zoom'], 12, 0.8, 18, 2.5]);
+      expect(casing.paint?.['line-width']).toEqual(['interpolate', ['exponential', 1.5], ['zoom'], 12, 2.3, 18, 4]);
+      expect(trail.paint?.['line-dasharray']).toEqual([2, 1.5]);
+      expect(trail.paint?.['line-color']).toBe(theme === 'topo' ? 'rgba(110,70,30,0.85)' : 'rgba(255,233,176,0.7)');
+      expect(casing.paint?.['line-color']).toBe(theme === 'topo' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.35)');
+    }
   });
 
   it('forms a valid hybrid style with the labels', () => {
-    const style: StyleSpecification = {
-      version: 8,
-      glyphs: OPENFREEMAP_GLYPHS,
-      sources: { [LABELS_SOURCE_ID]: labelsSource() },
-      layers: [...roadLineLayers(true), ...labelLayers('satellite', true)],
-    };
-    expect(validateStyleMin(style)).toEqual([]);
+    for (const theme of THEMES) {
+      const style: StyleSpecification = {
+        version: 8,
+        glyphs: OPENFREEMAP_GLYPHS,
+        sources: { [LABELS_SOURCE_ID]: labelsSource() },
+        layers: [...roadLineLayers(true, theme), ...labelLayers(theme, true)],
+      };
+      expect(validateStyleMin(style)).toEqual([]);
+    }
   });
 });
 

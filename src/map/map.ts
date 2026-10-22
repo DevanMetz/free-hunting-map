@@ -131,8 +131,8 @@ export class HuntMap {
     const { basemap } = this.state;
     if (basemap !== 'streets' && !m.getSource(LABELS_SOURCE_ID)) {
       m.addSource(LABELS_SOURCE_ID, labelsSource());
-      // Satellite is a hybrid: draw the road network under the names so streets are visible over imagery.
-      if (basemap === 'satellite') for (const layer of roadLineLayers(this.state.labels)) m.addLayer(layer);
+      // Draw satellite roads or topo trails below names and user items.
+      for (const layer of roadLineLayers(this.state.labels, basemap)) m.addLayer(layer);
       for (const layer of labelLayers(basemap, this.state.labels, this.state.labelScale)) m.addLayer(layer);
     }
     if (!m.getSource(SRC_ITEMS_LN)) {
