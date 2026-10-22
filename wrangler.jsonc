@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Static-assets-only Worker: serves the Vite build output in ./dist.
+  "name": "open-hunt-map",
+  "compatibility_date": "2026-10-22",
+  "assets": {
+    "directory": "./dist",
+    // Unknown paths fall back to index.html (client-side routing / PWA shell).
+    "not_found_handling": "single-page-application"
+  },
+  "observability": { "enabled": true }
+}

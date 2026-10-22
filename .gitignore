@@ -7,3 +7,5 @@ coverage/
 .vite/
 .env
 .env.*
+.wrangler/
+.dev.vars*
