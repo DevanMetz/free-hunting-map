@@ -67,6 +67,12 @@ PAD-US is not a legal boundary or access determination. Always confirm land stat
 
 Icons (app and waypoint glyphs) are drawn in this repo (`scripts/gen-icons.mjs`, `src/map/icons.ts`, `src/ui/icons.ts`) and are MIT-licensed with the code.
 
+## Deployment
+
+Live: https://open-hunt-map.metzdevan.workers.dev
+
+The app is served as a static-assets-only [Cloudflare Worker](https://developers.cloudflare.com/workers/static-assets/) configured in `wrangler.jsonc` (SPA fallback to `index.html`; `public/_headers` keeps `sw.js` and the manifest uncached so PWA updates roll out). Every push to `main` is built and deployed automatically by Cloudflare Workers Builds (`npm run build` then `npx wrangler deploy`). Manual deploy: `npm run deploy`.
+
 ## Project layout
 
 See [AGENTS.md](AGENTS.md) for architecture and conventions.
