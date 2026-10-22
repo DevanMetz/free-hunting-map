@@ -40,6 +40,8 @@ src/
   map/
     sources.ts        ALL external tile/style endpoints + attribution
     map.ts            HuntMap: MapLibre wrapper; re-installs overlays after basemap swaps
+    labels.ts         Labels overlay (OpenFreeMap vector symbols) for raster basemaps
+    cacheRoutes.ts    Service-worker runtime-cache URL patterns
     icons.ts          Waypoint icon SVGs
     geo.ts            Distance math/formatting, coordinate rounding
     recorder.ts       GPS track recorder + fix filter

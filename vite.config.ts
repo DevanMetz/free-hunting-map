@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { CACHE_ROUTES } from './src/map/cacheRoutes';
 
 const DAY = 60 * 60 * 24;
 
@@ -44,14 +45,12 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         runtimeCaching: [
-          tileCache('tiles-usgs-topo', /^https:\/\/basemap\.nationalmap\.gov\/arcgis\/rest\/services\/USGSTopo\/MapServer\/tile\//, 4000),
-          tileCache('tiles-usgs-imagery', /^https:\/\/basemap\.nationalmap\.gov\/arcgis\/rest\/services\/USGSImageryOnly\/MapServer\/tile\//, 4000),
-          tileCache('tiles-padus', /^https:\/\/edits\.nationalmap\.gov\/arcgis\/rest\/services\/PAD-US\/.*\/export/, 3000),
-          // Versioned vector tiles, fonts and sprites are immutable.
-          tileCache('tiles-openfreemap', /^https:\/\/tiles\.openfreemap\.org\/(planet\/.+|fonts\/|sprites\/|natural_earth\/)/, 4000),
+          tileCache('tiles-usgs-topo', CACHE_ROUTES.usgsTopo, 4000),
+          tileCache('tiles-usgs-imagery', CACHE_ROUTES.usgsImagery, 4000),
+          tileCache('tiles-padus', CACHE_ROUTES.padus, 3000),
+          tileCache('tiles-openfreemap', CACHE_ROUTES.openfreemapTiles, 4000),
           {
-            // Style + TileJSON change when OpenFreeMap publishes a new planet build.
-            urlPattern: /^https:\/\/tiles\.openfreemap\.org\/(styles\/[^/]+|planet)$/,
+            urlPattern: CACHE_ROUTES.openfreemapStyles,
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'openfreemap-styles', expiration: { maxEntries: 10 } },
           },

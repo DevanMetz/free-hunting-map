@@ -22,6 +22,7 @@ interface Settings extends MapState {
 const DEFAULT_SETTINGS: Settings = {
   basemap: 'topo',
   publicLands: false,
+  labels: true,
   view: { center: [-98.5, 39.8], zoom: 3.5 },
 };
 
@@ -50,7 +51,7 @@ export class App implements AppContext {
     root.append(mapEl, toolbar, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
 
     this.sheet = new Sheet(sheetEl);
-    this.map = new HuntMap(mapEl, { basemap: settings.basemap, publicLands: settings.publicLands }, settings.view);
+    this.map = new HuntMap(mapEl, { basemap: settings.basemap, publicLands: settings.publicLands, labels: settings.labels }, settings.view);
     this.recorder = new TrackRecorder(
       (coords) => void this.onRecordedPoint(coords),
       (err) => toast(err.message || 'GPS error'),

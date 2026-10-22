@@ -41,6 +41,21 @@ export function openLayersPanel(ctx: AppContext, persist: () => void): void {
           ),
         ),
       ),
+      state.basemap !== 'streets'
+        ? h(
+            'label',
+            { class: 'toggle' },
+            h('input', {
+              type: 'checkbox',
+              checked: state.labels,
+              onchange: (e: Event) => {
+                ctx.map.setLabels((e.target as HTMLInputElement).checked);
+                persist();
+              },
+            }),
+            h('span', {}, 'Labels'),
+          )
+        : null,
       h(
         'label',
         { class: 'toggle' },

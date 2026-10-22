@@ -11,6 +11,14 @@ const USGS_ATTR = '<a href="https://www.usgs.gov/programs/national-geospatial-pr
 export const USGS_TOPO_TILES = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}';
 export const USGS_IMAGERY_TILES = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}';
 export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+/** OpenMapTiles-schema vector TileJSON (labels overlay) and its glyph PBFs. */
+export const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
+export const OPENFREEMAP_GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf';
+
+export const OPENFREEMAP_ATTR =
+  '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ' +
+  '<a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> ' +
+  'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
 /** PAD-US 4.1 (fee lands) rendered server-side by the USGS ArcGIS MapServer export endpoint. */
 export const PADUS_EXPORT =
@@ -31,6 +39,7 @@ export const BASEMAP_NAMES: Record<BasemapId, string> = {
 function rasterStyle(tiles: string, attribution: string): StyleSpecification {
   return {
     version: 8,
+    glyphs: OPENFREEMAP_GLYPHS,
     sources: {
       basemap: { type: 'raster', tiles: [tiles], tileSize: 256, maxzoom: 16, attribution },
     },

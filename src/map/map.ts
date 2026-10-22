@@ -11,6 +11,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { FeatureCollection } from 'geojson';
 import { WAYPOINT_ICONS, type Item, type LngLat } from '../types';
 import { loadIconImage } from './icons';
+import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, labelLayers, labelsSource } from './labels';
 import { basemapStyle, PADUS_ATTR, PADUS_EXPORT, type BasemapId } from './sources';
 
 // MapLibre v6 ships its worker as a separate module; point it at the bundled asset.
@@ -25,6 +26,7 @@ const SRC_SKETCH = 'ohm-sketch';
 export interface MapState {
   basemap: BasemapId;
   publicLands: boolean;
+  labels: boolean;
 }
 
 export interface MapView {
@@ -79,6 +81,13 @@ export class HuntMap {
     if (this.map.getLayer('padus')) this.map.setLayoutProperty('padus', 'visibility', on ? 'visible' : 'none');
   }
 
+  setLabels(on: boolean): void {
+    this.state.labels = on;
+    for (const layer of this.map.getStyle()?.layers ?? []) {
+      if (layer.id.startsWith(LABELS_LAYER_PREFIX)) this.map.setLayoutProperty(layer.id, 'visibility', on ? 'visible' : 'none');
+    }
+  }
+
   setItems(items: Item[]): void {
     this.items = items;
     this.refreshItems();
@@ -108,6 +117,12 @@ export class HuntMap {
           layout: { visibility: this.state.publicLands ? 'visible' : 'none' },
         },
       );
+    }
+    // Streets (OpenFreeMap Liberty) has its own labels. Added before our tracks/waypoints so those draw on top.
+    const { basemap } = this.state;
+    if (basemap !== 'streets' && !m.getSource(LABELS_SOURCE_ID)) {
+      m.addSource(LABELS_SOURCE_ID, labelsSource());
+      for (const layer of labelLayers(basemap, this.state.labels)) m.addLayer(layer);
     }
     if (!m.getSource(SRC_ITEMS_LN)) {
       m.addSource(SRC_ITEMS_LN, { type: 'geojson', data: emptyFC() });
