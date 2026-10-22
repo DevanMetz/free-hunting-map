@@ -1,4 +1,5 @@
 import type { MapMouseEvent } from 'maplibre-gl';
+import { clampLabelScale } from '../map/labels';
 import { pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS, type MapState, type MapView } from '../map/map';
 import { TrackRecorder } from '../map/recorder';
@@ -23,6 +24,7 @@ const DEFAULT_SETTINGS: Settings = {
   basemap: 'topo',
   publicLands: false,
   labels: true,
+  labelScale: 1,
   view: { center: [-98.5, 39.8], zoom: 3.5 },
 };
 
@@ -51,7 +53,7 @@ export class App implements AppContext {
     root.append(mapEl, toolbar, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
 
     this.sheet = new Sheet(sheetEl);
-    this.map = new HuntMap(mapEl, { basemap: settings.basemap, publicLands: settings.publicLands, labels: settings.labels }, settings.view);
+    this.map = new HuntMap(mapEl, { basemap: settings.basemap, publicLands: settings.publicLands, labels: settings.labels, labelScale: settings.labelScale }, settings.view);
     this.recorder = new TrackRecorder(
       (coords) => void this.onRecordedPoint(coords),
       (err) => toast(err.message || 'GPS error'),
@@ -69,7 +71,7 @@ export class App implements AppContext {
 
   static async start(root: HTMLElement, repo: Repo): Promise<App> {
     const saved = await repo.getMeta<Partial<Settings>>('settings');
-    const app = new App(repo, { ...DEFAULT_SETTINGS, ...saved }, root);
+    const app = new App(repo, { ...DEFAULT_SETTINGS, ...saved, labelScale: clampLabelScale(saved?.labelScale) }, root);
     await app.reloadItems();
     return app;
   }

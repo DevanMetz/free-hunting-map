@@ -1,3 +1,4 @@
+import { LABEL_SCALES } from '../map/labels';
 import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
 import type { AppContext } from './context';
 import { h } from './dom';
@@ -51,9 +52,35 @@ export function openLayersPanel(ctx: AppContext, persist: () => void): void {
               onchange: (e: Event) => {
                 ctx.map.setLabels((e.target as HTMLInputElement).checked);
                 persist();
+                ctx.sheet.replace(render());
               },
             }),
             h('span', {}, 'Labels'),
+          )
+        : null,
+      state.basemap !== 'streets' && state.labels
+        ? h(
+            'div',
+            { class: 'segmented', role: 'radiogroup', 'aria-label': 'Label size' },
+            ...LABEL_SCALES.map(({ id, scale, name, fontSize }) => h(
+              'button',
+              {
+                type: 'button',
+                id: `label-size-${id}`,
+                role: 'radio',
+                'aria-label': name,
+                title: name,
+                'aria-checked': String(state.labelScale === scale),
+                class: state.labelScale === scale ? 'selected' : '',
+                style: `font-size:${fontSize}px`,
+                onclick: () => {
+                  ctx.map.setLabelScale(scale);
+                  persist();
+                  ctx.sheet.replace(render());
+                },
+              },
+              'A',
+            )),
           )
         : null,
       h(

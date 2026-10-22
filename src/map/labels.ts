@@ -16,6 +16,32 @@ export type LabelTheme = 'topo' | 'satellite';
 export const LABELS_SOURCE_ID = 'ohm-labels';
 export const LABELS_LAYER_PREFIX = `${LABELS_SOURCE_ID}-`;
 
+export const LABEL_SCALES = [
+  { id: 's', scale: 0.85, name: 'Small labels', fontSize: 12 },
+  { id: 'm', scale: 1, name: 'Medium labels', fontSize: 14 },
+  { id: 'l', scale: 1.25, name: 'Large labels', fontSize: 17 },
+  { id: 'xl', scale: 1.5, name: 'Extra large labels', fontSize: 20 },
+] as const;
+
+export function clampLabelScale(x: unknown): number {
+  if (typeof x !== 'number' || Number.isNaN(x)) return 1;
+  if (x <= LABEL_SCALES[0].scale) return LABEL_SCALES[0].scale;
+  if (x >= LABEL_SCALES[3].scale) return LABEL_SCALES[3].scale;
+  return LABEL_SCALES.reduce<(typeof LABEL_SCALES)[number]>((best, step) =>
+    Math.abs(step.scale - x) < Math.abs(best.scale - x) ? step : best,
+  LABEL_SCALES[0]).scale;
+}
+
+/** Preserve zoom inputs and interpolation while scaling numeric output stops. */
+export function scaleTextSize(size: number | ExpressionSpecification, scale: number): number | ExpressionSpecification {
+  const multiply = (value: number): number => Math.round(value * scale * 100) / 100;
+  if (typeof size === 'number') return multiply(size);
+  if (size[0] === 'interpolate' && Array.isArray(size[2]) && size[2][0] === 'zoom') {
+    return size.map((value, index) => index >= 4 && index % 2 === 0 && typeof value === 'number' ? multiply(value) : value) as ExpressionSpecification;
+  }
+  return size;
+}
+
 export const LABEL_FONTS = ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'] as const;
 const [REGULAR, BOLD, ITALIC] = LABEL_FONTS;
 
@@ -42,7 +68,7 @@ export function labelsSource(): VectorSourceSpecification {
 const classIn = (...classes: string[]): FilterSpecification => ['in', ['get', 'class'], ['literal', classes]];
 
 /** Symbol layers for the labels overlay, ordered bottom to top. */
-export function labelLayers(theme: LabelTheme, visible: boolean): SymbolLayerSpecification[] {
+export function labelLayers(theme: LabelTheme, visible: boolean, scale = 1): SymbolLayerSpecification[] {
   const p = PALETTES[theme];
   const visibility = visible ? 'visible' : 'none';
   const paint = (color: string): SymbolLayerSpecification['paint'] => ({
@@ -71,7 +97,7 @@ export function labelLayers(theme: LabelTheme, visible: boolean): SymbolLayerSpe
   const line = (font: string, size: ExpressionSpecification | number): SymbolLayerSpecification['layout'] => ({
     'symbol-placement': 'line',
     'text-font': [font],
-    'text-size': size,
+    'text-size': scaleTextSize(size, scale),
     'symbol-spacing': 300,
     'text-max-angle': 30,
     'text-padding': 2,
@@ -79,7 +105,7 @@ export function labelLayers(theme: LabelTheme, visible: boolean): SymbolLayerSpe
   const roadSize: ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 13, 10, 18, 14];
   const point = (font: string, size: ExpressionSpecification | number): SymbolLayerSpecification['layout'] => ({
     'text-font': [font],
-    'text-size': size,
+    'text-size': scaleTextSize(size, scale),
     'text-max-width': 8,
     'text-padding': 2,
   });
@@ -99,6 +125,12 @@ export function labelLayers(theme: LabelTheme, visible: boolean): SymbolLayerSpe
     layer('place-town', 'place', 8, classIn('town'), point(BOLD, scaled(8, 11, 14, 16)), p.text),
     layer('place-city', 'place', 5, classIn('city'), point(BOLD, scaled(5, 12, 12, 20)), p.text),
   ];
+}
+
+export function labelTextSizes(theme: LabelTheme, scale: number): Record<string, number | ExpressionSpecification> {
+  return Object.fromEntries(labelLayers(theme, true, scale).map((layer) =>
+    [layer.id, layer.layout!['text-size'] as number | ExpressionSpecification],
+  ));
 }
 
 type RoadTier = 'major' | 'mid' | 'minor' | 'trail';
