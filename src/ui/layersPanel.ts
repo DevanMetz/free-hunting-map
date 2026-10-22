@@ -1,22 +1,40 @@
+import { PUBLIC_LANDS } from '../map/publicLands';
 import { LABEL_SCALES } from '../map/labels';
 import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
 import type { AppContext } from './context';
 import { h } from './dom';
 
-/** Subset of the PAD-US 4.1 service renderer colors (Mang_Name), read from the service's drawingInfo. */
-const PADUS_LEGEND: [string, string][] = [
-  ['USFS', '#89bd2a'],
-  ['BLM', '#f2dc91'],
-  ['NPS', '#70a170'],
-  ['FWS', '#ad5764'],
-  ['State wildlife', '#a392de'],
-  ['State park', '#9baade'],
-  ['State trust', '#bf7c99'],
-  ['DOD', '#803e39'],
-];
-
 export function openLayersPanel(ctx: AppContext, persist: () => void): void {
+  let active: HTMLButtonElement | null = null;
+  const popover = h('div', { class: 'land-info', role: 'tooltip', id: 'public-land-info', hidden: true });
+  const close = () => {
+    active?.removeAttribute('aria-describedby');
+    active = null;
+    popover.hidden = true;
+  };
+  const show = (button: HTMLButtonElement, text: string) => {
+    close();
+    active = button;
+    button.setAttribute('aria-describedby', popover.id);
+    popover.textContent = text;
+    popover.hidden = false;
+    const rect = button.getBoundingClientRect();
+    const width = popover.offsetWidth;
+    const height = popover.offsetHeight;
+    popover.style.left = `${Math.max(8, Math.min(rect.right + 8, window.innerWidth - width - 8))}px`;
+    popover.style.top = `${Math.max(8, Math.min(rect.top, window.innerHeight - height - 8))}px`;
+  };
+  const outside = (event: Event) => {
+    if (!active?.contains(event.target as Node) && !popover.contains(event.target as Node)) close();
+  };
+  const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+  document.body.append(popover);
+  document.addEventListener('pointerdown', outside);
+  document.addEventListener('keydown', escape);
+  window.addEventListener('resize', close);
+  document.addEventListener('scroll', close, true);
   const render = (): HTMLElement => {
+    close();
     const state = ctx.map.mapState;
     return h(
       'div',
@@ -83,23 +101,26 @@ export function openLayersPanel(ctx: AppContext, persist: () => void): void {
             )),
           )
         : null,
-      h(
-        'label',
-        { class: 'toggle' },
-        h('input', {
-          type: 'checkbox',
-          checked: state.publicLands,
-          onchange: (e: Event) => {
-            ctx.map.setPublicLands((e.target as HTMLInputElement).checked);
-            persist();
-            ctx.sheet.replace(render());
+      h('div', { class: 'public-land-group', role: 'group', 'aria-label': 'Public land' }, ...PUBLIC_LANDS.map(category => {
+        let touch = false;
+        const name = h('button', { type: 'button', class: 'land-name',
+          onpointerdown: (event: Event) => { touch = (event as PointerEvent).pointerType === 'touch'; },
+          onmouseenter: () => { if (!touch) show(name, category.info); },
+          onmouseleave: () => { if (!touch) close(); },
+          onfocus: () => { if (!touch) show(name, category.info); },
+          onblur: close,
+          onclick: () => {
+            if (touch) { if (active === name) close(); else show(name, category.info); }
+            else show(name, category.info);
           },
-        }),
-        h('span', {}, 'Public lands'),
-      ),
-      state.publicLands
-        ? h('ul', { class: 'legend' }, ...PADUS_LEGEND.map(([label, color]) => h('li', {}, h('i', { style: `background:${color}` }), label)))
-        : null,
+        }, category.label);
+        return h('div', { class: 'land-row' },
+          h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: state.publicLand[category.id],
+            'aria-label': category.label, onchange: (event: Event) => {
+              ctx.map.setPublicLand(category.id, (event.target as HTMLInputElement).checked);
+              persist();
+            } }), h('span', { class: 'land-swatch', style: `background:${category.color}` })), name);
+      })),
       h(
         'label',
         { class: 'toggle' },
@@ -124,5 +145,11 @@ export function openLayersPanel(ctx: AppContext, persist: () => void): void {
         } }), h('span', {}, label))),
     );
   };
-  ctx.sheet.open('layers', 'Layers', render());
+  ctx.sheet.open('layers', 'Layers', render(), () => {
+    close(); popover.remove();
+    document.removeEventListener('pointerdown', outside);
+    document.removeEventListener('keydown', escape);
+    window.removeEventListener('resize', close);
+    document.removeEventListener('scroll', close, true);
+  });
 }

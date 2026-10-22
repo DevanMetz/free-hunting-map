@@ -1,3 +1,4 @@
+import { publicLandContent, publicLandQueryUrl, type PublicLandId } from './publicLands';
 import { DEER_SERVICE } from './sources';
 
 type Properties = Record<string, unknown>;
@@ -18,4 +19,11 @@ export async function identifyDeer(lng: number, lat: number, signal: AbortSignal
   if (!response.ok) return [];
   const data = await response.json();
   return data.features?.[0]?.attributes ? deerContent(data.features[0].attributes) : [];
+}
+
+export async function identifyPublicLand(lng: number, lat: number, ids: readonly PublicLandId[], signal: AbortSignal): Promise<string[]> {
+  const response = await fetch(publicLandQueryUrl(lng, lat, ids), { signal });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return data.features?.[0]?.attributes ? publicLandContent(data.features[0].attributes) : [];
 }

@@ -1,3 +1,5 @@
+import { publicLandDefaults } from '../map/publicLands';
+import { clampLabelScale } from '../map/labels';
 import type { MapState, MapView } from '../map/map';
 
 export interface Settings extends MapState {
@@ -6,7 +8,7 @@ export interface Settings extends MapState {
 
 export const DEFAULT_SETTINGS: Settings = {
   basemap: 'topo',
-  publicLands: false,
+  publicLand: publicLandDefaults(),
   hillshade: false,
   parcels: false,
   water: false,
@@ -16,3 +18,10 @@ export const DEFAULT_SETTINGS: Settings = {
   view: { center: [-98.5, 39.8], zoom: 3.5 },
 };
 
+
+export function loadSettings(saved?: Partial<Settings> & { publicLands?: boolean }): Settings {
+  const { publicLands, ...current } = saved ?? {};
+  return { ...DEFAULT_SETTINGS, ...current,
+    publicLand: { ...publicLandDefaults(!current.publicLand && publicLands === true), ...current.publicLand },
+    labelScale: clampLabelScale(current.labelScale) };
+}

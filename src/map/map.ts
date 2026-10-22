@@ -13,7 +13,9 @@ import { WAYPOINT_ICONS, type Item, type LngLat } from '../types';
 import { loadIconImage } from './icons';
 import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, clampLabelScale, labelLayers, labelTextSizes, labelsSource, roadLineLayers } from './labels';
 import { ParcelLoader } from './parcels';
-import { DEER_EXPORT, DEER_ATTR, NHD_TILES, NHD_ATTR, NWI_EXPORT, NWI_ATTR, PARCELS_ATTR, basemapStyle, HILLSHADE_ATTR, HILLSHADE_EXPORT, PADUS_ATTR, PADUS_EXPORT, type BasemapId } from './sources';
+import { DEER_EXPORT, DEER_ATTR, NHD_TILES, NHD_ATTR, NWI_EXPORT, NWI_ATTR, PARCELS_ATTR, basemapStyle, HILLSHADE_ATTR, HILLSHADE_EXPORT, PADUS_ATTR, type BasemapId } from './sources';
+
+import { PUBLIC_LANDS, publicLandExportUrl, type PublicLandId, type PublicLandState } from './publicLands';
 
 // MapLibre v6 ships its worker as a separate module; point it at the bundled asset.
 setWorkerUrl(workerUrl);
@@ -26,7 +28,7 @@ const SRC_SKETCH = 'ohm-sketch';
 
 export interface MapState {
   basemap: BasemapId;
-  publicLands: boolean;
+  publicLand: PublicLandState;
   hillshade: boolean;
   parcels: boolean;
   water: boolean;
@@ -75,7 +77,7 @@ export class HuntMap {
   }
 
   get mapState(): MapState {
-    return { ...this.state };
+    return { ...this.state, publicLand: { ...this.state.publicLand } };
   }
 
   setBasemap(id: BasemapId): void {
@@ -89,9 +91,9 @@ export class HuntMap {
     if (this.map.getLayer('hillshade')) this.map.setLayoutProperty('hillshade', 'visibility', on ? 'visible' : 'none');
   }
 
-  setPublicLands(on: boolean): void {
-    this.state.publicLands = on;
-    if (this.map.getLayer('padus')) this.map.setLayoutProperty('padus', 'visibility', on ? 'visible' : 'none');
+  setPublicLand(id: PublicLandId, on: boolean): void {
+    this.state.publicLand[id] = on;
+    this.setVisibility([`padus-${id}`], on);
   }
 
   setParcels(on: boolean): void {
@@ -170,17 +172,13 @@ export class HuntMap {
         m.addLayer({ id, type: 'raster', source: id, minzoom, paint: { 'raster-opacity': opacity }, layout: { visibility: this.state.water ? 'visible' : 'none' } }, before);
       }
     }
-    if (!m.getSource('padus')) {
-      m.addSource('padus', { type: 'raster', tiles: [PADUS_EXPORT], tileSize: 256, minzoom: 5, attribution: PADUS_ATTR });
-      m.addLayer(
-        {
-          id: 'padus',
-          type: 'raster',
-          source: 'padus',
-          paint: { 'raster-opacity': 0.5 },
-          layout: { visibility: this.state.publicLands ? 'visible' : 'none' },
-        }, before,
-      );
+    for (const category of PUBLIC_LANDS) {
+      const id = `padus-${category.id}`;
+      if (!m.getSource(id)) {
+        m.addSource(id, { type: 'raster', tiles: [publicLandExportUrl(category)], tileSize: 256, minzoom: 5, attribution: PADUS_ATTR });
+        m.addLayer({ id, type: 'raster', source: id, minzoom: 5,
+          layout: { visibility: this.state.publicLand[category.id] ? 'visible' : 'none' } }, before);
+      }
     }
     if (!m.getSource('parcels')) {
       m.addSource('parcels', { type: 'geojson', data: emptyFC(), attribution: PARCELS_ATTR });

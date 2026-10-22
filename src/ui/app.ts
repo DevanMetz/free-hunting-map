@@ -1,7 +1,7 @@
-import { DEFAULT_SETTINGS, type Settings } from './settings';
+import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
-import { parcelContent, identifyDeer } from '../map/inspect';
-import { clampLabelScale } from '../map/labels';
+import { parcelContent, identifyDeer, identifyPublicLand } from '../map/inspect';
+import { PUBLIC_LANDS } from '../map/publicLands';
 import { pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { TrackRecorder } from '../map/recorder';
@@ -61,7 +61,7 @@ export class App implements AppContext {
 
   static async start(root: HTMLElement, repo: Repo): Promise<App> {
     const saved = await repo.getMeta<Partial<Settings>>('settings');
-    const app = new App(repo, { ...DEFAULT_SETTINGS, ...saved, labelScale: clampLabelScale(saved?.labelScale) }, root);
+    const app = new App(repo, loadSettings(saved), root);
     await app.reloadItems();
     return app;
   }
@@ -162,25 +162,33 @@ export class App implements AppContext {
     const item = id ? this.liveItems.find((i) => i.id === id) : undefined;
     if (item) { this.openItem(item); return; }
     const state = this.map.mapState;
-    if (!state.parcels && !state.deerUnits) return;
+    const enabled = PUBLIC_LANDS.filter(({ id }) => state.publicLand[id]).map(({ id }) => id);
+    if (!state.parcels && !state.deerUnits && !enabled.length) return;
     const content = h('div', { class: 'inspect-content' });
-    const append = (lines: string[]) => {
+    const sections = new Map<number, HTMLElement>();
+    const append = (order: number, lines: string[]) => {
       if (!lines.length) return;
-      content.append(h('section', {}, ...lines.map((line, i) => h(i === 0 ? 'strong' : 'div', {}, line))));
+      sections.set(order, h('section', {}, ...lines.map((line, i) => h(i === 0 ? 'strong' : 'div', {}, line))));
+      content.replaceChildren(...[...sections].sort(([a], [b]) => a - b).map(([, section]) => section));
       if (!popup.isOpen()) popup.setLngLat(at).setDOMContent(content).addTo(this.map.map);
     };
     const popup = new Popup({ closeButton: true, className: 'inspect-popup', maxWidth: '280px' });
     this.inspectPopup = popup;
     if (state.parcels && this.map.map.getLayer('parcels-fill')) {
       const parcel = this.map.map.queryRenderedFeatures(e.point, { layers: ['parcels-fill'] })[0];
-      if (parcel) append(parcelContent(parcel.properties));
+      if (parcel) append(1, parcelContent(parcel.properties));
+    }
+    const request = new AbortController();
+    this.identifyRequest = request;
+    popup.on('close', () => request.abort());
+    if (enabled.length) {
+      void identifyPublicLand(...at, enabled, request.signal).then(lines => {
+        if (!request.signal.aborted && this.inspectPopup === popup) append(0, lines);
+      }).catch(() => {});
     }
     if (state.deerUnits) {
-      const request = new AbortController();
-      this.identifyRequest = request;
-      popup.on('close', () => request.abort());
       void identifyDeer(...at, request.signal).then(lines => {
-        if (!request.signal.aborted && this.inspectPopup === popup && this.map.mapState.deerUnits) append(lines);
+        if (!request.signal.aborted && this.inspectPopup === popup && this.map.mapState.deerUnits) append(2, lines);
       }).catch(() => {});
     }
   }

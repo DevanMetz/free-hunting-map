@@ -1,0 +1,46 @@
+// @vitest-environment happy-dom
+import { afterEach, expect, it, vi } from 'vitest';
+import { openLayersPanel } from './layersPanel';
+import { Sheet } from './sheet';
+import { loadSettings } from './settings';
+import type { AppContext } from './context';
+import { PUBLIC_LANDS } from '../map/publicLands';
+
+afterEach(() => document.body.replaceChildren());
+it('keeps manager names separate from toggles and manages one dismissible popover', () => {
+  const root = document.createElement('section');
+  document.body.append(root);
+  const sheet = new Sheet(root);
+  const setPublicLand = vi.fn();
+  const persist = vi.fn();
+  const ctx = { sheet, map: { mapState: loadSettings(), setPublicLand } } as unknown as AppContext;
+  openLayersPanel(ctx, persist);
+  const names = [...root.querySelectorAll<HTMLButtonElement>('.land-name')];
+  expect(names.map(name => name.textContent)).toEqual(PUBLIC_LANDS.map(c => c.label));
+  expect(names.every(name => !name.closest('label'))).toBe(true);
+  names[0]!.dispatchEvent(new Event('mouseenter'));
+  const info = document.querySelector<HTMLElement>('.land-info')!;
+  expect(info.hidden).toBe(false);
+  expect(info.textContent).toBe(PUBLIC_LANDS[0].info);
+  names[1]!.focus();
+  expect(info.textContent).toBe(PUBLIC_LANDS[1].info);
+  expect(names[0]!.hasAttribute('aria-describedby')).toBe(false);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  expect(info.hidden).toBe(true);
+  names[0]!.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true }));
+  names[0]!.click();
+  expect(info.hidden).toBe(false);
+  names[0]!.click();
+  expect(info.hidden).toBe(true);
+  names[0]!.click();
+  document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  expect(info.hidden).toBe(true);
+  expect(setPublicLand).not.toHaveBeenCalled();
+  const checkbox = root.querySelector<HTMLInputElement>('.land-row input')!;
+  checkbox.checked = true;
+  checkbox.dispatchEvent(new Event('change'));
+  expect(setPublicLand).toHaveBeenCalledWith('usfs', true);
+  expect(persist).toHaveBeenCalledOnce();
+  sheet.close();
+  expect(document.querySelector('.land-info')).toBeNull();
+});

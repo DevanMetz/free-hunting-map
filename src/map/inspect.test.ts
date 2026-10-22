@@ -14,3 +14,18 @@ it('identifies deer units without HTTP caching', async () => {
     expect(fetcher.mock.calls[0]?.[1].cache).toBe('no-store');
   } finally { vi.unstubAllGlobals(); }
 });
+
+it('identifies only the first public land feature with normal fetch caching', async () => {
+  const { identifyPublicLand } = await import('./inspect');
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ features: [
+    { attributes: { Unit_Nm: 'Forest', Mang_Name: 'USFS' } },
+    { attributes: { Unit_Nm: 'Second forest' } },
+  ] }) });
+  vi.stubGlobal('fetch', fetcher);
+  try {
+    expect(await identifyPublicLand(-90, 44, ['usfs'], new AbortController().signal)).toEqual(['Forest', 'U.S. Forest Service']);
+    expect(fetcher.mock.calls[0]?.[1]).not.toHaveProperty('cache');
+    fetcher.mockResolvedValueOnce({ ok: false });
+    expect(await identifyPublicLand(-90, 44, ['usfs'], new AbortController().signal)).toEqual([]);
+  } finally { vi.unstubAllGlobals(); }
+});

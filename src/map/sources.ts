@@ -25,6 +25,8 @@ export const PADUS_EXPORT =
   'https://edits.nationalmap.gov/arcgis/rest/services/PAD-US/PAD_US_4_1/MapServer/export' +
   '?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&f=image';
 
+export const PADUS_QUERY = 'https://edits.nationalmap.gov/arcgis/rest/services/PAD-US/PAD_US_4_1/MapServer/0/query';
+
 export const PADUS_ATTR =
   '<a href="https://doi.org/10.5066/P96WBCHS" target="_blank" rel="noopener">USGS GAP PAD-US 4.1</a>';
 
