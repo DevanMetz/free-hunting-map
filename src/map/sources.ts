@@ -68,3 +68,13 @@ export function basemapStyle(id: BasemapId): StyleSpecification | string {
       return OPENFREEMAP_STYLE;
   }
 }
+
+export const PARCELS_QUERY = 'https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels_DB/FeatureServer/0/query';
+export const PARCELS_ATTR = 'Wisconsin Statewide Parcels V12 (SCO)';
+export const NHD_TILES = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSHydroCached/MapServer/tile/{z}/{y}/{x}';
+export const NHD_ATTR = 'USGS NHD';
+export const NWI_EXPORT = 'https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&f=image';
+export const NWI_ATTR = 'USFWS NWI';
+export const DEER_SERVICE = 'https://dnrmaps.wi.gov/arcgis/rest/services/WM_CWD/WM_DMU_MSU_DMZ_Ext/MapServer';
+export const DEER_EXPORT = DEER_SERVICE + '/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:2&f=image';
+export const DEER_ATTR = 'Wisconsin DNR';

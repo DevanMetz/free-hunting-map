@@ -114,6 +114,14 @@ export function openLayersPanel(ctx: AppContext, persist: () => void): void {
         }),
         h('span', {}, 'Hillshade'),
       ),
+      ...([
+        ['parcels', 'Parcels', (on: boolean) => ctx.map.setParcels(on)],
+        ['water', 'Water', (on: boolean) => ctx.map.setWater(on)],
+        ['deerUnits', 'Deer units', (on: boolean) => ctx.map.setDeerUnits(on)],
+      ] as const).map(([key, label, set]) => h('label', { class: 'toggle' },
+        h('input', { type: 'checkbox', checked: state[key], onchange: (e: Event) => {
+          set((e.target as HTMLInputElement).checked); persist(); ctx.sheet.replace(render());
+        } }), h('span', {}, label))),
     );
   };
   ctx.sheet.open('layers', 'Layers', render());

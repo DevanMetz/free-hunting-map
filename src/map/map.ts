@@ -12,7 +12,8 @@ import type { FeatureCollection } from 'geojson';
 import { WAYPOINT_ICONS, type Item, type LngLat } from '../types';
 import { loadIconImage } from './icons';
 import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, clampLabelScale, labelLayers, labelTextSizes, labelsSource, roadLineLayers } from './labels';
-import { basemapStyle, HILLSHADE_ATTR, HILLSHADE_EXPORT, PADUS_ATTR, PADUS_EXPORT, type BasemapId } from './sources';
+import { ParcelLoader } from './parcels';
+import { DEER_EXPORT, DEER_ATTR, NHD_TILES, NHD_ATTR, NWI_EXPORT, NWI_ATTR, PARCELS_ATTR, basemapStyle, HILLSHADE_ATTR, HILLSHADE_EXPORT, PADUS_ATTR, PADUS_EXPORT, type BasemapId } from './sources';
 
 // MapLibre v6 ships its worker as a separate module; point it at the bundled asset.
 setWorkerUrl(workerUrl);
@@ -27,6 +28,9 @@ export interface MapState {
   basemap: BasemapId;
   publicLands: boolean;
   hillshade: boolean;
+  parcels: boolean;
+  water: boolean;
+  deerUnits: boolean;
   labels: boolean;
   labelScale: number;
 }
@@ -45,6 +49,7 @@ export class HuntMap {
   readonly geolocate: GeolocateControl;
   private state: MapState;
   private items: Item[] = [];
+  private readonly parcelLoader: ParcelLoader;
   private sketch: { line: LngLat[]; color: string } = { line: [], color: '#ffd54f' };
 
   constructor(container: HTMLElement, state: MapState, view: MapView) {
@@ -57,6 +62,7 @@ export class HuntMap {
       attributionControl: { compact: true },
       maxPitch: 60,
     });
+    this.parcelLoader = new ParcelLoader(this.map);
     this.map.addControl(new NavigationControl({ visualizePitch: true }), 'top-left');
     this.geolocate = new GeolocateControl({
       positionOptions: { enableHighAccuracy: true },
@@ -86,6 +92,26 @@ export class HuntMap {
   setPublicLands(on: boolean): void {
     this.state.publicLands = on;
     if (this.map.getLayer('padus')) this.map.setLayoutProperty('padus', 'visibility', on ? 'visible' : 'none');
+  }
+
+  setParcels(on: boolean): void {
+    this.state.parcels = on;
+    this.setVisibility(['parcels-fill', 'parcels-line'], on);
+    this.parcelLoader.setEnabled(on);
+  }
+
+  setWater(on: boolean): void {
+    this.state.water = on;
+    this.setVisibility(['water-nhd', 'water-nwi'], on);
+  }
+
+  setDeerUnits(on: boolean): void {
+    this.state.deerUnits = on;
+    this.setVisibility(['deer-units'], on);
+  }
+
+  private setVisibility(ids: string[], on: boolean): void {
+    for (const id of ids) if (this.map.getLayer(id)) this.map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
   }
 
   setLabels(on: boolean): void {
@@ -121,12 +147,12 @@ export class HuntMap {
 
   private async installOverlays(): Promise<void> {
     const m = this.map;
+    const before = m.getStyle()?.layers?.find(layer => layer.type === 'line' || layer.type === 'symbol')?.id;
     if (!m.getSource('hillshade')) {
       m.addSource('hillshade', {
         type: 'raster', tiles: [HILLSHADE_EXPORT], tileSize: 256, minzoom: 11, maxzoom: 17, attribution: HILLSHADE_ATTR,
       });
       // Preserve the streets basemap's road lines and labels above the shading.
-      const before = m.getStyle()?.layers?.find((layer) => layer.type === 'line' || layer.type === 'symbol')?.id;
       m.addLayer({
         id: 'hillshade',
         type: 'raster',
@@ -134,6 +160,15 @@ export class HuntMap {
         paint: { 'raster-opacity': this.state.basemap === 'satellite' ? 0.45 : 0.55, 'raster-contrast': 0.2 },
         layout: { visibility: this.state.hillshade ? 'visible' : 'none' },
       }, before);
+    }
+    for (const [id, tiles, attribution, minzoom, opacity] of [
+      ['water-nhd', NHD_TILES, NHD_ATTR, 0, 1],
+      ['water-nwi', NWI_EXPORT, NWI_ATTR, 11, 0.7],
+    ] as const) {
+      if (!m.getSource(id)) {
+        m.addSource(id, { type: 'raster', tiles: [tiles], tileSize: 256, maxzoom: 16, attribution });
+        m.addLayer({ id, type: 'raster', source: id, minzoom, paint: { 'raster-opacity': opacity }, layout: { visibility: this.state.water ? 'visible' : 'none' } }, before);
+      }
     }
     if (!m.getSource('padus')) {
       m.addSource('padus', { type: 'raster', tiles: [PADUS_EXPORT], tileSize: 256, minzoom: 5, attribution: PADUS_ATTR });
@@ -144,8 +179,22 @@ export class HuntMap {
           source: 'padus',
           paint: { 'raster-opacity': 0.5 },
           layout: { visibility: this.state.publicLands ? 'visible' : 'none' },
-        },
+        }, before,
       );
+    }
+    if (!m.getSource('parcels')) {
+      m.addSource('parcels', { type: 'geojson', data: emptyFC(), attribution: PARCELS_ATTR });
+      const layout = { visibility: this.state.parcels ? 'visible' as const : 'none' as const };
+      m.addLayer({ id: 'parcels-fill', type: 'fill', source: 'parcels', minzoom: 13, layout, paint: { 'fill-opacity': 0 } }, before);
+      m.addLayer({ id: 'parcels-line', type: 'line', source: 'parcels', minzoom: 13, layout, paint: {
+        'line-color': this.state.basemap === 'satellite' ? '#ffd400' : '#b0306a',
+        'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.6, 17, 1.6],
+      } }, before);
+    }
+    this.parcelLoader.setEnabled(this.state.parcels);
+    if (!m.getSource('deer-units')) {
+      m.addSource('deer-units', { type: 'raster', tiles: [DEER_EXPORT], tileSize: 256, attribution: DEER_ATTR });
+      m.addLayer({ id: 'deer-units', type: 'raster', source: 'deer-units', minzoom: 6, layout: { visibility: this.state.deerUnits ? 'visible' : 'none' }, paint: { 'raster-opacity': 0.8 } }, before);
     }
     // Streets (OpenFreeMap Liberty) has its own labels. Added before our tracks/waypoints so those draw on top.
     const { basemap } = this.state;

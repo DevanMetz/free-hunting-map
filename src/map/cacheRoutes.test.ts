@@ -21,3 +21,13 @@ describe('CACHE_ROUTES', () => {
     expect(CACHE_ROUTES.openfreemapStyles.test('https://tiles.openfreemap.org/planet/20261018_080001_pt/1/0/0.pbf')).toBe(false);
   });
 });
+
+it('caches parcel and water requests, excluding all DNR requests', async () => {
+  const { PARCELS_QUERY, NHD_TILES, NWI_EXPORT, DEER_EXPORT, DEER_SERVICE } = await import('./sources');
+  expect(CACHE_ROUTES.parcels.test(PARCELS_QUERY + '?where=1%3D1')).toBe(true);
+  expect(CACHE_ROUTES.nhd.test(NHD_TILES)).toBe(true);
+  expect(CACHE_ROUTES.nwi.test(NWI_EXPORT)).toBe(true);
+  for (const url of [DEER_EXPORT, DEER_SERVICE + '/2/query?f=json']) {
+    expect(Object.values(CACHE_ROUTES).some(pattern => pattern.test(url))).toBe(false);
+  }
+});

@@ -1,7 +1,9 @@
-import type { MapMouseEvent } from 'maplibre-gl';
+import { DEFAULT_SETTINGS, type Settings } from './settings';
+import { Popup, type MapMouseEvent } from 'maplibre-gl';
+import { parcelContent, identifyDeer } from '../map/inspect';
 import { clampLabelScale } from '../map/labels';
 import { pathLength, shortDistance } from '../map/geo';
-import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS, type MapState, type MapView } from '../map/map';
+import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
 import type { Item, LngLat, Track } from '../types';
@@ -15,19 +17,6 @@ import { openListPanel } from './listPanel';
 import { openSharePanel } from './sharePanel';
 import { Sheet } from './sheet';
 import { lineTool, waypointTool, type Tool } from './tools';
-
-interface Settings extends MapState {
-  view: MapView;
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  basemap: 'topo',
-  publicLands: false,
-  hillshade: false,
-  labels: true,
-  labelScale: 1,
-  view: { center: [-98.5, 39.8], zoom: 3.5 },
-};
 
 const RECORD_SAVE_EVERY = 5;
 
@@ -54,7 +43,7 @@ export class App implements AppContext {
     root.append(mapEl, toolbar, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
 
     this.sheet = new Sheet(sheetEl);
-    this.map = new HuntMap(mapEl, { basemap: settings.basemap, publicLands: settings.publicLands, hillshade: settings.hillshade, labels: settings.labels, labelScale: settings.labelScale }, settings.view);
+    this.map = new HuntMap(mapEl, settings, settings.view);
     this.recorder = new TrackRecorder(
       (coords) => void this.onRecordedPoint(coords),
       (err) => toast(err.message || 'GPS error'),
@@ -153,7 +142,13 @@ export class App implements AppContext {
     }
   }
 
+  private inspectPopup: Popup | null = null;
+  private identifyRequest: AbortController | null = null;
+
   private onMapClick(e: MapMouseEvent): void {
+    this.identifyRequest?.abort();
+    this.inspectPopup?.remove();
+    this.inspectPopup = null;
     const at: LngLat = [e.lngLat.lng, e.lngLat.lat];
     if (this.tool) {
       this.tool.onMapClick(at);
@@ -165,7 +160,29 @@ export class App implements AppContext {
     const hit = this.map.map.queryRenderedFeatures([[x - r, y - r], [x + r, y + r]], { layers })[0];
     const id = hit?.properties?.id as string | undefined;
     const item = id ? this.liveItems.find((i) => i.id === id) : undefined;
-    if (item) this.openItem(item);
+    if (item) { this.openItem(item); return; }
+    const state = this.map.mapState;
+    if (!state.parcels && !state.deerUnits) return;
+    const content = h('div', { class: 'inspect-content' });
+    const append = (lines: string[]) => {
+      if (!lines.length) return;
+      content.append(h('section', {}, ...lines.map((line, i) => h(i === 0 ? 'strong' : 'div', {}, line))));
+      if (!popup.isOpen()) popup.setLngLat(at).setDOMContent(content).addTo(this.map.map);
+    };
+    const popup = new Popup({ closeButton: true, className: 'inspect-popup', maxWidth: '280px' });
+    this.inspectPopup = popup;
+    if (state.parcels && this.map.map.getLayer('parcels-fill')) {
+      const parcel = this.map.map.queryRenderedFeatures(e.point, { layers: ['parcels-fill'] })[0];
+      if (parcel) append(parcelContent(parcel.properties));
+    }
+    if (state.deerUnits) {
+      const request = new AbortController();
+      this.identifyRequest = request;
+      popup.on('close', () => request.abort());
+      void identifyDeer(...at, request.signal).then(lines => {
+        if (!request.signal.aborted && this.inspectPopup === popup && this.map.mapState.deerUnits) append(lines);
+      }).catch(() => {});
+    }
   }
 
   private async toggleRecording(): Promise<void> {

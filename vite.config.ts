@@ -45,6 +45,10 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         runtimeCaching: [
+          { urlPattern: /^https:\/\/dnrmaps\.wi\.gov\//, handler: 'NetworkOnly' },
+          tileCache('parcels', CACHE_ROUTES.parcels, 4000),
+          tileCache('tiles-nhd', CACHE_ROUTES.nhd, 3000),
+          tileCache('tiles-nwi', CACHE_ROUTES.nwi, 3000),
           tileCache('tiles-usgs-topo', CACHE_ROUTES.usgsTopo, 4000),
           tileCache('tiles-usgs-imagery', CACHE_ROUTES.usgsImagery, 4000),
           tileCache('tiles-padus', CACHE_ROUTES.padus, 3000),

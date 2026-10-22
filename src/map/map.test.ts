@@ -6,7 +6,7 @@ vi.mock('maplibre-gl', () => ({ setWorkerUrl: vi.fn() }));
 
 describe('hillshade overlay', () => {
   it.each(['topo', 'satellite', 'streets'] as const)('preserves ordering and visibility across %s style reloads', async (basemap) => {
-    const state: MapState = { basemap, hillshade: true, publicLands: true, labels: true, labelScale: 1 };
+    const state: MapState = { basemap, hillshade: true, parcels: true, water: true, deerUnits: true, publicLands: true, labels: true, labelScale: 1 };
     let layers: LayerSpecification[] = [];
     const sources = new Map();
     const resetStyle = () => {
@@ -30,12 +30,15 @@ describe('hillshade overlay', () => {
     };
     // Exercise the real style lifecycle without a WebGL context.
     const hunt = Object.assign(Object.create(HuntMap.prototype), {
-      map, state, items: [], sketch: { line: [], color: '#ffd54f' },
+      map, state, parcelLoader: { setEnabled: vi.fn() }, items: [], sketch: { line: [], color: '#ffd54f' },
     }) as Pick<HuntMap, 'setHillshade' | 'mapState'> & { installOverlays(): Promise<void> };
     for (let reload = 0; reload < 2; reload++) {
       await hunt.installOverlays();
       const ids = layers.map((layer) => layer.id);
-      expect(ids.indexOf('hillshade')).toBeLessThan(ids.indexOf('padus'));
+      const overlays = ['hillshade', 'water-nhd', 'water-nwi', 'padus', 'parcels-fill', 'parcels-line', 'deer-units', basemap === 'streets' ? 'roads' : 'ohm-roads-transportation', 'ohm-tracks'];
+      const present = overlays.filter(id => ids.includes(id));
+      expect(present.map(id => ids.indexOf(id))).toEqual(present.map(id => ids.indexOf(id)).sort((a, b) => a - b));
+      expect(map.getLayer('parcels-line')).toMatchObject({ minzoom: 13, paint: { 'line-color': basemap === 'satellite' ? '#ffd400' : '#b0306a' } });
       expect(ids.indexOf('hillshade')).toBeLessThan(ids.indexOf('ohm-tracks'));
       if (basemap === 'streets') {
         expect(ids.indexOf('hillshade')).toBeLessThan(ids.indexOf('roads'));
