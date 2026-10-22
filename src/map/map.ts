@@ -12,7 +12,7 @@ import type { FeatureCollection } from 'geojson';
 import { WAYPOINT_ICONS, type Item, type LngLat } from '../types';
 import { loadIconImage } from './icons';
 import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, clampLabelScale, labelLayers, labelTextSizes, labelsSource, roadLineLayers } from './labels';
-import { basemapStyle, PADUS_ATTR, PADUS_EXPORT, type BasemapId } from './sources';
+import { basemapStyle, HILLSHADE_ATTR, HILLSHADE_EXPORT, PADUS_ATTR, PADUS_EXPORT, type BasemapId } from './sources';
 
 // MapLibre v6 ships its worker as a separate module; point it at the bundled asset.
 setWorkerUrl(workerUrl);
@@ -26,6 +26,7 @@ const SRC_SKETCH = 'ohm-sketch';
 export interface MapState {
   basemap: BasemapId;
   publicLands: boolean;
+  hillshade: boolean;
   labels: boolean;
   labelScale: number;
 }
@@ -77,6 +78,11 @@ export class HuntMap {
     this.map.setStyle(basemapStyle(id), { diff: false });
   }
 
+  setHillshade(on: boolean): void {
+    this.state.hillshade = on;
+    if (this.map.getLayer('hillshade')) this.map.setLayoutProperty('hillshade', 'visibility', on ? 'visible' : 'none');
+  }
+
   setPublicLands(on: boolean): void {
     this.state.publicLands = on;
     if (this.map.getLayer('padus')) this.map.setLayoutProperty('padus', 'visibility', on ? 'visible' : 'none');
@@ -115,6 +121,20 @@ export class HuntMap {
 
   private async installOverlays(): Promise<void> {
     const m = this.map;
+    if (!m.getSource('hillshade')) {
+      m.addSource('hillshade', {
+        type: 'raster', tiles: [HILLSHADE_EXPORT], tileSize: 256, minzoom: 11, maxzoom: 17, attribution: HILLSHADE_ATTR,
+      });
+      // Preserve the streets basemap's road lines and labels above the shading.
+      const before = m.getStyle()?.layers?.find((layer) => layer.type === 'line' || layer.type === 'symbol')?.id;
+      m.addLayer({
+        id: 'hillshade',
+        type: 'raster',
+        source: 'hillshade',
+        paint: { 'raster-opacity': this.state.basemap === 'satellite' ? 0.45 : 0.55, 'raster-contrast': 0.2 },
+        layout: { visibility: this.state.hillshade ? 'visible' : 'none' },
+      }, before);
+    }
     if (!m.getSource('padus')) {
       m.addSource('padus', { type: 'raster', tiles: [PADUS_EXPORT], tileSize: 256, minzoom: 5, attribution: PADUS_ATTR });
       m.addLayer(

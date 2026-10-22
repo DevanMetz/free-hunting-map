@@ -100,6 +100,20 @@ export function openLayersPanel(ctx: AppContext, persist: () => void): void {
       state.publicLands
         ? h('ul', { class: 'legend' }, ...PADUS_LEGEND.map(([label, color]) => h('li', {}, h('i', { style: `background:${color}` }), label)))
         : null,
+      h(
+        'label',
+        { class: 'toggle' },
+        h('input', {
+          type: 'checkbox',
+          checked: state.hillshade,
+          onchange: (e: Event) => {
+            ctx.map.setHillshade((e.target as HTMLInputElement).checked);
+            persist();
+            ctx.sheet.replace(render());
+          },
+        }),
+        h('span', {}, 'Hillshade'),
+      ),
     );
   };
   ctx.sheet.open('layers', 'Layers', render());

@@ -2,6 +2,7 @@
 export const CACHE_ROUTES = {
   usgsTopo: /^https:\/\/basemap\.nationalmap\.gov\/arcgis\/rest\/services\/USGSTopo\/MapServer\/tile\//,
   usgsImagery: /^https:\/\/basemap\.nationalmap\.gov\/arcgis\/rest\/services\/USGSImageryOnly\/MapServer\/tile\//,
+  hillshade: /^https:\/\/elevation\.nationalmap\.gov\/arcgis\/rest\/services\/3DEPElevation\/ImageServer\/exportImage/,
   padus: /^https:\/\/edits\.nationalmap\.gov\/arcgis\/rest\/services\/PAD-US\/.*\/export/,
   /** Versioned vector tiles, fonts and sprites are immutable. */
   openfreemapTiles: /^https:\/\/tiles\.openfreemap\.org\/(planet\/.+|fonts\/|sprites\/|natural_earth\/)/,

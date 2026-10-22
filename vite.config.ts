@@ -48,6 +48,7 @@ export default defineConfig({
           tileCache('tiles-usgs-topo', CACHE_ROUTES.usgsTopo, 4000),
           tileCache('tiles-usgs-imagery', CACHE_ROUTES.usgsImagery, 4000),
           tileCache('tiles-padus', CACHE_ROUTES.padus, 3000),
+          tileCache('tiles-hillshade', CACHE_ROUTES.hillshade, 3000),
           tileCache('tiles-openfreemap', CACHE_ROUTES.openfreemapTiles, 4000),
           {
             urlPattern: CACHE_ROUTES.openfreemapStyles,

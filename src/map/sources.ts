@@ -28,6 +28,13 @@ export const PADUS_EXPORT =
 export const PADUS_ATTR =
   '<a href="https://doi.org/10.5066/P96WBCHS" target="_blank" rel="noopener">USGS GAP PAD-US 4.1</a>';
 
+/** USGS 3DEP lidar-derived hillshade rendered by the ImageServer. */
+export const HILLSHADE_EXPORT =
+  'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&renderingRule=' +
+  encodeURIComponent('{"rasterFunction":"Hillshade Gray"}') +
+  '&f=image';
+export const HILLSHADE_ATTR = 'USGS 3DEP';
+
 export const BASEMAP_IDS: BasemapId[] = ['topo', 'satellite', 'streets'];
 
 export const BASEMAP_NAMES: Record<BasemapId, string> = {
