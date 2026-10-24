@@ -465,10 +465,12 @@ def download(args):
     raw = work / args.region / 'raw'; raw.mkdir(parents=True, exist_ok=True)
     metadata = {}
     # Check documented bulk links before falling back to public BLM queries.
-    for url in [BLM_BULK, 'https://gbp-blm-egis.hub.arcgis.com/api/download/v1/items/f94999eb674d4085be0c86729fe4a151/shapefile?layers=0']:
+    for url in [BLM_BULK, 'https://gbp-blm-egis.hub.arcgis.com/api/download/v1/items/f94999eb674d4085be0c86729fe4a151/shapefile?layers=3']:
         try:
             with request(url, method='HEAD') as r:
                 log(f'BLM bulk check: {r.status}, {r.headers.get("Content-Type")} {url}')
+                if 'hub.arcgis.com' in url:
+                    log('BLM hosted export covers one road view; use MapServer 0/1/7 for a consistent complete public inventory')
         except urllib.error.HTTPError as e:
             log(f'BLM bulk check: HTTP {e.code} {url}')
     for src, (zipname, urls) in SOURCES.items():
@@ -848,7 +850,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command',choices=['download','normalize','tiles','upload','all'])
     parser.add_argument('--region',choices=REGIONS,default='wi')
-    parser.add_argument('--version',default='v1',help='R2 data version prefix (trails/vN/); use a new N for every build')
+    parser.add_argument('--version',default='v2',help='R2 data version prefix (trails/vN/); use a new N for every build')
     parser.add_argument('--work',type=Path,default=Path('/workspace/trails-build/work'))
     args=parser.parse_args(); args.work=args.work.resolve(); args.work.mkdir(parents=True,exist_ok=True)
     if args.command=='all':

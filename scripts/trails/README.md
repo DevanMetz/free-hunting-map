@@ -19,7 +19,7 @@ Each step is also available as `download`, `normalize`, `tiles`, or `upload`, wi
 
 ## Data sources
 
-All sources below are federal public-domain products, subject to source metadata. Names, geometry, permitted uses and publication dates are agency assertions, not a current access guarantee or a land survey. Credit: **USDA Forest Service; Bureau of Land Management; National Park Service; U.S. Geological Survey**. No agency endorsement is implied.
+All sources below are federal public-domain products, subject to source metadata. The USGS subset also credits originating agencies **U.S. Fish and Wildlife Service** and **Tennessee Valley Authority** in feature provenance. Names, geometry, permitted uses and publication dates are agency assertions, not a current access guarantee or a land survey. Credit: **USDA Forest Service; Bureau of Land Management; National Park Service; U.S. Geological Survey**. No agency endorsement is implied.
 
 | Source key | Official source | Acquisition and license |
 |---|---|---|
@@ -29,11 +29,11 @@ All sources below are federal public-domain products, subject to source metadata
 | `usfs_roads` | [NFS Roads ZIP](https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.RoadCore_FS.zip), [REST](https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_RoadBasic_01/MapServer) | USFS federal public data. REST layers 0 and 1 include open and closed roads. Current decommissioned routes are removed; a future decommissioning objective alone does not remove an existing level-1 road. |
 | `blm_gtlf` | [BLM GTLF Public Display](https://gis.blm.gov/arcgis/rest/services/transportation/BLM_Natl_GTLF_Public_Display/MapServer), [metadata and public-domain notice](https://www.arcgis.com/sharing/rest/content/items/f94999eb674d4085be0c86729fe4a151/info/metadata/metadata.xml?format=default&output=html) | Public domain. BLM requests credit, description of modifications, and no implication of endorsement. Modifications here: clipping, attribute normalization, segment deduplication, simplification and tiling. |
 | `nps_trails` | [NPS Public Trails](https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Trails/MapServer/0) | Federal public data. Non-extant, explicitly non-public, restricted, sidewalk and nonfederal-origin records are excluded when attributes identify them. |
-| `usgs_ndt` | [USGS National Digital Trails, layer 37](https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/37), [licensing/provenance Q&A](https://www.usgs.gov/national-digital-trails/qas-about-usgs-trail-data) | USGS aggregates public-domain authoritative data, including nonfederal contributions. This pipeline admits only positively recognized federal **originators**, excludes USFS/NPS/BLM origins or maintainers and water trails, then removes remaining agency duplicates. State, county, private and unknown origins are excluded even if a federal agency maintains the trail. |
+| `usgs_ndt` | [USGS National Digital Trails, layer 37](https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/37), [licensing/provenance Q&A](https://www.usgs.gov/national-digital-trails/qas-about-usgs-trail-data) | USGS aggregates public-domain authoritative data, including nonfederal contributions. This pipeline admits only positively recognized federal **originators**, excludes USFS/NPS/BLM origins or maintainers and water trails, then removes remaining agency duplicates. State, county, private and unknown origins are excluded even if a federal agency maintains the trail. The known published spelling `Tenneessee Valley Authority` is explicitly recognized as TVA; this is not a fuzzy government-name match. |
 
 The regional REST endpoints were checked with real ID and GeoJSON queries. Acquisition happens server-side; source-host CORS policies do not affect the app, which consumes its same-origin Worker tiles. USFS ZIPs return `application/zip` and restrict cross-origin browser access to the Forest Service website. Do not point browser code directly at the ZIPs.
 
-The pipeline checks BLM's documented legacy [bulk ZIP](https://gis.blm.gov/EGISDownload/LayerPackages/BLM_National_GTLF_Public_Display.zip) and [Hub shapefile export](https://gbp-blm-egis.hub.arcgis.com/api/download/v1/items/f94999eb674d4085be0c86729fe4a151/shapefile?layers=0) before querying. They returned HTTP 403/404 during this build. The Hub item covers only one view, not the entire inventory. REST views **0, 1, 7** cover the roads and all designated trails; view 7 includes the overlapping trail views 2–6. Route/feature identity plus spatial overlap prevents duplicate segments. BLM [announces an endpoint migration before February 1, 2027](https://www.blm.gov/services/geospatial/GISData); reverify the endpoint when refreshing.
+The pipeline checks BLM's documented legacy [bulk ZIP](https://gis.blm.gov/EGISDownload/LayerPackages/BLM_National_GTLF_Public_Display.zip) and [Hub shapefile export](https://gbp-blm-egis.hub.arcgis.com/api/download/v1/items/f94999eb674d4085be0c86729fe4a151/shapefile?layers=3) before querying. The complete legacy ZIP returned HTTP 403/404 during this build. The Hub catalog's stale `layers=0` export returned 404; its current hosted layer 3 export is a verified ZIP (HTTP 206 Range response, ZIP signature). That item covers only the public motorized-road view. The pipeline uses the consistent MapServer views for the complete inventory instead of mixing that one hosted export with other snapshots. REST views **0, 1, 7** cover the roads and all designated trails; view 7 includes the overlapping trail views 2–6. Route/feature identity plus spatial overlap prevents duplicate segments. BLM [announces an endpoint migration before February 1, 2027](https://www.blm.gov/services/geospatial/GISData); reverify the endpoint when refreshing.
 
 ## Normalization and deduplication
 
@@ -56,15 +56,15 @@ Per-feature minimum zoom is 10 for roads, 7 for motorized/MVUM trails, 8 for oth
 The upload command creates `fhm-tiles` if missing, streams the archive into one temporary 256 MiB part at a time, and writes:
 
 ```text
-fhm-tiles/trails/v1/part-000
-fhm-tiles/trails/v1/part-001  # only when needed
+fhm-tiles/trails/vN/part-000
+fhm-tiles/trails/vN/part-001  # only when needed
 ...
-fhm-tiles/trails/v1/manifest.json
+fhm-tiles/trails/vN/manifest.json
 ```
 
 The manifest is exactly `{size, partSize, parts, sha256, built, bounds}`, with `partSize=268435456`. All parts are uploaded before the manifest, which is downloaded again and compared to the local manifest. Extra old parts are deleted after verification. Wrangler's existing authentication is used; no credential files are opened by this script and no R2 tokens are created. Application code and Worker deployment are outside this script.
 
-Stable `v1` part names make replacement non-atomic while parts are uploading; a cached old manifest can briefly refer to newly replaced bytes. Perform refreshes in a coordinated window. A future incompatible release should use a new version prefix. The app's Worker serves Range requests and extracted MVTs according to the shared contract.
+Every build gets its own immutable prefix (`--version vN`, default `v2`; the live WI pilot is `v1`). Never re-upload into a published prefix: the Worker edge cache and the app's offline tile cache key tiles by URL (`/tiles/trails/vN/{z}/{x}/{y}.mvt`) for a year. To publish: upload to a new `vN`, then bump `TRAILS_TILES` in `src/map/sources.ts` and deploy, then delete the old prefix's objects. The Worker serves any `vN` prefix whose manifest exists (Range requests on `/tiles/trails/vN.pmtiles`, TileJSON at `/tiles/trails/vN.json`).
 
 `<work>/<region>/sources.json` records acquisition URLs, dates and source counts. `stats.json` records output counts by source/type, kilometres, exclusions, final archive size and SHA-256. The disk guard stops near 7.5 GiB under `--work` or below 1 GiB free; tippecanoe uses four threads. Four national USFS ZIPs total **966.8 MiB compressed**, below the 2 GiB retention cap. Raw downloads, normalization SQLite and GeoJSON, and intermediate low/high archives are scratch files.
 
@@ -84,4 +84,13 @@ Built and remotely verified on **2026-10-24**. The `wi` pilot was uploaded first
 
 Total: **62,167 segments / 59,965.67 km**. BLM has no features in the regional bbox.
 
-The full acquisition contains **788,643 source features** before clipping/filtering/splitting/deduplication. National USFS ZIPs are the **2025-05-11** snapshot; the pilot used live REST geometry with that ZIP date as its fallback. Regional and national counts therefore include different USFS publication snapshots. The lower-48 archive result is recorded below when complete.
+The full acquisition contains **788,643 source features** before clipping/filtering/splitting/deduplication. National USFS ZIPs are the **2025-05-11** snapshot; the pilot used live REST geometry with that ZIP date as its fallback. Regional and national counts therefore include different USFS publication snapshots. 
+
+## Full lower-48 build (not yet run to completion)
+
+The 2026-10-24 attempt stopped at the disk guard (7.7 GiB under `--work`, shared disk 94% full) while normalizing non-MVUM NFS roads: 1,270,548 segments were already written (1.54 GB GeoJSONL, 1.75 GB SQLite index) before BLM, NPS and USGS were processed. Scaling from that point and from the pilot (~475 bytes of archive per segment):
+
+- Expected output: about 2 million segments, roughly **0.8 to 1.2 GB** PMTiles, which is 4 or 5 R2 parts. R2 storage cost is negligible at this size.
+- Peak scratch: about 13 to 15 GB (downloads 1 GB, raw 0.9 GB, SQLite ~2.5 GB, GeoJSONL ~2.5 GB, tippecanoe temp 4 to 6 GB, output ~1 GB).
+
+To run it: on a machine with at least 20 GB free, raise the `disk_guard` limit, then run `build_trails.py all --region lower48 --version v2`, then bump `TRAILS_TILES` to `v2`. Alternative for a small box: build per region (for example West / Central / East bboxes) and merge with `tile-join`, deleting each region's GeoJSONL after its tiles are built.
