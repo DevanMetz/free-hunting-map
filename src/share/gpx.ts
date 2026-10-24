@@ -4,6 +4,7 @@ import { sanitizeItem } from '../sync/validate';
 import { FOREIGN_DEVICE } from './geojson';
 
 /** Namespace for our metadata in <extensions>; a URN, not a URL. */
+// Keep the interchange namespace stable so previously exported files still round-trip.
 export const OHM_NS = 'urn:open-hunt-map:gpx:1';
 
 export function toGpx(items: Item[]): string {
@@ -29,7 +30,7 @@ export function toGpx(items: Item[]): string {
   }
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    `<gpx version="1.1" creator="Open Hunt Map" xmlns="http://www.topografix.com/GPX/1/1" xmlns:ohm="${OHM_NS}">`,
+    `<gpx version="1.1" creator="Free Hunting Map" xmlns="http://www.topografix.com/GPX/1/1" xmlns:ohm="${OHM_NS}">`,
     ...wpts,
     ...trks,
     '</gpx>',

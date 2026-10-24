@@ -34,8 +34,8 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
-        name: 'Open Hunt Map',
-        short_name: 'Hunt Map',
+        name: 'Free Hunting Map',
+        short_name: 'Free Hunting Map',
         description: 'Offline-first hunting and camping map.',
         theme_color: '#1f2e24',
         background_color: '#141a16',
@@ -55,6 +55,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,webmanifest}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
+        // Keep cache names stable across branding changes to retain offline assets.
         runtimeCaching: [
           { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/assets/') && /\.m?js$/.test(url.pathname), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-modules-v1' } },
           { urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/lidar/'), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-assets-v1' } },

@@ -6,9 +6,9 @@ export type ExportFormat = 'gpx' | 'geojson';
 
 export function serialize(items: Item[], format: ExportFormat): { name: string; mime: string; text: string } {
   const stamp = new Date().toISOString().slice(0, 10);
-  if (format === 'gpx') return { name: `open-hunt-map-${stamp}.gpx`, mime: 'application/gpx+xml', text: toGpx(items) };
+  if (format === 'gpx') return { name: `free-hunting-map-${stamp}.gpx`, mime: 'application/gpx+xml', text: toGpx(items) };
   return {
-    name: `open-hunt-map-${stamp}.geojson`,
+    name: `free-hunting-map-${stamp}.geojson`,
     mime: 'application/geo+json',
     text: JSON.stringify(toGeoJSON(items)),
   };

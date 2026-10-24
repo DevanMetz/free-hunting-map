@@ -1,6 +1,12 @@
-# AGENTS.md
+# Free Hunting Map — agent guidance
 
-Guidance for humans and coding agents working in this repo.
+Guidance for humans and coding agents working in [Free Hunting Map](https://github.com/DevanMetz/free-hunting-map).
+
+Production: https://freehuntingmap.com
+
+Worker alias: https://open-hunt-map.metzdevan.workers.dev
+
+Keep the Worker name `open-hunt-map` for the existing Workers Builds connection. Keep storage keys, cache names and interchange identifiers stable across branding changes. Browser storage is origin-scoped: export files from the alias and import them on the production domain to move existing data.
 
 ## Commands
 

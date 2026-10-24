@@ -1,4 +1,4 @@
-# Open Hunt Map research
+# Free Hunting Map research
 
 Checked 2026-10-22 using live public sources. **Recommendation:** build the MIT PWA around durable local writes, downloadable map packs, and explicit nearby transfer with receipt acknowledgments. A saved basemap does not deliver a newly dropped pin to another phone: that requires a working transport between the devices. Full nationwide owner-data parity remains a separate funding/licensing problem.
 

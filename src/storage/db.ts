@@ -29,6 +29,7 @@ export interface HuntDB extends DBSchema {
   meta: { key: string; value: unknown };
 }
 
+// Stable across rebrands so existing data remains accessible on this origin.
 export const DB_NAME = 'open-hunt-map';
 export const DB_VERSION = 2;
 

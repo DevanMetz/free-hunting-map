@@ -1,4 +1,4 @@
-# Open Hunt Map
+# Free Hunting Map
 
 Free, open-source, offline-first hunting and camping map. Runs as an installable web app (PWA); a native phone wrapper comes later.
 
@@ -77,7 +77,15 @@ Icons (app and waypoint glyphs) are drawn in this repo (`scripts/gen-icons.mjs`,
 
 ## Deployment
 
-Live: https://open-hunt-map.metzdevan.workers.dev
+Production: https://freehuntingmap.com
+
+Alias: https://open-hunt-map.metzdevan.workers.dev
+
+Repository: https://github.com/DevanMetz/free-hunting-map
+
+The Worker name stays `open-hunt-map` to preserve the Workers Builds connection. Storage/cache names and interchange identifiers remain stable. Browser storage is origin-scoped; export your files from the alias and import them on the new domain to move existing data.
+
+The apex and `www` are configured as [Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/), with `workers_dev: true` retaining the alias. The [static assets configuration](https://developers.cloudflare.com/workers/static-assets/binding/) needs no Worker script or assets binding for this site. The zone Redirect Rule for `www` → apex is managed separately.
 
 The app is served as a static-assets-only [Cloudflare Worker](https://developers.cloudflare.com/workers/static-assets/) configured in `wrangler.jsonc` (SPA fallback to `index.html`; `public/_headers` keeps `sw.js` and the manifest uncached so PWA updates roll out). Every push to `main` is built and deployed automatically by Cloudflare Workers Builds (`npm run build` then `npx wrangler deploy`). Manual deploy: `npm run deploy`.
 

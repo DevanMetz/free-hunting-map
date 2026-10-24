@@ -1,7 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // Static-assets-only Worker: serves the Vite build output in ./dist.
+  // Preserve the existing Cloudflare Workers Builds connection after the repo rebrand.
   "name": "open-hunt-map",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "freehuntingmap.com", "custom_domain": true },
+    { "pattern": "www.freehuntingmap.com", "custom_domain": true }
+  ],
   "compatibility_date": "2026-10-22",
   "assets": {
     "directory": "./dist",

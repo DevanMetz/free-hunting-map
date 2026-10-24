@@ -2,7 +2,7 @@ import type { Item, LngLat } from '../types';
 import { contentId } from '../sync/ids';
 import { lngLat, sanitizeItem } from '../sync/validate';
 
-/** Device id used for items imported from files that carry no Open Hunt Map metadata. */
+/** Device id used for items imported from files that carry no Free Hunting Map metadata. */
 export const FOREIGN_DEVICE = 'import';
 
 interface Feature {
