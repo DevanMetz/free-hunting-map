@@ -3,9 +3,14 @@ import { layerRegistry } from '../layerRegistry';
 import './agriculture';
 
 it('uses the croptypes function table field rather than the differently named raw CDL table field', async () => {
-  vi.stubGlobal('fetch', async (url: string) => new Response(JSON.stringify(url.includes('/identify?') ? { value: '1' } : {
-    features: [{ attributes: { Value: 1, Class_Name: 'Corn' } }],
-  })));
+  vi.stubGlobal('fetch', async (url: string) => {
+    if (url.includes('/identify?')) expect(JSON.parse(new URL(url).searchParams.get('pixelSize')!)).toEqual({
+      x: 10, y: 10, spatialReference: { wkid: 3857 },
+    });
+    return new Response(JSON.stringify(url.includes('/identify?') ? { value: '1' } : {
+      features: [{ attributes: { Value: 1, Class_Name: 'Corn' } }],
+    }));
+  });
   try {
     const def = layerRegistry.get('cropland')!;
     const tile = new URL(def.source!.tiles[0]!);

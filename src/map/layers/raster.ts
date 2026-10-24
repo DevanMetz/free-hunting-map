@@ -54,9 +54,9 @@ async function classTable(service: string, rasterFunction: string, nameField: st
 
 /** Use the same year/mosaic as the image, with raw pixels instead of RGB values. */
 export function rasterIdentify(service: string, title: string, label: string, options: RasterOptions,
-  classes: { rasterFunction: string; nameField: string } | ((value: number) => string | null), year?: string) {
+  classes: { rasterFunction: string; nameField: string } | ((value: number) => string | null), year?: string, identifyOptions: RasterOptions = {}) {
   return async (lng: number, lat: number, signal: AbortSignal): Promise<IdentifyResult | null> => {
-    const url = `${service}/identify?${new URLSearchParams({ ...options, f: 'json',
+    const url = `${service}/identify?${new URLSearchParams({ ...options, ...identifyOptions, f: 'json',
       geometry: JSON.stringify({ x: lng, y: lat, spatialReference: { wkid: 4326 } }), geometryType: 'esriGeometryPoint',
       returnGeometry: 'false', returnCatalogItems: 'false', renderingRule: JSON.stringify({ rasterFunction: 'None' }) })}`;
     const [data, table] = await Promise.all([fetchJson(url, signal), typeof classes === 'function' ? null : classTable(service, classes.rasterFunction, classes.nameField, signal)]);

@@ -22,8 +22,12 @@ registerLayer({
     { color: '#e8ffbf', label: 'Pasture/grass' },
     { color: '#bfbf77', label: 'Fallow' },
     { color: '#93cc93', label: 'Forest' },
+    { color: '#c6d69e', label: 'Shrubland' },
     { color: '#7eb1b1', label: 'Wetlands' },
     { color: '#4b70a3', label: 'Water' },
   ],
-  identify: rasterIdentify(CDL, 'Crops', 'Crop', options, { rasterFunction: 'croptypes', nameField: 'Class_Name' }, '2025'),
+  identify: rasterIdentify(CDL, 'Crops', 'Crop', options, { rasterFunction: 'croptypes', nameField: 'Class_Name' }, '2025', {
+    // The service's default identify pixel is coarser than the 2025 10 m crop raster.
+    pixelSize: JSON.stringify({ x: 10, y: 10, spatialReference: { wkid: 3857 } }),
+  }),
 });
