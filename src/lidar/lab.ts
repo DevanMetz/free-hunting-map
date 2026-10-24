@@ -145,12 +145,13 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
   }
   map.on("style.load", install);
   if (map.isStyleLoaded()) install();
-  const saved = await app.repo.listLidarRuns();
-  displayed = {
-    type: "FeatureCollection",
-    features: saved.flatMap((r) => r.candidates.features),
+  const refreshSaved = async () => {
+    const saved = await app.repo.listLidarRuns();
+    displayed = { type: "FeatureCollection", features: saved.flatMap(r => r.candidates.features) };
+    show();
   };
-  show();
+  app.repo.addEventListener('change', () => { void refreshSaved(); });
+  await refreshSaved();
   function cancelDrawing(): void {
     if (!drawing) return;
     stopDrawing();

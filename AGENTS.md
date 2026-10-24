@@ -82,3 +82,11 @@ Data flow: UI -> `Repo` (IndexedDB) -> `change` event -> `App.reloadItems()` -> 
 - `src/share/qr.test.ts` — chunking, assembler ordering/dupes/corruption, and a real `qrcode` -> `jsQR` round trip.
 - `src/share/gpx.test.ts`, `geojson.test.ts` — exact round trips and foreign-file imports.
 - `src/storage/repo.test.ts` — IndexedDB repo with `fake-indexeddb`.
+
+## Optional cloud sync
+
+- `worker/`: same-origin Google ID-token authentication, opaque cookie sessions, D1 sync API; `migrations/`: Wrangler D1 schema. Keep `open-hunt-map` and the existing DB binding identifiers.
+- `src/sync/records.ts` extends sync to saved lidar candidates and portable settings without changing the map/share `Item` union. `src/sync/cloud.ts` drains Repo outbox, merges sanitized incoming records and stores cursors in Repo metadata. Never sync viewport/cache/device state.
+- Local data binds to its first account; sign-out keeps it and must stop uploads immediately. Do not silently reassign it to another account.
+- Configure `GOOGLE_CLIENT_ID` with `wrangler secret put GOOGLE_CLIENT_ID` (no committed `vars`). Local schema: `npx wrangler d1 migrations apply free-hunting-map --local`. Remote migrations/deploy require owner authorization.
+- `npm run build` checks client and Worker. `npm test` includes real Miniflare D1 API tests; `npm run test:worker` isolates them. API routes must stay NetworkOnly and excluded from PWA navigation fallback. Dev authentication is localhost-only and requires an uncommitted `DEV_AUTH=1`.

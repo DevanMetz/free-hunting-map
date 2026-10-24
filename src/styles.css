@@ -290,3 +290,13 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
 .trail-box-size { padding: 5px 8px; border: 1px solid #ffc45c; border-radius: 6px; background: #141a16; color: #ffc45c; white-space: nowrap; font: 600 12px system-ui; pointer-events: none; }
 .trail-box-size.over { border-color: #ff6262; color: #ff6262; }
 canvas[data-lidar-drawing] { touch-action: none; }
+.account-control { display: flex; align-items: center; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+.account-control[hidden] { display: none; }
+.account-identity { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.account-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.account-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-status-synced { color: var(--accent); }
+.account-status-error { color: #ff897e; }
+.account-status-offline { opacity: 0.5; }
+.account-status-syncing svg { animation: spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .account-status-syncing svg { animation: none; } }

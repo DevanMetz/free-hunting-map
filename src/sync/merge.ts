@@ -1,4 +1,4 @@
-import type { Item } from '../types';
+import type { Item, ItemMeta } from '../types';
 
 /**
  * Total order over versions of the same item. Positive when `a` wins.
@@ -7,7 +7,7 @@ import type { Item } from '../types';
  *  3. higher deviceId (string compare)
  *  4. canonical JSON compare — only reachable with corrupt/forged data, keeps merge deterministic
  */
-export function compareVersions(a: Item, b: Item): number {
+export function compareVersions(a: ItemMeta, b: ItemMeta): number {
   if (a.updatedAt !== b.updatedAt) return a.updatedAt > b.updatedAt ? 1 : -1;
   if (a.deleted !== b.deleted) return a.deleted ? 1 : -1;
   if (a.deviceId !== b.deviceId) return a.deviceId > b.deviceId ? 1 : -1;
@@ -17,7 +17,7 @@ export function compareVersions(a: Item, b: Item): number {
 }
 
 /** Last-write-wins for a single item. Pure; returns one of its inputs. */
-export function mergeItem<T extends Item>(local: T | undefined, incoming: T): T {
+export function mergeItem<T extends ItemMeta>(local: T | undefined, incoming: T): T {
   if (!local) return incoming;
   if (local.id !== incoming.id) throw new Error(`mergeItem id mismatch: ${local.id} vs ${incoming.id}`);
   return compareVersions(incoming, local) > 0 ? incoming : local;

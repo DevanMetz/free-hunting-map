@@ -119,3 +119,21 @@ WASM fallback. Non-isolated pages use single-thread WASM SIMD. No inference serv
 or proxy is used. OSM road removal is omitted; line simplification uses Douglas–Peucker.
 The restricted evaluation geometry is never shipped. See `THIRD_PARTY.md` for the
 skeletonization lookup-table license.
+
+## Optional Google cloud sync
+
+The app works without an account. Layers contains Google sign-in when configured. Markers, drawn/GPS tracks, saved trail-finder candidates and map preferences merge across devices through a same-origin Worker API and D1. Viewport, weather caches, downloaded tiles and device state stay local. Signing out retains local data and queues logout if offline. Each browser database binds to its first account; use another browser profile for a different account to avoid uploading someone else's local map. Existing data on the Worker alias must still be exported/imported to move it to the production origin.
+
+Setup (owner runs remote steps):
+
+1. Create a Google OAuth **Web application** client. Add authorized JavaScript origins `https://freehuntingmap.com`, `https://www.freehuntingmap.com`, `https://open-hunt-map.metzdevan.workers.dev`; for development add `http://localhost:5173` and `http://localhost:8787`. No redirect URI or client secret is used.
+2. Run `npx wrangler secret put GOOGLE_CLIENT_ID` with that client ID. Store it as a Worker secret so Workers Builds does not overwrite a dashboard variable. No `vars` entry is committed.
+3. Run `npx wrangler d1 migrations apply free-hunting-map --remote`, then deploy through the existing Workers Builds connection (`open-hunt-map`). **Do not deploy the API before applying migrations.**
+
+Local development: `npm run build`, `npx wrangler d1 migrations apply free-hunting-map --local`, then `npx wrangler dev` (if the installed runtime rejects the configured date, add `--compatibility-date 2026-10-13` for local testing). Put `GOOGLE_CLIENT_ID=...` in ignored `.dev.vars` for real Google login. `npm run dev` proxies `/api` to localhost:8787. For API tests only, `.dev.vars` may set `DEV_AUTH=1`: credentials `dev:alice` work only on a localhost request URL, even if the flag is accidentally present in production. Never enable it for a publicly exposed development tunnel.
+
+Security: Google RS256 ID tokens are verified against cached Google JWKS; the Worker issues 45-day opaque HttpOnly/Secure/SameSite=Lax host-only cookies and stores only SHA-256 hashes. POSTs require same-origin Origin and JSON. D1 enforces per-IP authentication and per-user sync rate limits across Worker instances without another service. Tombstones and shared last-write-wins rules resolve conflicts; account queries always include user identity. Sync rejects oversized records (1 MB), oversized requests (8 MB) and excessive batches/accounts. Large individual recordings remain local and show a sync error until reduced/exported. File and QR sharing continue to work offline.
+
+Validation: `npm test` includes Worker token/handler tests and a two-device API sync test using real Miniflare D1 plus IndexedDB. `npm run test:worker` runs only Worker tests. A browser Google login still needs the owner's configured OAuth client and an interactive account.
+
+Google Identity Services ([setup](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid), [verification](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token)) loads `https://accounts.google.com/gsi/client` on demand; the Worker retrieves keys from `https://www.googleapis.com/oauth2/v3/certs`. Authentication is optional and uses Google's service terms; it adds no map data source or map-data license.

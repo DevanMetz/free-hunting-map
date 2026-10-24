@@ -26,7 +26,7 @@ it("upgrades a real v1 database without losing stores or records", async () => {
   expect(db.objectStoreNames.contains("lidarRuns")).toBe(true);
   db.close();
 });
-it("persists and clears derived candidates without touching user items or sync", async () => {
+it("syncs saved candidates and deletion without changing existing user items", async () => {
   const repo = await Repo.open("lidar-repo");
   const item = await repo.create<Waypoint>({
     kind: "waypoint",
@@ -36,7 +36,7 @@ it("persists and clears derived candidates without touching user items or sync",
     coord: [-90, 44],
   });
   const pending = await repo.pending();
-  await repo.saveLidarRun({
+  const run = await repo.saveLidarRun({
     box: [-91, 44, -90, 45],
     candidates: { type: "FeatureCollection", features: [] },
   });
@@ -44,5 +44,17 @@ it("persists and clears derived candidates without touching user items or sync",
   await repo.clearLidarRuns();
   expect(await repo.listLidarRuns()).toHaveLength(0);
   expect(await repo.get(item.id)).toEqual(item);
-  expect(await repo.pending()).toEqual(pending);
+  const changes = await repo.pending();
+  expect(changes.find(entry => entry.id === item.id)).toEqual(pending[0]);
+  expect(changes.find(entry => entry.id === run.id)?.item).toMatchObject({ kind: 'lidar-run', deleted: true });
+});
+
+it('clears legacy candidates before first account binding with a synced tombstone', async () => {
+  const db = await openHuntDB('lidar-legacy');
+  await db.put('lidarRuns', { id: 'legacy-run-id', createdAt: 10, box: [-91, 44, -90, 45], candidates: { type: 'FeatureCollection', features: [] } });
+  db.close();
+  const repo = await Repo.open('lidar-legacy');
+  await repo.clearLidarRuns();
+  expect(await repo.listLidarRuns()).toHaveLength(0);
+  expect((await repo.pending())[0]?.item).toMatchObject({ id: 'legacy-run-id', deleted: true });
 });

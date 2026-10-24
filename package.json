@@ -4,15 +4,16 @@
   "description": "Free, open-source, offline-first hunting and camping map (PWA).",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && tsc -p worker/tsconfig.json && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json",
     "icons": "node scripts/gen-icons.mjs",
     "deploy": "npm run build && wrangler deploy",
     "predev": "node scripts/prepare-lidar.mjs",
-    "prebuild": "node scripts/prepare-lidar.mjs"
+    "prebuild": "node scripts/prepare-lidar.mjs",
+    "test:worker": "vitest run worker"
   },
   "author": "Devan Metz",
   "license": "MIT",
@@ -30,11 +31,13 @@
     "suncalc": "^2.1.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261024.1",
     "@playwright/test": "^1.64.1",
     "@types/qrcode": "^1.5.6",
     "@types/suncalc": "^1.9.2",
     "fake-indexeddb": "^6.2.6",
     "happy-dom": "^21.0.4",
+    "miniflare": "^5.20261006.1-alpha",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vite-plugin-pwa": "^2.0.0",

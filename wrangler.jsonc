@@ -1,9 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // Static-assets-only Worker: serves the Vite build output in ./dist.
+  // API Worker plus Vite assets. GOOGLE_CLIENT_ID is a Worker secret.
   // Preserve the existing Cloudflare Workers Builds connection after the repo rebrand.
   "name": "open-hunt-map",
   "workers_dev": true,
+  "dev": { "host": "localhost" },
+  "main": "worker/index.ts",
+  "d1_databases": [{ "binding": "DB", "database_name": "free-hunting-map", "database_id": "49e11a0a-8b6e-4758-a31e-dd5a057d4462", "migrations_dir": "migrations" }],
   "routes": [
     { "pattern": "freehuntingmap.com", "custom_domain": true },
     { "pattern": "www.freehuntingmap.com", "custom_domain": true }
@@ -11,6 +14,8 @@
   "compatibility_date": "2026-10-22",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
     // Unknown paths fall back to index.html (client-side routing / PWA shell).
     "not_found_handling": "single-page-application"
   },

@@ -17,7 +17,7 @@ describe('Repo (IndexedDB)', () => {
     expect(b.updatedAt).toBeGreaterThan(a.updatedAt);
     const pending = await repo.pending();
     expect(pending).toHaveLength(1);
-    expect(pending[0]!.item.name).toBe('North stand');
+    expect((pending[0]!.item as Waypoint).name).toBe('North stand');
     await repo.ack(pending);
     expect(await repo.pending()).toHaveLength(0);
   });
@@ -49,4 +49,64 @@ describe('Repo (IndexedDB)', () => {
     const b = await Repo.open(name);
     expect(a.deviceId).toBe(b.deviceId);
   });
+});
+
+describe('cloud records', () => {
+  it('syncs portable preferences while keeping camera and cache local', async () => {
+    const a = await fresh(), b = await fresh();
+    await b.setMeta('settings', { view: { zoom: 2 } });
+    a.clock.observe(b.clock.now());
+    await a.setMeta('settings', { basemap: 'satellite', labels: false, view: { zoom: 9 }, cache: 'secret' });
+    const pending = await a.pending();
+    expect(pending[0]!.item).toMatchObject({ kind: 'settings', preferences: { basemap: 'satellite', labels: false } });
+    expect(JSON.stringify(pending[0]!.item)).not.toContain('secret');
+    await b.ack(await b.pending());
+    let notified = false;
+    b.addEventListener('preferences', () => { notified = true; });
+    await b.importSyncRecords(pending.map(e => e.item));
+    expect(await b.getMeta('settings')).toEqual({ basemap: 'satellite', labels: false, view: { zoom: 2 } });
+    expect(notified).toBe(true);
+    expect(await b.pending()).toHaveLength(0);
+  });
+
+  it('propagates saved trail candidates and their deletion', async () => {
+    const a = await fresh(), b = await fresh();
+    await a.saveLidarRun({ box: [-90, 40, -89, 41], candidates: { type: 'FeatureCollection', features: [] } });
+    await b.importSyncRecords((await a.pending()).map(e => e.item));
+    expect(await b.listLidarRuns()).toHaveLength(1);
+    await a.clearLidarRuns();
+    await b.importSyncRecords((await a.pending()).map(e => e.item));
+    expect(await b.listLidarRuns()).toHaveLength(0);
+    expect((await b.allSyncRecords())[0]!.deleted).toBe(true);
+  });
+
+  it('never acknowledges a newer write using an old snapshot', async () => {
+    const repo = await fresh();
+    const a = await repo.create<Waypoint>({ kind: 'waypoint', name: '', note: '', icon: 'pin', coord: [0, 0] });
+    const pending = await repo.pending();
+    await repo.update(a, { name: 'new' });
+    await repo.ack(pending);
+    expect(await repo.pending()).toHaveLength(1);
+  });
+
+  it('keeps cloud ownership across logout and rejects switching accounts', async () => {
+    const repo = await fresh();
+    await repo.bindSyncAccount('alice');
+    await repo.bindSyncAccount('alice');
+    await expect(repo.bindSyncAccount('bob')).rejects.toThrow('separate browser profile');
+    expect(await repo.getMeta('cloud.owner')).toBe('alice');
+  });
+});
+
+it('does not emit change for empty or repeated cloud responses', async () => {
+  const repo = await fresh();
+  let events = 0;
+  repo.addEventListener('change', () => { events++; });
+  await repo.importSyncRecords([]);
+  expect(events).toBe(0);
+  await repo.importSyncRecords([wp()]);
+  expect(events).toBe(1);
+  await repo.importSyncRecords([wp()]);
+  await repo.importSyncRecords([]);
+  expect(events).toBe(1);
 });

@@ -18,6 +18,16 @@ const tileCache = (name: string, urlPattern: RegExp, maxEntries: number) => ({
 export default defineConfig({
   // MapLibre alone is ~1 MB minified; it is precached once, so a single chunk is fine.
   worker: { format: 'es' },
+  server: { proxy: { '/api': {
+    target: 'http://localhost:8787',
+    changeOrigin: true,
+    configure(proxy) {
+      proxy.on('proxyReq', (outgoing, incoming) => {
+        // Translate only this dev server's own browser Origin to the API origin.
+        if (['http://localhost:5173', 'http://127.0.0.1:5173'].includes(incoming.headers.origin ?? '')) outgoing.setHeader('Origin', 'http://localhost:8787');
+      });
+    },
+  } } },
   build: { chunkSizeWarningLimit: 1600 },
   plugins: [
     {
@@ -57,8 +67,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,webmanifest}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
         // Keep cache names stable across branding changes to retain offline assets.
         runtimeCaching: [
+          { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/api/'), handler: 'NetworkOnly', method: 'GET' },
+          { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/api/'), handler: 'NetworkOnly', method: 'POST' },
           { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/assets/') && /\.m?js$/.test(url.pathname), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-modules-v1' } },
           { urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/lidar/'), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-assets-v1' } },
           { urlPattern: /^https:\/\/dnrmaps\.wi\.gov\//, handler: 'NetworkOnly' },

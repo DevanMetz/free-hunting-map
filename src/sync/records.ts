@@ -1,0 +1,57 @@
+import type { Item, ItemMeta } from '../types';
+import type { LidarRun } from '../storage/db';
+import { sanitizeItem, lngLat } from './validate';
+
+export interface PreferenceRecord extends ItemMeta {
+  kind: 'settings';
+  preferences: Record<string, unknown>;
+}
+export interface LidarRecord extends ItemMeta, LidarRun { kind: 'lidar-run' }
+export type SyncRecord = Item | PreferenceRecord | LidarRecord;
+const booleans = ['hillshade', 'parcels', 'water', 'deerUnits', 'labels'];
+const lands = ['usfs', 'blm', 'nps', 'fws', 'stateWildlife', 'statePark', 'stateTrust', 'dod', 'other'];
+
+/** Only portable map preferences; viewport, cached data and device state stay local. */
+export function portablePreferences(value: unknown): Record<string, unknown> {
+  const r = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const out: Record<string, unknown> = {};
+  for (const key of booleans) if (typeof r[key] === 'boolean') out[key] = r[key];
+  if (['topo', 'satellite', 'streets'].includes(String(r.basemap))) out.basemap = r.basemap;
+  if (typeof r.labelScale === 'number' && Number.isFinite(r.labelScale)) out.labelScale = Math.max(0.5, Math.min(2, r.labelScale));
+  if (r.publicLand && typeof r.publicLand === 'object') {
+    const p = r.publicLand as Record<string, unknown>;
+    out.publicLand = Object.fromEntries(lands.filter(k => typeof p[k] === 'boolean').map(k => [k, p[k]]));
+  }
+  return out;
+}
+
+export function sanitizeRecord(raw: unknown): SyncRecord | null {
+  const item = sanitizeItem(raw);
+  if (item) return item;
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  // Reuse the item metadata boundary as well as the exact item merge rules.
+  const probe = sanitizeItem({ ...r, kind: 'waypoint', coord: [0, 0] });
+  if (!probe) return null;
+  const { id, createdAt, updatedAt, deviceId, deleted } = probe;
+  const meta = { id, createdAt, updatedAt, deviceId, deleted };
+  if (r.kind === 'settings' && id === 'settings:map') return { ...meta, kind: 'settings', preferences: portablePreferences(r.preferences) };
+  if (r.kind !== 'lidar-run' || !Array.isArray(r.box) || r.box.length !== 4 || !r.box.every(v => typeof v === 'number' && Number.isFinite(v))) return null;
+  const [west, south, east, north] = r.box as number[];
+  if (!lngLat([west, south]) || !lngLat([east, north]) || west! > east! || south! > north!) return null;
+  const candidates = r.candidates as LidarRun['candidates'] | undefined;
+  if (candidates?.type !== 'FeatureCollection' || !Array.isArray(candidates.features) || candidates.features.length > 10000) return null;
+  const features: LidarRun['candidates']['features'] = [];
+  let count = 0;
+  for (const f of candidates.features) {
+    if (f?.type !== 'Feature' || f.geometry?.type !== 'LineString' || !Array.isArray(f.geometry.coordinates)) return null;
+    count += f.geometry.coordinates.length;
+    if (count > 100000) return null;
+    const coordinates = f.geometry.coordinates.map(lngLat);
+    if (coordinates.some(p => !p)) return null;
+    if (!f.properties || !['rank', 'score', 'calibrated', 'length'].every(k => typeof (f.properties as unknown as Record<string, unknown>)[k] === 'number' && Number.isFinite((f.properties as unknown as Record<string, unknown>)[k]))) return null;
+    const { rank, score, calibrated, length } = f.properties;
+    features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: coordinates as number[][] }, properties: { rank, score, calibrated, length, status: 'Unverified candidate' } });
+  }
+  return { ...meta, kind: 'lidar-run', box: r.box as LidarRun['box'], candidates: { type: 'FeatureCollection', features } };
+}

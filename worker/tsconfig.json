@@ -1,0 +1,1 @@
+{"extends":"../tsconfig.json","compilerOptions":{"types":["@cloudflare/workers-types"],"lib":["ES2022","DOM"],"noUnusedLocals":true},"include":["./*.ts","../src/sync/merge.ts","../src/sync/validate.ts"],"exclude":["./*.test.ts"]}

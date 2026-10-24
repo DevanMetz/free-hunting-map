@@ -1,3 +1,4 @@
+import { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
 import { parcelContent, identifyDeer, identifyPublicLand } from '../map/inspect';
@@ -22,6 +23,7 @@ const RECORD_SAVE_EVERY = 5;
 
 export class App implements AppContext {
   readonly sheet: Sheet;
+  readonly sync: CloudSync;
   readonly map: HuntMap;
   private trailFinder: Promise<import('../lidar/lab').TrailFinder> | undefined;
   private liveItems: Item[] = [];
@@ -37,6 +39,7 @@ export class App implements AppContext {
     private settings: Settings,
     root: HTMLElement,
   ) {
+    this.sync = new CloudSync(repo);
     const mapEl = h('div', { id: 'map' });
     const sheetEl = h('section', { id: 'sheet', class: 'sheet', hidden: true, 'aria-live': 'polite' });
     this.recChip = h('div', { class: 'rec-chip', hidden: true, role: 'status' });
@@ -59,6 +62,7 @@ export class App implements AppContext {
       this.map.map.on('mouseleave', layer, () => (this.map.map.getCanvas().style.cursor = ''));
     }
     repo.addEventListener('change', () => void this.reloadItems());
+    repo.addEventListener('preferences', () => void this.applyPreferences());
     document.addEventListener('sheet-closed', () => this.syncToolbar());
   }
 
@@ -66,6 +70,7 @@ export class App implements AppContext {
     const saved = await repo.getMeta<Partial<Settings>>('settings');
     const app = new App(repo, loadSettings(saved), root);
     await app.reloadItems();
+    void app.sync.start();
     if ((await repo.listLidarRuns()).length) void app.getTrailFinder().catch(err => toast(String(err)));
     return app;
   }
@@ -83,6 +88,20 @@ export class App implements AppContext {
   private async reloadItems(): Promise<void> {
     this.liveItems = await this.repo.list();
     this.map.setItems(this.liveItems);
+    if (!this.trailFinder && (await this.repo.listLidarRuns()).length) void this.getTrailFinder().catch(err => toast(String(err)));
+  }
+
+  private async applyPreferences(): Promise<void> {
+    const saved = loadSettings(await this.repo.getMeta<Partial<Settings>>('settings'));
+    const current = this.map.mapState;
+    if (current.basemap !== saved.basemap) this.map.setBasemap(saved.basemap);
+    this.map.setLabels(saved.labels);
+    this.map.setLabelScale(saved.labelScale);
+    this.map.setHillshade(saved.hillshade);
+    this.map.setParcels(saved.parcels);
+    this.map.setWater(saved.water);
+    this.map.setDeerUnits(saved.deerUnits);
+    for (const { id } of PUBLIC_LANDS) this.map.setPublicLand(id, saved.publicLand[id]);
   }
 
   private buildToolbar(): HTMLElement {
