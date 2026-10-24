@@ -40,3 +40,30 @@ describe('raster service parsing', () => {
     }
   });
 });
+
+it('identifies the displayed crop mosaic and caches its complete class table', async () => {
+  const { rasterIdentify } = await import('./raster');
+  const { vi } = await import('vitest');
+  const requests: URL[] = [];
+  const controller = new AbortController();
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+    expect(init.signal).toBe(controller.signal);
+    requests.push(new URL(url));
+    return new Response(JSON.stringify(url.includes('/identify?') ? { value: '143' } : {
+      features: [{ attributes: { Value: 143, Class_Name: 'Mixed Forest' } }],
+    }));
+  });
+  try {
+    const identify = rasterIdentify('https://example.com/CDL/ImageServer', 'Crops', 'Crop', {
+      mosaicRule: '{"where":"Year = 2025"}', time: '1735689600000', renderingRule: '{"rasterFunction":"croptypes"}',
+    }, { rasterFunction: 'croptypes', nameField: 'Class_Name' }, '2025');
+    expect(await identify(-90.8, 44.5, controller.signal)).toEqual({ title: 'Crops', rows: [['Crop', 'Mixed Forest'], ['Year', '2025']] });
+    await identify(-90.9, 44.6, controller.signal);
+    expect(requests.filter(url => url.pathname.endsWith('/rasterAttributeTable'))).toHaveLength(1);
+    for (const url of requests.filter(url => url.pathname.endsWith('/identify'))) {
+      expect(url.searchParams.get('mosaicRule')).toBe('{"where":"Year = 2025"}');
+      expect(url.searchParams.get('time')).toBe('1735689600000');
+      expect(url.searchParams.get('renderingRule')).toBe('{"rasterFunction":"None"}');
+    }
+  } finally { vi.unstubAllGlobals(); }
+});

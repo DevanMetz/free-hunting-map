@@ -1,3 +1,4 @@
+import './layers/agriculture';
 import './layers/vegetation';
 import { registerLayers, type IdentifyResult } from './layerRegistry';
 import { PUBLIC_LANDS, publicLandExportUrl } from './publicLands';
