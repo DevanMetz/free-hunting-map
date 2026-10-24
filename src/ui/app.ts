@@ -46,6 +46,21 @@ export class App implements AppContext {
     this.recChip = h('div', { class: 'rec-chip', hidden: true, role: 'status' });
     const toolbar = this.buildToolbar();
     root.append(mapEl, toolbar, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
+    // Keep the mobile iframe in the top-level overlay, outside the bottom rail's
+    // compositor bounds. Recreate it only when crossing the layout breakpoint.
+    const desktop = window.matchMedia('(min-width: 760px)');
+    let account: HTMLElement | undefined;
+    let accountLifetime: AbortController | undefined;
+    const placeAccount = () => {
+      accountLifetime?.abort();
+      account?.remove();
+      accountLifetime = new AbortController();
+      account = accountControl(this.sync, accountLifetime.signal);
+      (desktop.matches ? toolbar : root).append(account);
+    };
+    desktop.addEventListener('change', placeAccount);
+    placeAccount();
+
 
     this.sheet = new Sheet(sheetEl);
     this.map = new HuntMap(mapEl, settings, settings.view);
@@ -123,7 +138,6 @@ export class App implements AppContext {
       add('list', 'list', 'Saved', () => this.togglePanel('list', () => openListPanel(this))),
       add('share', 'share', 'Share', () => this.togglePanel('share', () => openSharePanel(this))),
       add('conditions', 'weather', 'Conditions', () => this.togglePanel('conditions', () => openConditionsPanel(this))),
-      accountControl(this.sync),
     );
   }
 

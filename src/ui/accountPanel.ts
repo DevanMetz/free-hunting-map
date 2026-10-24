@@ -39,6 +39,15 @@ const labels = {
 export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLElement {
   const root = h('div', { class: 'account-control' });
   let revision = 0;
+  let signedOutClient: string | null = null;
+  // Chromium exposes the active iframe on document, but does not propagate
+  // :focus-within from its inner button. Mirror that boundary without moving focus.
+  const reflectFrameFocus = () => {
+    root.classList.toggle('account-frame-focus', !!root.querySelector('.google-sign-in')?.contains(document.activeElement));
+  };
+  window.addEventListener('blur', reflectFrameFocus, { signal });
+  window.addEventListener('focus', reflectFrameFocus, { signal });
+  document.addEventListener('focusin', reflectFrameFocus, { signal });
   const dismiss = () => {
     const menu = root.querySelector<HTMLElement>('.account-menu');
     if (menu) menu.hidden = true;
@@ -48,7 +57,12 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
   root.addEventListener('focusout', event => { if (!root.contains(event.relatedTarget as Node | null)) dismiss(); });
   const report = (error: unknown) => toast(error instanceof Error ? error.message : 'Sync unavailable');
   const render = () => {
+    const client = !sync.user && navigator.onLine ? sync.googleClientId : null;
+    // Session/config notifications must not replace a live sign-in iframe mid-click.
+    if (client && client === signedOutClient && root.firstChild) return;
+    signedOutClient = client;
     const current = ++revision;
+    root.classList.remove('account-frame-focus');
     root.replaceChildren();
     root.hidden = !sync.googleClientId;
     if (root.hidden) return;
@@ -89,7 +103,12 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
     }
     if (!sync.googleClientId || !navigator.onLine) { root.hidden = true; return; }
     const button = h('div', { class: 'google-sign-in' });
-    root.append(button);
+    const visual = iconButton('google', 'Sign in with Google', () => {}, 'account-sign-in');
+    // The GIS iframe is the only interactive/focusable target. Never synthesize its click.
+    visual.tabIndex = -1;
+    visual.setAttribute('aria-hidden', 'true');
+    const control = h('div', { class: 'account-sign-in-control', title: 'Sign in with Google' }, visual, button);
+    root.append(control);
     void loadGoogle().then(identity => {
       if (current !== revision || signal?.aborted) return;
       identity.initialize({ client_id: sync.googleClientId!, callback: response => {
@@ -98,7 +117,7 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
       identity.renderButton(button, { type: 'icon', theme: 'outline', size: 'large', text: 'signin_with' });
     }).catch(error => {
       if (current !== revision || signal?.aborted) return;
-      button.replaceChildren(iconButton('refresh', 'Retry Google sign-in', render));
+      control.replaceChildren(iconButton('refresh', 'Retry Google sign-in', () => { signedOutClient = null; render(); }));
       report(error);
     });
   };
