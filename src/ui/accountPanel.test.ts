@@ -8,7 +8,7 @@ function mount(values: Record<string, unknown> = {}) {
   const sync = Object.assign(new EventTarget(), {
     googleClientId: null, user: null, state: 'signed-out',
     signIn: vi.fn().mockResolvedValue(undefined), signOut: vi.fn().mockResolvedValue(undefined),
-    retry: vi.fn().mockResolvedValue(undefined), ...values,
+    retry: vi.fn().mockResolvedValue(undefined), deleteAccount: vi.fn().mockResolvedValue(undefined), ...values,
   });
   const controller = new AbortController();
   controllers.push(controller);
@@ -55,4 +55,16 @@ it('shows account and accessible sync controls, and releases listeners on close'
   sync.user = null;
   sync.dispatchEvent(new Event('change'));
   expect(root.textContent).toContain('Devan');
+});
+
+it('requires confirmation before deleting the account', async () => {
+  const { sync, root } = mount({user:{id:'one'},state:'synced'});
+  const confirm = vi.fn().mockReturnValue(false);
+  window.confirm = confirm;
+  const button = root.querySelector<HTMLButtonElement>('[aria-label="Delete account"]')!;
+  expect(button.title).toBe('Delete account');
+  button.click(); expect(sync.deleteAccount).not.toHaveBeenCalled();
+  confirm.mockReturnValue(true); button.click();
+  expect(sync.deleteAccount).toHaveBeenCalledOnce();
+  await Promise.resolve();
 });

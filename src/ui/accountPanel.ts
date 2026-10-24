@@ -59,7 +59,12 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
         window.google?.accounts.id.disableAutoSelect();
         void sync.signOut().catch(report);
       });
-      root.append(identity, status, logout);
+      const remove = iconButton('trash', 'Delete account', () => {
+        if (!window.confirm('Delete your account and all synced server data? Map data on this device will be kept.')) return;
+        remove.disabled = true;
+        void sync.deleteAccount().then(() => window.google?.accounts.id.disableAutoSelect()).catch(report).finally(() => { remove.disabled = false; });
+      });
+      root.append(identity, status, logout, remove);
       return;
     }
     if (!sync.googleClientId || !navigator.onLine) { root.hidden = true; return; }

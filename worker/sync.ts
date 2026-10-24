@@ -25,7 +25,7 @@ export async function sync(db: D1Database, user: string, raw: unknown) {
       const payload = JSON.stringify(item);
       // Conditional insert and upsert execute atomically in a D1 batch. A raced writer retries the pure merge.
       const results = await db.batch([
-        db.prepare('INSERT INTO changes(mutation,user_id,payload) SELECT ?,?,? WHERE COALESCE((SELECT seq FROM items WHERE user_id=? AND id=?),0)=? AND (? > 0 OR (SELECT count(*) FROM items WHERE user_id=?) < 50000)').bind(mutation,user,payload,user,item.id,current?.seq ?? 0,current?.seq ?? 0,user),
+        db.prepare('INSERT INTO changes(mutation,user_id,payload) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=?) AND COALESCE((SELECT seq FROM items WHERE user_id=? AND id=?),0)=? AND (? > 0 OR (SELECT count(*) FROM items WHERE user_id=?) < 50000)').bind(mutation,user,payload,user,user,item.id,current?.seq ?? 0,current?.seq ?? 0,user),
         db.prepare('INSERT INTO items(user_id,id,kind,updated_at,deleted,payload,seq) SELECT ?,?,?,?,?,?,seq FROM changes WHERE mutation=? ON CONFLICT(user_id,id) DO UPDATE SET kind=excluded.kind,updated_at=excluded.updated_at,deleted=excluded.deleted,payload=excluded.payload,seq=excluded.seq').bind(user,item.id,item.kind,item.updatedAt,item.deleted ? 1 : 0,payload,mutation),
         db.prepare('DELETE FROM changes WHERE user_id=? AND seq=? AND EXISTS(SELECT 1 FROM changes WHERE mutation=?)').bind(user,current?.seq ?? 0,mutation),
       ]);

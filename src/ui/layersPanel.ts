@@ -148,6 +148,8 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
         h('input', { type: 'checkbox', checked: state[key], onchange: (e: Event) => {
           set((e.target as HTMLInputElement).checked); persist(); ctx.sheet.replace(render());
         } }), h('span', {}, label))),
+      h('nav', { class: 'policy-links', 'aria-label': 'Policies' },
+        h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms')),
     );
   };
   ctx.sheet.open('layers', 'Layers', render(), () => {

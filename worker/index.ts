@@ -3,13 +3,14 @@ import { ApiError, sync } from './sync';
 export interface Env { DB: D1Database; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string }
 const COOKIE = '__Host-fhm_session';
 const AGE = 45 * 86400;
+const clearCookie = { 'Set-Cookie': `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` };
 const json = (value: unknown, status = 200, headers: HeadersInit = {}) => Response.json(value, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
 const local = (url: URL) => ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 async function hash(value: string) { return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), n => n.toString(16).padStart(2,'0')).join(''); }
 function cookie(request: Request) { return request.headers.get('cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1); }
-async function rate(db: D1Database, key: string, limit: number) {
+async function rate(db: D1Database, key: string, limit: number, userId?: string) {
   const window = Math.floor(Date.now()/60_000);
-  const row = await db.prepare('INSERT INTO rate_limits(key,window,count) VALUES(?,?,1) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END,window=excluded.window RETURNING count').bind(key,window).first<{ count: number }>();
+  const row = await db.prepare('INSERT INTO rate_limits(key,window,count) SELECT ?,?,1 WHERE (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=?)) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END,window=excluded.window RETURNING count').bind(key,window,userId ?? null,userId ?? null).first<{ count: number }>();
   if ((row?.count ?? 0) > limit) throw new ApiError(429,'Too many requests');
 }
 async function user(request: Request, env: Env) {
@@ -65,12 +66,24 @@ export default {
       if (url.pathname === '/api/auth/logout') {
         const token = cookie(request);
         if (token) await env.DB.prepare('DELETE FROM sessions WHERE hash=?').bind(await hash(token)).run();
-        return json({user:null},200,{'Set-Cookie':`${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`});
+        return json({user:null},200,clearCookie);
+      }
+      if (url.pathname === '/api/account/delete') {
+        const account = await user(request, env);
+        if (!account) throw new ApiError(401, 'Sign in required');
+        await env.DB.batch([
+          env.DB.prepare('DELETE FROM items WHERE user_id=?').bind(account.id),
+          env.DB.prepare('DELETE FROM changes WHERE user_id=?').bind(account.id),
+          env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(account.id),
+          env.DB.prepare('DELETE FROM rate_limits WHERE key=?').bind(`sync:${account.id}`),
+          env.DB.prepare('DELETE FROM users WHERE id=?').bind(account.id),
+        ]);
+        return json({ user: null }, 200, clearCookie);
       }
       if (url.pathname === '/api/sync') {
         const account = await user(request,env);
         if (!account) throw new ApiError(401,'Sign in required');
-        await rate(env.DB,`sync:${account.id}`,120);
+        await rate(env.DB,`sync:${account.id}`,120,account.id);
         return json(await sync(env.DB,account.id,input));
       }
       return json({error:'Not found'},404);

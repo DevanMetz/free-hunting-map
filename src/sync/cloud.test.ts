@@ -53,3 +53,41 @@ test('a different account cannot upload browser data', async () => {
   expect(engine.state).toBe('error');
   expect(calls).toEqual(['/api/config', '/api/me']);
 });
+
+test('account deletion retains local data, clears binding/cursor and stays signed out', async () => {
+  const repo = await Repo.open(crypto.randomUUID());
+  const marker = await repo.create<Waypoint>({kind:'waypoint',coord:[0,0],name:'Keep me',note:'',icon:'pin'});
+  await repo.bindSyncAccount('deleted-user');
+  await repo.setMeta('cloud.cursor', 123);
+  let deleted = false;
+  const paths: string[] = [];
+  const engine = new CloudSync(repo, async input => {
+    const path = String(input); paths.push(path);
+    if (path.endsWith('account/delete')) { deleted = true; return Response.json({user:null}); }
+    if (path.endsWith('config')) return Response.json({googleClientId:'test'});
+    return Response.json({user:deleted ? null : {id:'deleted-user'}});
+  }, () => true);
+  engine.user = {id:'deleted-user'};
+  await engine.deleteAccount();
+  expect(engine.user).toBeNull(); expect(engine.state).toBe('signed-out');
+  expect(await repo.get(marker.id)).toEqual(marker);
+  expect(await repo.getMeta('cloud.owner')).toBeUndefined();
+  expect(await repo.getMeta('cloud.cursor')).toBeUndefined();
+  await engine.retry();
+  expect(paths).not.toContain('/api/sync');
+  await repo.bindSyncAccount('new-user');
+  expect(await repo.getMeta('cloud.owner')).toBe('new-user');
+  expect((await repo.pending()).map(e=>e.id)).toContain(marker.id);
+});
+
+test('failed or offline deletion preserves ownership and local data', async () => {
+ const repo = await Repo.open(crypto.randomUUID()); await repo.bindSyncAccount('owner');
+ let online = false;
+ const engine = new CloudSync(repo, async () => new Response(null,{status:500}),()=>online);
+ engine.user = {id:'owner'};
+ await expect(engine.deleteAccount()).rejects.toThrow('Connect');
+ online = true;
+ await expect(engine.deleteAccount()).rejects.toThrow('500');
+ expect(await repo.getMeta('cloud.owner')).toBe('owner');
+ expect(engine.state).toBe('error');
+});

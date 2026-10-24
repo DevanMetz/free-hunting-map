@@ -12,6 +12,7 @@ export class CloudSync extends EventTarget {
   state: SyncState = 'signed-out';
   private running: Promise<void> | undefined;
   private epoch = 0;
+  private deleting = false;
   private timer: ReturnType<typeof setInterval> | undefined;
   private wakeTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly wake = () => {
@@ -53,6 +54,7 @@ export class CloudSync extends EventTarget {
     return res.json();
   }
   async signIn(credential: string): Promise<void> {
+    if (this.deleting) throw new Error('Account deletion in progress');
     if (await this.repo.getMeta<boolean>('cloud.logout')) await this.finishLogout();
     const result = await this.json('auth/google', { credential });
     try { await this.repo.bindSyncAccount(result.user.id); }
@@ -74,11 +76,34 @@ export class CloudSync extends EventTarget {
     this.emit();
     if (this.online()) { try { await this.finishLogout(); } catch { /* Persist until reconnect. */ } }
   }
+  async deleteAccount(): Promise<void> {
+    if (this.deleting) return;
+    if (!this.online()) throw new Error('Connect to delete your account');
+    this.deleting = true;
+    this.epoch++;
+    clearTimeout(this.wakeTimer);
+    try {
+      // Finish any old response before resetting its persisted cursor/binding.
+      await this.running;
+      await this.json('account/delete', {});
+      this.user = null;
+      this.state = 'signed-out';
+      await this.repo.resetSyncAccount();
+    } catch (error) {
+      if (this.user) this.state = 'error';
+      throw error;
+    } finally {
+      this.deleting = false;
+      this.emit();
+    }
+  }
+
   private async finishLogout(): Promise<void> {
     await this.json('auth/logout', {});
     await this.repo.setMeta('cloud.logout', false);
   }
   retry(): Promise<void> {
+    if (this.deleting) return Promise.resolve();
     if (this.running) return this.running;
     this.running = this.run().finally(() => { this.running = undefined; });
     return this.running;

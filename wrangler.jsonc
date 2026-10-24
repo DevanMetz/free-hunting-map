@@ -1,9 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // API Worker plus Vite assets. GOOGLE_CLIENT_ID is a Worker secret.
+  // API Worker plus Vite assets. GOOGLE_CLIENT_ID is a public OAuth client identifier.
   // Preserve the existing Cloudflare Workers Builds connection after the repo rebrand.
   "name": "open-hunt-map",
   "workers_dev": true,
+  "vars": { "GOOGLE_CLIENT_ID": "774900694880-iuj39qhmc4epdckkfd1oma8b317hs4s5.apps.googleusercontent.com" },
   "dev": { "host": "localhost" },
   "main": "worker/index.ts",
   "d1_databases": [{ "binding": "DB", "database_name": "free-hunting-map", "database_id": "49e11a0a-8b6e-4758-a31e-dd5a057d4462", "migrations_dir": "migrations" }],

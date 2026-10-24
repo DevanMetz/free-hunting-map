@@ -100,3 +100,31 @@ it('enforces auth rate limits and sync payload limits',async()=>{
  await env.DB.prepare('INSERT OR REPLACE INTO rate_limits(key,window,count) VALUES(?,?,120)').bind('sync:limits',Math.floor(Date.now()/60000)).run();
  expect((await call('/api/sync',{cursor:0,changes:[]},cookie)).status).toBe(429);
 });
+
+it('deletes all account data and sessions without affecting other users', async () => {
+ const login = async (name: string) => (await call('/api/auth/google', {credential:`dev:${name}`})).headers.get('set-cookie')!.split(';')[0]!;
+ const cookie = await login('delete-me'), secondSession = await login('delete-me'), other = await login('keep-me');
+ await call('/api/sync', {cursor:0,changes:[item('delete-marker-001')]}, cookie);
+ await call('/api/sync', {cursor:0,changes:[item('keep-marker-0001')]}, other);
+ expect((await call('/api/account/delete', {})).status).toBe(401);
+ expect((await call('/api/account/delete', {}, cookie, 'https://evil.example')).status).toBe(403);
+ expect((await worker.fetch(new Request(origin+'/api/account/delete',{method:'POST',headers:{origin,cookie},body:'{}'}),env)).status).toBe(415);
+ const response = await call('/api/account/delete', {}, cookie);
+ expect(response.status).toBe(200);
+ expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+ for (const table of ['items','changes','sessions']) {
+  const deleted = await env.DB.prepare(`SELECT count(*) AS n FROM ${table} WHERE user_id=?`).bind('delete-me').first<{n:number}>();
+  const kept = await env.DB.prepare(`SELECT count(*) AS n FROM ${table} WHERE user_id=?`).bind('keep-me').first<{n:number}>();
+  expect(deleted!.n).toBe(0); expect(kept!.n).toBeGreaterThan(0);
+ }
+ expect(await env.DB.prepare('SELECT id FROM users WHERE id=?').bind('delete-me').first()).toBeNull();
+ expect(await env.DB.prepare('SELECT id FROM users WHERE id=?').bind('keep-me').first()).not.toBeNull();
+ expect(await env.DB.prepare('SELECT key FROM rate_limits WHERE key=?').bind('sync:delete-me').first()).toBeNull();
+ expect(await env.DB.prepare('SELECT key FROM rate_limits WHERE key=?').bind('sync:keep-me').first()).not.toBeNull();
+ expect((await call('/api/sync',{cursor:0,changes:[]},secondSession)).status).toBe(401);
+ expect((await call('/api/account/delete',{},cookie)).status).toBe(401);
+ // A sync handler that authenticated before deletion must not recreate the rows.
+ const { sync } = await import('./sync');
+ await expect(sync(env.DB,'delete-me',{cursor:0,changes:[item('late-marker-0001')]})).rejects.toThrow();
+ expect(await env.DB.prepare('SELECT id FROM items WHERE user_id=?').bind('delete-me').first()).toBeNull();
+});

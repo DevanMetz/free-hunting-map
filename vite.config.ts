@@ -18,13 +18,13 @@ const tileCache = (name: string, urlPattern: RegExp, maxEntries: number) => ({
 export default defineConfig({
   // MapLibre alone is ~1 MB minified; it is precached once, so a single chunk is fine.
   worker: { format: 'es' },
-  server: { proxy: { '/api': {
+  server: { port: 5180, strictPort: true, proxy: { '/api': {
     target: 'http://localhost:8787',
     changeOrigin: true,
     configure(proxy) {
       proxy.on('proxyReq', (outgoing, incoming) => {
         // Translate only this dev server's own browser Origin to the API origin.
-        if (['http://localhost:5173', 'http://127.0.0.1:5173'].includes(incoming.headers.origin ?? '')) outgoing.setHeader('Origin', 'http://localhost:8787');
+        if (['http://localhost:5180', 'http://127.0.0.1:5180'].includes(incoming.headers.origin ?? '')) outgoing.setHeader('Origin', 'http://localhost:8787');
       });
     },
   } } },
@@ -67,7 +67,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,webmanifest}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/(?:privacy|terms)(?:\.html)?(?:\/|$|\?)/],
         // Keep cache names stable across branding changes to retain offline assets.
         runtimeCaching: [
           { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/api/'), handler: 'NetworkOnly', method: 'GET' },

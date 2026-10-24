@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — Free Hunting Map</title>
+<style>html{color-scheme:dark}body{margin:0;background:#141a16;color:#eef2ed;font:17px/1.65 system-ui,sans-serif}main{max-width:46rem;margin:auto;padding:2rem 1.25rem 4rem}h1,h2{line-height:1.25}h2{margin-top:2rem;font-size:1.25rem}a{color:#b9ddb1}nav{display:flex;gap:1.25rem;flex-wrap:wrap}</style>
+</head>
+<body><main>
+<nav aria-label="Site"><a href="/">Back to map</a><a href="/terms">Terms</a></nav>
+<h1>Privacy</h1>
+<p>Effective October 24, 2026</p>
+<h2>Using the map without an account</h2>
+<p>Free Hunting Map works without an account. Your saved map data stays in your browser’s IndexedDB storage on your device. Cached map tiles and other offline assets also stay on the device. Core map editing and saved data work offline.</p>
+<h2>Optional Google sign-in and sync</h2>
+<p>If you sign in with Google, we store your Google account ID, email (when verified and supplied), name and profile picture URL, a SHA-256 hash of a session token, and the map data you create: markers, tracks, saved trail candidates and synced map preferences. These are stored in Cloudflare D1 to sync across your devices. Map position, cached weather, downloaded tiles and device settings are not synced.</p>
+<p>Your browser holds an HttpOnly, Secure, SameSite=Lax session cookie that expires after 45 days. We store only the hash of its token on the server. Signing out removes that session but keeps your account’s synced data and the data on your device. Google receives sign-in requests; your browser may also request your profile picture from Google.</p>
+<h2>Hosting and third parties</h2>
+<p>Cloudflare hosts the app and sync database and processes standard request logs and observability data. We use short-lived rate-limit counters, including a hashed IP address for sign-in attempts and an account ID for sync limits, to prevent abuse. Rate windows last one minute; stale counter rows are cleaned up on subsequent sign-ins.</p>
+<p>Depending on the layers and features you use, your browser requests map tiles, land information, elevation or weather directly from USGS (The National Map, 3DEP and PAD-US), OpenFreeMap (OpenStreetMap/OpenMapTiles data), US Fish and Wildlife Service wetlands services, Wisconsin Statewide Parcels through Esri ArcGIS, Wisconsin DNR, Amazon Web Services hosting USGS lidar, and Open-Meteo weather. These providers receive your IP address and the requested map area or forecast location, as with any web request. Google provides optional sign-in. Each provider handles its requests under its own policies. Sun and moon calculations run locally.</p>
+<h2>No advertising or tracking</h2>
+<p>We have no ads, tracking or analytics scripts. We do not sell personal data or share it for advertising. Service providers process the requests described above to deliver hosting, sign-in, map data and weather.</p>
+<h2>Deleting your data</h2>
+<p>Choose “Delete account” in the app’s Layers panel to remove all server data for your account immediately, including synced map data, account details, sessions and account rate-limit counters. Local data remains on your devices; clear browser storage to remove it. Signing in again can create an account and upload the local data again. Copies you export or share are outside the account database. Cloudflare’s standard operational logs are separate from account data and follow its retention practices.</p>
+<h2>Contact</h2>
+<p><a href="mailto:metzdevan@gmail.com">metzdevan@gmail.com</a></p>
+</main></body>
+</html>

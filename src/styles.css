@@ -300,3 +300,5 @@ canvas[data-lidar-drawing] { touch-action: none; }
 .account-status-offline { opacity: 0.5; }
 .account-status-syncing svg { animation: spin 1s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .account-status-syncing svg { animation: none; } }
+.policy-links { display: flex; gap: 1rem; justify-content: center; padding: .5rem; }
+.policy-links a { color: inherit; }

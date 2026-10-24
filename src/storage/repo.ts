@@ -198,6 +198,13 @@ export class Repo extends EventTarget {
     await tx.done;
   }
 
+  /** Account deletion releases ownership while keeping all local map data. */
+  async resetSyncAccount(): Promise<void> {
+    const tx = this.db.transaction('meta', 'readwrite');
+    for (const key of ['cloud.owner', 'cloud.cursor', 'cloud.logout']) await tx.store.delete(key);
+    await tx.done;
+  }
+
   async getMeta<T>(key: string): Promise<T | undefined> {
     return (await this.db.get('meta', key)) as T | undefined;
   }
