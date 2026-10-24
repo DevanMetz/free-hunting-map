@@ -420,3 +420,7 @@ input[type='color'] { min-width: 44px; width: 44px; height: 44px; padding: 3px; 
 .item-details > summary::after { content: '+'; margin-left: auto; padding: 0 12px; }
 .item-details[open] > summary::after { content: '−'; }
 .item-details > .form { margin-top: 4px; }
+
+.identify-details { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px 20px; margin: 8px 0; }
+.identify-details dt { font-weight: 600; }
+.identify-details dd { margin: 0; overflow-wrap: anywhere; }

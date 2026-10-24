@@ -32,21 +32,29 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
     map, state, categories: [], refreshVersion: 0, styleVersion: 0, styleReady: true, installed: new Set(), parcelLoader: { setEnabled: vi.fn() }, items: [], sketch: { line: [], color: '#ffd54f' },
   }) as Pick<HuntMap, 'setLayer' | 'setLayerOpacity' | 'mapState'> & { installOverlays(): Promise<void>; installed: Set<string> };
   await hunt.installOverlays();
-  expect(sources.has('hillshade')).toBe(false); expect(sources.has('water-nhd')).toBe(false);
-  hunt.setLayer('slope', true); hunt.setLayer('water-nwi', true); hunt.setLayer('padus-usfs', true); hunt.setLayer('parcels', true);
+  expect(sources.has('public-trails')).toBe(false); expect(sources.has('hillshade')).toBe(false); expect(sources.has('water-nhd')).toBe(false);
+  hunt.setLayer('public-trails', true); hunt.setLayer('slope', true); hunt.setLayer('water-nwi', true); hunt.setLayer('padus-usfs', true); hunt.setLayer('parcels', true);
   const check = () => {
     const ids = layers.map(l => l.id);
+    expect(sources.get('public-trails')).toMatchObject({ type: 'vector', maxzoom: 14 });
+    expect(map.getLayer('public-trails-foot')).toMatchObject({ paint: { 'line-color': basemap === 'satellite' ? '#ffc857' : '#5c3a1c' } });
     const data = layerRegistry.layers().flatMap(d => d.layerIds ?? (d.source ? [d.id] : [])).filter(id => ids.includes(id));
     expect(data.map(id => ids.indexOf(id))).toEqual(data.map(id => ids.indexOf(id)).sort((a, b) => a - b));
     expect(ids.indexOf('slope')).toBeLessThan(ids.indexOf('ohm-tracks'));
     if (basemap === 'streets') expect(ids.indexOf('slope')).toBeLessThan(ids.indexOf('roads'));
     expect(map.getLayer('parcels-line')).toMatchObject({ paint: { 'line-color': basemap === 'satellite' ? '#ffd400' : '#b0306a' } });
   };
-  check(); hunt.setLayerOpacity('slope', 0.32); expect(map.setPaintProperty).toHaveBeenCalledWith('slope', 'raster-opacity', 0.32);
+  check(); hunt.setLayerOpacity('public-trails', 0.4);
+  expect(map.setPaintProperty).toHaveBeenCalledWith('public-trails-foot', 'line-opacity', 0.4);
+  expect(map.setPaintProperty).toHaveBeenCalledWith('public-trails-mvum-casing', 'line-opacity', 0.4 * 0.95);
+  hunt.setLayerOpacity('slope', 0.32); expect(map.setPaintProperty).toHaveBeenCalledWith('slope', 'raster-opacity', 0.32);
   reset(); (hunt as unknown as { installed: Set<string> }).installed.clear(); await hunt.installOverlays(); check();
   expect(map.setPaintProperty).toHaveBeenCalledWith('slope', 'raster-opacity', 0.32);
   hunt.setLayer('slope', false); expect(map.setLayoutProperty).toHaveBeenCalledWith('slope', 'visibility', 'none');
   reset(); hunt.installed.clear(); await hunt.installOverlays(); expect(sources.has('slope')).toBe(false);
+  hunt.setLayer('public-trails', false);
+  expect(map.setLayoutProperty).toHaveBeenCalledWith('public-trails-foot', 'visibility', 'none');
+  reset(); hunt.installed.clear(); await hunt.installOverlays(); expect(sources.has('public-trails')).toBe(false);
   hunt.setLayer('my-items', false); expect(map.setLayoutProperty).toHaveBeenCalledWith('ohm-waypoints', 'visibility', 'none');
   expect(map.setLayoutProperty).toHaveBeenCalledWith('ohm-fov-fill', 'visibility', 'none');
   const copy = hunt.mapState; copy.layers.slope!.on = true; expect(hunt.mapState.layers.slope!.on).toBe(false);

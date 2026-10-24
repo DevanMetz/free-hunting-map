@@ -1,6 +1,7 @@
 import './layers/hazards';
 import './layers/agriculture';
 import './layers/vegetation';
+import './layers/trails';
 import { registerLayers, type IdentifyResult } from './layerRegistry';
 import { PUBLIC_LANDS, publicLandExportUrl } from './publicLands';
 import { identifyDeer, identifyPublicLand, parcelContent } from './inspect';

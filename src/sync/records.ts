@@ -8,7 +8,7 @@ export interface PreferenceRecord extends ItemMeta {
 }
 export interface LidarRecord extends ItemMeta, LidarRun { kind: 'lidar-run' }
 export type SyncRecord = Item | Category | PreferenceRecord | LidarRecord;
-const booleans = ['hillshade', 'parcels', 'water', 'deerUnits', 'labels', 'showPins', 'showTrails', 'showRecordings'];
+const booleans = ['hillshade', 'trails', 'parcels', 'water', 'deerUnits', 'labels', 'showPins', 'showTrails', 'showRecordings'];
 const lands = ['usfs', 'blm', 'nps', 'fws', 'stateWildlife', 'statePark', 'stateTrust', 'dod', 'other'];
 
 /** Only portable map preferences; viewport, cached data and device state stay local. */

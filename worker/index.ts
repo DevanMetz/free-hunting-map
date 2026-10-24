@@ -1,7 +1,8 @@
+import { serveTiles } from './tiles';
 import { recordUsage, usageReport } from './usage';
 import { verifyGoogleToken } from './token';
 import { ApiError, sync } from './sync';
-export interface Env { DB: D1Database; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; USAGE?: AnalyticsEngineDataset }
+export interface Env { DB: D1Database; TILES?: R2Bucket; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; USAGE?: AnalyticsEngineDataset }
 // Random values are only allowed inside handlers; this salt lives for the isolate.
 let pingSalt: string | undefined;
 const COOKIE = '__Host-fhm_session';
@@ -32,8 +33,9 @@ async function body(request: Request, cap = 8_000_000) {
   try { return JSON.parse(new TextDecoder().decode(bytes)) as unknown; } catch { throw new ApiError(400,'Invalid JSON'); }
 }
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === '/tiles' || url.pathname.startsWith('/tiles/')) return serveTiles(request, env.TILES, ctx);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
     try {
       if (request.method === 'POST') {

@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 type LegacySettings = Partial<Settings> & {
   publicLands?: boolean; publicLand?: Record<string, boolean>;
-  hillshade?: boolean; parcels?: boolean; water?: boolean; deerUnits?: boolean;
+  trails?: boolean; hillshade?: boolean; parcels?: boolean; water?: boolean; deerUnits?: boolean;
 };
 export function loadSettings(saved: LegacySettings = {}): Settings {
   const state: Settings = { ...DEFAULT_SETTINGS,
@@ -25,6 +25,7 @@ export function loadSettings(saved: LegacySettings = {}): Settings {
   };
   const legacy = {
     ...Object.fromEntries(PUBLIC_LANDS.map(c => [`padus-${c.id}`, saved.publicLand ? saved.publicLand[c.id] === true : saved.publicLands === true])),
+    'public-trails': saved.trails === true,
     hillshade: saved.hillshade === true, parcels: saved.parcels === true,
     'water-nhd': saved.water === true, 'water-nwi': saved.water === true, 'deer-units': saved.deerUnits === true,
   };

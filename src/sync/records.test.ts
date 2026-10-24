@@ -23,3 +23,9 @@ describe('cloud record validation', () => {
     expect(sanitizeRecord({ ...meta, kind: 'lidar-run', box: [-90, 40, -91, 41], candidates: { type: 'FeatureCollection', features: [] } })).toBeNull();
   });
 });
+
+it('keeps legacy and registry public trails preferences portable', () => {
+  expect(sanitizeRecord({ ...meta, kind: 'settings', preferences: { trails: true, layers: { 'public-trails': { on: true, opacity: 0.65 } }, view: { zoom: 12 } } })).toMatchObject({
+    preferences: { trails: true, layers: { 'public-trails': { on: true, opacity: 0.65 } } },
+  });
+});

@@ -4,6 +4,9 @@
  */
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
+export const TRAILS_TILES = '/tiles/trails/v1/{z}/{x}/{y}.mvt';
+export const TRAILS_ATTR = 'USFS, BLM, NPS, USGS trails (public domain)';
+
 export type BasemapId = 'topo' | 'satellite' | 'streets';
 
 const USGS_ATTR = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a>';

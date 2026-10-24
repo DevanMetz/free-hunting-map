@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest';
+import { useFeature } from '../usage';
 import { openLayersPanel } from './layersPanel';
 import { Sheet } from './sheet';
 import { loadSettings } from './settings';
@@ -55,4 +56,21 @@ it('picks up a newly registered category without replacing existing rows', () =>
   expect(root.querySelector('[data-layer="slope"]')).toBe(slope);
   const sections = [...root.querySelectorAll('.layer-category')].map(el => el.getAttribute('aria-label'));
   expect(sections.indexOf('Vegetation')).toBeLessThan(sections.indexOf('Water')); sheet.close();
+});
+
+it('toggles Public trails through its category, persists and displays its legend', () => {
+  const { root, state, persist, sheet } = setup();
+  const row = root.querySelector('[data-layer="public-trails"]')!;
+  expect(row.textContent).toBe('Public trails');
+  const input = row.querySelector<HTMLInputElement>('input')!;
+  vi.mocked(useFeature).mockClear();
+  input.checked = true; input.dispatchEvent(new Event('change'));
+  expect(state.layers['public-trails']!.on).toBe(true); expect(persist).toHaveBeenCalled();
+  expect(useFeature).toHaveBeenCalledWith('public_trails');
+  expect(row.textContent).toContain('MVUM motor route'); expect(row.querySelector('input[type=range]')).not.toBeNull();
+  root.querySelector<HTMLButtonElement>('[aria-label="Toggle Trails"]')!.click();
+  expect(state.layers['public-trails']!.on).toBe(false);
+  root.querySelector<HTMLButtonElement>('[aria-label="Toggle Trails"]')!.click();
+  expect(state.layers['public-trails']!.on).toBe(true);
+  sheet.close();
 });

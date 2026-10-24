@@ -14,6 +14,7 @@ import { openConditionsPanel } from './conditionsPanel';
 import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
 import { UI_ICONS } from './icons';
+import { openIdentifyPanel } from './identifyPanel';
 import { openItemPanel } from './itemPanel';
 import { openLayersPanel } from './layersPanel';
 import { openListPanel } from './listPanel';
@@ -212,6 +213,7 @@ export class App implements AppContext {
   }
 
   private setTool(tool: Tool | null): void {
+    this.identifyRequest?.abort();
     if (this.tool && this.tool !== tool) {
       const old = this.tool;
       this.tool = null;
@@ -249,11 +251,26 @@ export class App implements AppContext {
     const id = hit?.properties?.id as string | undefined;
     const item = id ? this.liveItems.find((i) => i.id === id) : undefined;
     if (item) { this.openItem(item); return; }
+    void this.identifyLayers(e, at);
+  }
+
+  private async identifyLayers(e: MapMouseEvent, at: LngLat): Promise<void> {
+    const request = new AbortController();
+    this.identifyRequest = request;
     const state = this.map.mapState;
     const enabled = layerRegistry.layers().filter(def => def.identify && layerSetting(state, def).on &&
       (def.minzoom === undefined || this.map.map.getZoom() >= def.minzoom) &&
       (def.maxzoom === undefined || this.map.map.getZoom() < def.maxzoom));
     if (!enabled.length) return;
+    for (const def of enabled.filter(d => d.identifyPresentation === 'sheet')) {
+      const result = await def.identify!(...at, request.signal, this.map.map, e.point).catch(() => null);
+      if (request.signal.aborted) return;
+      if (result && layerSetting(this.map.mapState, def).on) {
+        openIdentifyPanel(this.sheet, def.id, result);
+        this.syncToolbar();
+        return;
+      }
+    }
     const content = h('div', { class: 'inspect-content' });
     const sections = new Map<number, HTMLElement>();
     const append = (order: number, result: IdentifyResult | null) => {
@@ -265,10 +282,8 @@ export class App implements AppContext {
     };
     const popup = new Popup({ closeButton: true, className: 'inspect-popup', maxWidth: '280px' });
     this.inspectPopup = popup;
-    const request = new AbortController();
-    this.identifyRequest = request;
     popup.on('close', () => request.abort());
-    enabled.forEach((def, order) => {
+    enabled.filter(d => d.identifyPresentation !== 'sheet').forEach((def, order) => {
       void def.identify!(...at, request.signal, this.map.map, e.point).then(result => {
         if (!request.signal.aborted && this.inspectPopup === popup && layerSetting(this.map.mapState, def).on) append(order, result);
       }).catch(() => {});

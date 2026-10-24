@@ -30,3 +30,14 @@ it('caches parcel, water and deer imagery while keeping DNR identification live'
   expect(CACHE_ROUTES.deer.test(DEER_EXPORT)).toBe(true);
   expect(Object.values(CACHE_ROUTES).some(pattern => pattern.test(DEER_SERVICE + '/2/query?f=json'))).toBe(false);
 });
+
+import { trailsCacheMatch } from './cacheRoutes';
+import { TRAILS_TILES } from './sources';
+it('caches only same-origin versioned trail MVTs, including empty tiles', () => {
+  const path = TRAILS_TILES.replace('{z}', '14').replace('{x}', '4600').replace('{y}', '6000');
+  const match = (path: string, sameOrigin = true) => trailsCacheMatch({ url: new URL(path, 'https://freehuntingmap.com'), sameOrigin });
+  expect(match(path)).toBe(true);
+  expect(match('/tiles/trails/v2/9/120/180.mvt')).toBe(true);
+  expect(match(path, false)).toBe(false);
+  for (const path of ['/tiles/trails/v1.pmtiles', '/tiles/trails/v1.json', '/api/sync', '/tiles/other/v1/9/1/1.mvt', '/tiles/trails/v1/9/1/1.mvt/extra']) expect(match(path)).toBe(false);
+});

@@ -27,3 +27,11 @@ it('clamps persisted opacity and label sizes', () => {
   expect(state.layers.future!.opacity).toBe(1); expect(state.layers.slope!.opacity).toBe(0.65);
   expect(state.labelScale).toBeLessThan(100);
 });
+
+it('migrates the original trails toggle, preferring registry state when present', () => {
+  expect(loadSettings().layers['public-trails']).toEqual({ on: false, opacity: 1 });
+  expect(loadSettings({ trails: true }).layers['public-trails']!.on).toBe(true);
+  const saved = loadSettings({ trails: true, layers: { 'public-trails': { on: false, opacity: 0.7 } } });
+  expect(saved.layers['public-trails']).toEqual({ on: false, opacity: 0.7 });
+  expect(saved).not.toHaveProperty('trails'); expect(loadSettings(saved)).toEqual(saved);
+});

@@ -9,6 +9,7 @@
   "dev": { "host": "localhost" },
   "main": "worker/index.ts",
   "d1_databases": [{ "binding": "DB", "database_name": "free-hunting-map", "database_id": "49e11a0a-8b6e-4758-a31e-dd5a057d4462", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "TILES", "bucket_name": "fhm-tiles" }],
   "routes": [
     { "pattern": "freehuntingmap.com", "custom_domain": true },
     { "pattern": "www.freehuntingmap.com", "custom_domain": true }
@@ -17,7 +18,7 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"],
+    "run_worker_first": ["/api/*", "/tiles/*"],
     // Unknown paths fall back to index.html (client-side routing / PWA shell).
     "not_found_handling": "single-page-application"
   },

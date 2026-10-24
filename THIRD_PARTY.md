@@ -68,3 +68,13 @@ NIFC current/history queries return GeoJSON with CORS `*` (empty in that WI exte
 nonempty in Washington/northern California). NIFC source terms disclaim accuracy
 and legal-boundary use; historic data are for strategic use. Neither service's
 published terms restrict use to noncommercial applications or prohibit redistribution.
+
+Public trails tiles contain U.S. federal public-domain data from USFS (trails,
+Motor Vehicle Use Maps and roads), BLM (Ground Transportation Linear Features),
+NPS (trails), and USGS (National Digital Trails).
+Attribution: USFS, BLM, NPS, USGS trails (public domain).
+Source agency, unit, source dataset and source date are retained in tile properties
+where available. The tiles are served from the same-origin /tiles/trails/v1/ route.
+
+The in-repo PMTiles v3 reader implements the published format specification:
+https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md

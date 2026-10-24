@@ -1,7 +1,7 @@
 import { version } from './package.json';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { CACHE_ROUTES } from './src/map/cacheRoutes';
+import { trailsCacheMatch, CACHE_ROUTES } from './src/map/cacheRoutes';
 import { layerRegistry } from './src/map/layerRegistry';
 import './src/map/builtinLayers';
 
@@ -71,7 +71,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,webmanifest}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/(?:privacy|terms)(?:\.html)?(?:\/|$|\?)/],
+        navigateFallbackDenylist: [/^\/tiles(?:\/|$)/, /^\/api(?:\/|$)/, /^\/(?:privacy|terms)(?:\.html)?(?:\/|$|\?)/],
         // Keep cache names stable across branding changes to retain offline assets.
         runtimeCaching: [
           { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/api/'), handler: 'NetworkOnly', method: 'GET' },
@@ -79,6 +79,11 @@ export default defineConfig({
           { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/assets/') && /\.m?js$/.test(url.pathname), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-modules-v1' } },
           { urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/lidar/'), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-assets-v1' } },
 
+          { urlPattern: trailsCacheMatch, handler: 'CacheFirst', options: {
+            cacheName: 'tiles-trails-v1',
+            expiration: { maxEntries: 10000, maxAgeSeconds: 365 * DAY, purgeOnQuotaError: true },
+            cacheableResponse: { statuses: [200, 204] },
+          } },
           tileCache('parcels', CACHE_ROUTES.parcels, 4000),
           tileCache('tiles-nhd', CACHE_ROUTES.nhd, 3000),
           tileCache('tiles-nwi', CACHE_ROUTES.nwi, 3000),

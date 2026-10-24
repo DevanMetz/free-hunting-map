@@ -46,6 +46,8 @@ export interface LayerDef {
   install?(map: Map, ctx: LayerContext): void;
   setVisible?(map: Map, on: boolean, ctx: LayerContext): void;
   setOpacity?(map: Map, opacity: number, ctx: LayerContext): void;
+  /** Sheet hits take priority over area inspection, after tools and saved items. */
+  identifyPresentation?: 'sheet';
   identify?(lng: number, lat: number, signal: AbortSignal, map: Map, point: PointLike): Promise<IdentifyResult | null>;
   /** Actions appear as entries without a visibility switch. */
   action?: 'trailfinder';

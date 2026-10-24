@@ -13,3 +13,7 @@ export const CACHE_ROUTES = {
   /** Style + TileJSON change when OpenFreeMap publishes a new planet build. */
   openfreemapStyles: /^https:\/\/tiles\.openfreemap\.org\/(styles\/[^/]+|planet)$/,
 };
+
+/** Self-contained so Workbox can serialize this matcher into the service worker. */
+export const trailsCacheMatch = ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }): boolean =>
+  sameOrigin && /^\/tiles\/trails\/v\d+\/\d+\/\d+\/\d+\.mvt$/.test(url.pathname);
