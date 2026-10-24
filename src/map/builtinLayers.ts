@@ -71,3 +71,4 @@ registerLayers([
 ]);
 
 import './layers/land';
+import './layers/water';

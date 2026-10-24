@@ -10,10 +10,6 @@ export function polygonSymbol(rgb: number[], alpha = 0, width = 1): object {
   return { type: 'esriSFS', style: 'esriSFSSolid', color: [...rgb, alpha],
     outline: { type: 'esriSLS', style: 'esriSLSSolid', color: [...rgb, 255], width } };
 }
-export function dynamicPolygon(id: number, rgb: number[], width = 1): string {
-  return JSON.stringify([{ id, source: { type: 'mapLayer', mapLayerId: id },
-    drawingInfo: { renderer: { type: 'simple', symbol: polygonSymbol(rgb, 0, width) }, transparency: 0, showLabels: false } }]);
-}
 export type Attributes = Record<string, unknown>;
 export function text(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
