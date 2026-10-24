@@ -31,6 +31,7 @@ export class App implements AppContext {
   private liveItems: Item[] = [];
   private liveCategories: Category[] = [];
   private reloadVersion = 0;
+  private preferenceVersion = 0;
   private tool: Tool | null = null;
   private recorder: TrackRecorder;
   private recording: Track | null = null;
@@ -105,11 +106,12 @@ export class App implements AppContext {
     return { showPins: savedOn && showPins, showTrails: savedOn && showTrails, showRecordings: savedOn && showRecordings };
   }
   async setTypeVisibility(patch: Partial<TypeVisibility>): Promise<void> {
+    this.preferenceVersion++;
     if (Object.values(patch).some(Boolean) && this.map.mapState.layers['my-items']?.on === false) this.map.setLayer('my-items', true);
     this.map.setTypeVisibility(patch);
+    const state = { ...this.map.mapState, view: this.map.view() };
     const saved = await this.repo.getMeta<Partial<Settings>>('settings');
-    await this.repo.setMeta('settings', { ...saved, ...this.map.mapState, view: this.map.view() });
-    this.repo.dispatchEvent(new Event('preferences'));
+    await this.repo.setMeta('settings', { ...saved, ...state });
   }
   async revealItem(item: Item): Promise<Item> {
     const current = await this.repo.get(item.id) ?? item;
@@ -137,7 +139,9 @@ export class App implements AppContext {
   }
 
   private async applyPreferences(): Promise<void> {
+    const version = ++this.preferenceVersion;
     const saved = loadSettings(await this.repo.getMeta<Partial<Settings>>('settings'));
+    if (version !== this.preferenceVersion) return;
     const current = this.map.mapState;
     if (current.basemap !== saved.basemap) this.map.setBasemap(saved.basemap);
     this.map.setLabels(saved.labels);
