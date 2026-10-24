@@ -203,14 +203,23 @@ export class Repo extends EventTarget {
       deviceId: this.deviceId,
       deleted: false,
     } as unknown as T;
-    await this.writeLocal(item);
-    return item;
+    const clean = sanitizeItem(item);
+    if (!clean) throw new Error('Invalid item');
+    await this.writeLocal(clean);
+    return clean as T;
   }
 
   async update<T extends Item>(item: T, patch: Partial<NewItem<T>>): Promise<T> {
-    const next = { ...item, ...patch, updatedAt: this.clock.now(), deviceId: this.deviceId };
-    await this.writeLocal(next);
-    return next;
+    const tx = this.db.transaction(['items', 'outbox'], 'readwrite');
+    const current = await tx.objectStore('items').get(item.id);
+    if (!current || current.deleted) { await tx.done; throw new Error('Item no longer exists'); }
+    const next = sanitizeItem({ ...current, ...patch, updatedAt: this.clock.now(), deviceId: this.deviceId });
+    if (!next) { await tx.done; throw new Error('Invalid item'); }
+    await tx.objectStore('items').put(next);
+    await tx.objectStore('outbox').put(this.entry(next));
+    await tx.done;
+    this.emitChange();
+    return next as T;
   }
 
   async remove(id: string): Promise<void> {
@@ -280,15 +289,21 @@ export class Repo extends EventTarget {
   }
 
   async setMeta(key: string, value: unknown): Promise<void> {
-    if (key === 'settings') {
-      const preferences = portablePreferences(value);
-      const previous = await this.db.get('records', 'settings:map');
-      if (!previous || previous.kind !== 'settings' || canonicalJson(previous.preferences) !== canonicalJson(preferences)) {
-        const now = this.clock.now();
-        await this.writeRecord({ kind: 'settings', id: 'settings:map', createdAt: previous?.createdAt ?? now, updatedAt: now, deviceId: this.deviceId, deleted: false, preferences });
-      }
+    if (key !== 'settings') { await this.db.put('meta', value, key); return; }
+    // The visible settings and their sync snapshot must commit together, including on reload.
+    const tx = this.db.transaction(['records', 'outbox', 'meta'], 'readwrite');
+    const preferences = portablePreferences(value);
+    const previous = await tx.objectStore('records').get('settings:map');
+    const changed = !previous || previous.kind !== 'settings' || canonicalJson(previous.preferences) !== canonicalJson(preferences);
+    if (changed) {
+      const now = this.clock.now();
+      const record: SyncRecord = { kind: 'settings', id: 'settings:map', createdAt: previous?.createdAt ?? now, updatedAt: now, deviceId: this.deviceId, deleted: false, preferences };
+      await tx.objectStore('records').put(record);
+      await tx.objectStore('outbox').put(this.entry(record));
     }
-    await this.db.put('meta', value, key);
+    await tx.objectStore('meta').put(value, key);
+    await tx.done;
+    if (changed) this.emitChange();
   }
 
   private entry(item: SyncRecord): OutboxEntry {

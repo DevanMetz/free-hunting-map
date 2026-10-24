@@ -86,3 +86,18 @@ describe('organize storage', () => {
     expect(await repo.list()).toEqual([]);
   });
 });
+
+it('retains organization edits when a recorder saves coordinates from an older snapshot', async () => {
+  const repo = await fresh();
+  await repo.importItems([trk()], 'recording');
+  await repo.update(trk(), { categoryId: 'category-123', hidden: true });
+  const updated = await repo.update(trk(), { coords: [[-90, 44], [-90.1, 44.1]] });
+  expect(updated).toMatchObject({ categoryId: 'category-123', hidden: true, coords: [[-90, 44], [-90.1, 44.1]] });
+});
+
+it('serializes simultaneous recorder and organization patches without losing either', async () => {
+  const repo = await fresh();
+  await repo.importItems([trk()], 'recording');
+  await Promise.all([repo.update(trk(), { categoryId: 'category-123' }), repo.update(trk(), { hidden: true }), repo.update(trk(), { coords: [[-90, 44], [-91, 45]] })]);
+  expect(await repo.get(trk().id)).toMatchObject({ categoryId: 'category-123', hidden: true, coords: [[-90, 44], [-91, 45]] });
+});
