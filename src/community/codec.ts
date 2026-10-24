@@ -4,15 +4,17 @@ export interface WireScan {
   model: string;
   day: string;
   area: BBox;
+  threshold?: number;
+  sources?: string[];
   lines: { c: number; d: number[] }[];
 }
 export function encode(scan: Scan): WireScan {
   return {
-    v: 1, model: scan.model, day: scan.day, area: scan.area,
+    v: 1, model: scan.model, day: scan.day, area: scan.area, threshold: scan.threshold, sources: scan.sources,
     lines: scan.lines.map(l => {
       let x = 0, y = 0;
       const d: number[] = [];
-      for (const p of simplify(l.coordinates)) {
+      for (const p of simplify(l.coordinates, .5)) {
         const xx = Math.round(p[0] * 1e6), yy = Math.round(p[1] * 1e6);
         d.push(xx - x, yy - y); x = xx; y = yy;
       }
@@ -37,13 +39,15 @@ export function decode(raw: unknown, now = Date.now()): Scan {
   const [w, s, e, n] = r.area;
   if (w >= e || s >= n || e - w > .15 || n - s > .15 || (e - w) * (n - s) > .0025
     || !us([w, s]) || !us([e, n]) || r.area.some(v => Math.abs(v * 100 - Math.round(v * 100)) > 1e-7)) return fail();
-  if (!Array.isArray(r.lines) || !r.lines.length || r.lines.length > 200) return fail();
+  if (!Array.isArray(r.lines) || r.lines.length > 1000) return fail();
+  if (r.threshold !== undefined && (typeof r.threshold !== 'number' || !Number.isFinite(r.threshold) || r.threshold < 0 || r.threshold > 1)) return fail();
+  if (r.sources !== undefined && (!Array.isArray(r.sources) || r.sources.length > 20 || !r.sources.every(s => typeof s === 'string' && /^[\w./:-]{1,200}$/.test(s)))) return fail();
   let count = 0, indexedTiles = 0, totalLength = 0;
   const lines = r.lines.map(l => {
     if (!l || typeof l.c !== 'number' || !Number.isFinite(l.c) || l.c < 0 || l.c > 1
-      || !Array.isArray(l.d) || l.d.length < 4 || l.d.length > 4000 || l.d.length % 2 || !l.d.every(Number.isSafeInteger)) return fail();
+      || !Array.isArray(l.d) || l.d.length < 4 || l.d.length > 40000 || l.d.length % 2 || !l.d.every(Number.isSafeInteger)) return fail();
     count += l.d.length / 2;
-    if (count > 20000) return fail();
+    if (count > 150000) return fail();
     let x = 0, y = 0;
     const coordinates: Point[] = [];
     for (let i = 0; i < l.d.length; i += 2) {
@@ -62,5 +66,5 @@ export function decode(raw: unknown, now = Date.now()): Scan {
     if (indexedTiles > 600 || totalLength > 50000) return fail();
     return { coordinates, confidence: l.c };
   });
-  return { model: r.model, day: r.day, area: [w, s, e, n], lines };
+  return { model: r.model, day: r.day, area: [w, s, e, n], ...(r.threshold === undefined ? {} : {threshold:r.threshold}), ...(r.sources === undefined ? {} : {sources:[...r.sources]}), lines };
 }

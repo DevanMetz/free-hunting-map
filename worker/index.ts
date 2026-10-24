@@ -1,3 +1,5 @@
+import { exportCommunity } from './communityExport';
+import { voteCommunity, overrideCommunity } from './communityVotes';
 import { communityTile, uploadCommunity, deleteCommunity } from './community';
 import { serveTiles } from './tiles';
 import { recordUsage, usageReport } from './usage';
@@ -56,6 +58,7 @@ export default {
         if (!account.email || !(env.ADMIN_EMAILS ?? 'metzdevan@gmail.com').split(',').map(v=>v.trim().toLowerCase()).includes(account.email.toLowerCase())) throw new ApiError(403,'Forbidden');
         return json(await usageReport(env.DB));
       }
+      if (request.method === 'GET' && url.pathname === '/api/community/export') return await exportCommunity(request,env.DB,env.TILES,env.COMMUNITY_ADMIN_TOKEN);
       if (request.method !== 'POST') return json({ error:'Not found' },404);
       if (['/api/ping','/api/events'].includes(url.pathname)) {
         const events=url.pathname==='/api/events';
@@ -64,11 +67,18 @@ export default {
         return await recordUsage(input,request,env,events);
       }
       if (url.pathname === '/api/community/scans') {
-        const input=await body(request,600_000);
+        const input=await body(request,4_000_000);
         await rate(env.DB,`community:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,10);
         await env.DB.prepare("DELETE FROM rate_limits WHERE key LIKE 'community:%' AND window<?").bind(Math.floor(Date.now()/60_000)-5).run();
-        return await uploadCommunity(env.DB,input,url.origin);
+        return await uploadCommunity(env.DB,input,url.origin,env.TILES);
       }
+      if (url.pathname === '/api/community/vote') {
+        const input=await body(request,2048);
+        await rate(env.DB,`vote-ip:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,60);
+        await env.DB.prepare("DELETE FROM rate_limits WHERE (key LIKE 'vote-ip:%' OR key LIKE 'vote-device:%') AND window<?").bind(Math.floor(Date.now()/60_000)-5).run();
+        return await voteCommunity(request,env.DB,input,(key,limit)=>rate(env.DB,key,limit));
+      }
+      if (url.pathname === '/api/community/override') return await overrideCommunity(request,env.DB,await body(request,2048),env.COMMUNITY_ADMIN_TOKEN);
       if (url.pathname === '/api/community/delete') return await deleteCommunity(request,env.DB,await body(request,2048),env.COMMUNITY_ADMIN_TOKEN);
       const input = await body(request);
       if (url.pathname === '/api/auth/google') {

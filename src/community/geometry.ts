@@ -1,7 +1,7 @@
 export type Point = [number, number];
 export type BBox = [number, number, number, number];
 export interface Detection { coordinates: Point[]; confidence: number }
-export interface Scan { model: string; day: string; area: BBox; lines: Detection[] }
+export interface Scan { model: string; day: string; area: BBox; threshold?: number; sources?: string[]; lines: Detection[] }
 export interface CommunityLine extends Detection {
   id: string;
   scan_count: number;

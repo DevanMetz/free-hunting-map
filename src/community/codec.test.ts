@@ -16,7 +16,7 @@ describe('anonymous scan wire boundary',()=>{
   const valid=encode(scan()),l=valid.lines[0]!;
   const dense = {...l,d:[-90000000,40000000,...Array.from({length:1999},(_,i)=>[i%2?1:-1,0]).flat()]};
   expect(decode({...valid,lines:Array(10).fill(dense)}).lines).toHaveLength(10);
-  for(const lines of [[],Array(201).fill(l),[{...l,d:Array(4002).fill(0)}],Array(11).fill(dense),[{...l,d:[-90000000,40000000,.5,0]}]])expect(()=>decode({...valid,lines})).toThrow();
+  for(const lines of [Array(1001).fill(l),[{...l,d:Array(40002).fill(0)}],Array(76).fill(dense),[{...l,d:[-90000000,40000000,.5,0]}]])expect(()=>decode({...valid,lines})).toThrow();
  });
 });
 

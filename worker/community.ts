@@ -1,29 +1,35 @@
+import { HIDE_MARGIN } from '../src/community/vote';
 import { decode } from '../src/community/codec';
-import { bbox, mergeScan, tiles, type CommunityLine, type BBox } from '../src/community/geometry';
+import { bbox, mergeScan, tiles, simplify, type CommunityLine, type BBox } from '../src/community/geometry';
 import { ApiError } from './sync';
 interface Row { id:string; geometry:string; scan_count:number; model:string; confidence:number; first_seen:string; last_confirmed:string }
 const edgeCache=()=>typeof caches !== 'undefined' && 'default' in caches ? (caches as CacheStorage & {default:Cache}).default : undefined;
 const line=(r:Row):CommunityLine=>({...r,coordinates:JSON.parse(r.geometry) as CommunityLine['coordinates']});
 export const tilePath=(tile:string)=>`/tiles/community/12/${tile}.geojson`;
-async function purge(origin: string, keys: string[]) {
+export async function purge(origin: string, keys: string[]) {
   const cache = edgeCache();
   if (!cache) return;
   const origins = new Set([origin, 'https://freehuntingmap.com', 'https://www.freehuntingmap.com', 'https://open-hunt-map.metzdevan.workers.dev']);
   await Promise.all([...origins].flatMap(host => [...new Set(keys)].map(key => cache.delete(new Request(host + tilePath(key))))));
 }
-export async function uploadCommunity(db:D1Database,raw:unknown,origin:string){
+export async function uploadCommunity(db:D1Database,raw:unknown,origin:string,bucket?:R2Bucket){
   let scan;try{scan=decode(raw);}catch{throw new ApiError(400,'Invalid community scan');}
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(scan)))),n=>n.toString(16).padStart(2,'0')).join('');
+  if (!bucket) throw new ApiError(503,'Training storage unavailable');
+  const rawKey = `training/scans/${hash}.json`;
+  // Immutable, content-addressed raw scan. An interrupted D1 write can safely retry.
+  await bucket.put(rawKey, JSON.stringify(scan), {httpMetadata:{contentType:'application/json'}});
+  const display = {...scan, lines:scan.lines.map(l=>({...l,coordinates:simplify(l.coordinates)}))};
   for(let attempt=0;attempt<5;attempt++){
     if(await db.prepare('SELECT hash FROM community_scans WHERE hash=?').bind(hash).first())throw new ApiError(409,'Duplicate scan');
     const revision=(await db.prepare('SELECT version FROM community_revision WHERE id=1').first<{version:number}>())!.version;
     const [w,s,e,n]=scan.area;
     const rows=await db.prepare('SELECT * FROM community_lines WHERE west<=? AND east>=? AND south<=? AND north>=?').bind(e+.0003,w-.0003,n+.0003,s-.0003).all<Row>();
-    const changed=mergeScan(scan,rows.results.map(line),()=>crypto.randomUUID());
+    const changed=mergeScan(display,rows.results.map(line),()=>crypto.randomUUID());
     const guard='(SELECT version FROM community_revision WHERE id=1)=?';
-    const statements=[db.prepare(`INSERT INTO community_scans SELECT ?,?,?,?,? WHERE ${guard}`).bind(hash,scan.day,scan.model,JSON.stringify(scan.area),scan.lines.length,revision)];
+    const statements=[db.prepare(`INSERT INTO community_scans SELECT ?,?,?,?,?,?,?,? WHERE ${guard}`).bind(hash,scan.day,scan.model,JSON.stringify(scan.area),scan.lines.length,scan.threshold ?? null,JSON.stringify(scan.sources ?? []),rawKey,revision)];
     const affected:string[]=[];
-    for(const l of changed){const b=bbox(l.coordinates);statements.push(db.prepare(`INSERT INTO community_lines SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE ${guard} ON CONFLICT(id) DO UPDATE SET scan_count=excluded.scan_count,model=excluded.model,confidence=excluded.confidence,first_seen=MIN(first_seen,excluded.first_seen),last_confirmed=excluded.last_confirmed`).bind(l.id,JSON.stringify(l.coordinates),...b,l.scan_count,l.model,l.confidence,l.first_seen,l.last_confirmed,revision));
+    for(const l of changed){const b=bbox(l.coordinates);statements.push(db.prepare(`INSERT INTO community_lines (id,geometry,west,south,east,north,scan_count,model,confidence,first_seen,last_confirmed) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE ${guard} ON CONFLICT(id) DO UPDATE SET scan_count=excluded.scan_count,model=excluded.model,confidence=excluded.confidence,first_seen=MIN(first_seen,excluded.first_seen),last_confirmed=excluded.last_confirmed`).bind(l.id,JSON.stringify(l.coordinates),...b,l.scan_count,l.model,l.confidence,l.first_seen,l.last_confirmed,revision));
       for(const key of tiles(b)){affected.push(key);statements.push(db.prepare(`INSERT OR IGNORE INTO community_tiles SELECT ?,? WHERE ${guard}`).bind(key,l.id,revision));}
     }
     statements.push(db.prepare('UPDATE community_revision SET version=version+1 WHERE id=1 AND version=?').bind(revision));
@@ -38,11 +44,11 @@ export async function communityTile(request:Request,db:D1Database):Promise<Respo
   const key=new Request(url.origin+url.pathname);
   const cache=edgeCache();
   if(cache){const cached=await cache.match(key);if(cached)return cached;}
-  const rows=await db.prepare('SELECT l.* FROM community_lines l JOIN community_tiles t ON t.line_id=l.id WHERE t.tile=?').bind(`${+match[1]!}/${+match[2]!}`).all<Row>();
+  const rows=await db.prepare("SELECT l.* FROM community_lines l JOIN community_tiles t ON t.line_id=l.id WHERE t.tile=? AND (l.override='show' OR (l.override IS NULL AND l.not_votes-l.real_votes<?))").bind(`${+match[1]!}/${+match[2]!}`,HIDE_MARGIN).all<Row>();
   const response=Response.json({type:'FeatureCollection',features:rows.results.map(r=>({type:'Feature',id:r.id,geometry:{type:'LineString',coordinates:JSON.parse(r.geometry)},properties:{id:r.id,scan_count:r.scan_count,model:r.model,confidence:r.confidence,first_seen:r.first_seen,last_confirmed:r.last_confirmed}}))},{headers:{'Cache-Control':'public, max-age=300','Content-Type':'application/geo+json; charset=utf-8'}});
   if(cache)await cache.put(key,response.clone());return response;
 }
-async function authorized(request:Request,secret?:string){
+export async function authorized(request:Request,secret?:string){
   const token=request.headers.get('authorization')?.replace(/^Bearer /,'')??'';
   const digest=async(v:string)=>new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)));
   const [a,b]=await Promise.all([digest(token),digest(secret??'')]);let diff=0;for(let i=0;i<a.length;i++)diff|=a[i]!^b[i]!;return !!secret&&!!token&&diff===0;
