@@ -66,7 +66,7 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
-All endpoints below were verified on 2026-10-22 to return tiles/images or parcel GeoJSON (`curl` → HTTP 200 `image/*`, with CORS headers). They are defined in `src/map/sources.ts` and `src/conditions/weather.ts`.
+All endpoints below were verified on 2026-10-22 to return tiles/images or parcel GeoJSON (`curl` → HTTP 200 `image/*`, with CORS headers). They are defined in `src/map/sources.ts`, `src/map/layers/` and `src/conditions/weather.ts`. Vegetation services were verified again on 2026-10-24 over Clark County, Wisconsin: HTTP 200 PNG imagery, nonempty pixels, and CORS allowing `https://freehuntingmap.com`. Viewed imagery and raster attribute tables are cached; identify requests stay live.
 
 | Layer | Endpoint | License / terms |
 |---|---|---|
@@ -86,6 +86,12 @@ All endpoints below were verified on 2026-10-22 to return tiles/images or parcel
 | Springs & seeps / named water identification | `https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/export`, `/0/query`, `/6/query`, `/12/query` | [USGS NHD public domain](https://www.usgs.gov/national-hydrography). Springs filtered to FTYPE 458, z12–19; transparent PNG32 cached. Existing Streams & lakes imagery now identifies stream/lake names and feature type. |
 | Watersheds / subwatersheds | `https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer/export`, `/5/query`, `/6/query` | [USGS / USDA WBD public domain](https://www.usgs.gov/national-hydrography/watershed-boundary-dataset). HUC 10 z9–19 / HUC 12 z11–19; dynamic transparent outlines, viewed images cached; tap for name and HUC. |
 | Riparian areas | `https://imagery.geoplatform.gov/iipp/rest/services/Ecosystems/USFS_EDW_Riparian_Areas/ImageServer/exportImage`, `/identify` | [USFS federal public-domain data](https://www.fs.usda.gov/rds/archive/catalog/RDS-2019-0030). Potential riparian areas, z10–19; Colormap rendering makes class 1 green with noData 0 transparent, 45% default opacity, viewed images cached. |
+| Land cover (2025) | `https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms` — `Land-Cover-Native_conus_year_data`, `time=2025-01-01` | USGS Annual NLCD, [public domain](https://www.usgs.gov/data-management/data-licensing). PNG WMS GetMap + JSON GetFeatureInfo; newest verified MRLC vintage, 30 m, z8–18. |
+| Vegetation type / height (2024) | `https://lfps.usgs.gov/arcgis/rest/services/Landfire_LF2024/LF2024_EVT_CONUS/ImageServer` and `LF2024_EVH_CONUS/ImageServer` | USGS / USFS LANDFIRE, [public domain](https://www.usgs.gov/data-management/data-licensing); PNG32, nodata transparent, z8–18. Raw-pixel identify with full raster attribute tables (including all vegetation classes). |
+| Forest type (2018) | `https://imagery.geoplatform.gov/iipp/rest/services/Vegetation/USFS_FIA_BIGMAP_CONUS_ForestTypeGroup_2018/ImageServer` | USDA Forest Service FIA BIGMAP, [public domain](https://www.usda.gov/about-usda/policies-and-links); PNG32, nonforest transparent; identify by type group. z8–18. |
+| Tree canopy (2025) | `https://imagery.geoplatform.gov/iipp/rest/services/Vegetation/USFS_EDW_NLCD_TCC_CONUS/ImageServer` — `time=1735689600000` | USDA Forest Service NLCD TCC, [public domain](https://www.usda.gov/about-usda/policies-and-links); PNG32, zero/background transparent, pixel identify in percent. z8–18. |
+| Forest ownership | `https://imagery.geoplatform.gov/iipp/rest/services/Lands_Realty/USFS_EDW_ForestOwnership_CONUS/ImageServer` | USDA Forest Service FIA, [public domain](https://www.usda.gov/about-usda/policies-and-links); broad ownership classes, not access rights or parcel boundaries. Nonforest transparent, class identify, z8–18. |
+| Fast vegetation loss | `https://imagery.geoplatform.gov/iipp/rest/services/Vegetation/USFS_EDW_LCMS_MostRecentYearFastLoss_CONUS/ImageServer` | USDA Forest Service LCMS, [public domain](https://www.usda.gov/about-usda/policies-and-links); most recent fast vegetation loss year, 1985–2024. No-loss background transparent; year identify, z8–18. |
 | Weather | `https://api.open-meteo.com/v1/forecast` | [Open-Meteo](https://open-meteo.com): free, no key, for non-commercial use; data CC BY 4.0 (attributed in the conditions panel). |
 | Sun & moon | — | Computed locally with [`suncalc`](https://github.com/mourner/suncalc) (BSD-2-Clause). |
 
@@ -185,7 +191,7 @@ registerLayer({
 });
 ```
 
-New verified endpoints belong in `src/map/sources.ts` and the Data sources table.
+New verified registry endpoints belong in their category module under `src/map/layers/` and the Data sources table.
 A declarative raster is installed on first activation and restored on style swaps.
 For custom sources use `install(map, ctx)`, `setVisible(map, on, ctx)` and
 `setOpacity(map, opacity, ctx)`; declare `layerIds` in drawing order. `ctx.beforeId`
