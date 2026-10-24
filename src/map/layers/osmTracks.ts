@@ -2,7 +2,7 @@ import { registerLayer } from '../layerRegistry';
 import { roadLineDef, roadRows, roadText as text } from '../roadLines';
 
 registerLayer(roadLineDef({
-  id: 'osm-tracks', name: 'OSM tracks', archive: 'osm-tracks', sourceLayer: 'osm',
+  id: 'osm-tracks', name: 'OSM tracks', archive: 'osm-tracks', version: 'v2', sourceLayer: 'osm',
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL)',
   classes: [
     { key: 'grade1', label: 'Grade 1', color: '#50301d', filter: ['==', ['get', 'g'], 1] },

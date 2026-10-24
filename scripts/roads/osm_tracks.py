@@ -44,7 +44,14 @@ def compact(v):
 
 
 def guard(work, reserve=0):
-    used = sum(p.stat().st_size for p in work.rglob('*') if p.is_file())
+    used = 0
+    for path in work.rglob('*'):
+        try:
+            if path.is_file():
+                used += path.stat().st_size
+        except FileNotFoundError:
+            # Concurrent scratch cleanup can remove a directory entry.
+            continue
     if used + reserve > LIMIT or shutil.disk_usage(work).free - reserve < MIN_FREE:
         raise RuntimeError(f'Disk guard: work={used}, requested reserve={reserve}, free={shutil.disk_usage(work).free}')
 
@@ -121,6 +128,7 @@ def acquire(url, dest, work):
         raise RuntimeError('Missing download size; cannot enforce budget')
     size = sizes[-1]
     dest.unlink(missing_ok=True)
+    subprocess.run(['df', '-h', '/'], check=True)
     # Filtered PBF is small; retain 1 GB headroom while the original exists.
     guard(work, size + 10**9)
     checks = []
@@ -246,57 +254,75 @@ def build_tiles(stem, tileinput, work):
     return result
 
 
-def verify_outputs(work, target):
+def verify_outputs(work, stem):
     """Check the full export and decode point tiles independently of tiling."""
     validation = work / 'validation.json'
     results = json.loads(validation.read_text()) if validation.exists() else {}
-    for statsfile in [work / (target + '-stats.json')]:
-     stem=statsfile.name.removesuffix('-stats.json'); stats=json.loads(statsfile.read_text())
-     count=0; grades=collections.Counter(); ids=set()
-     with gzip.open(work/(stem+'.geojsonl.gz'),'rt') as source:
-      for line in source:
-       f=json.loads(line); p=f['properties']; g=f['geometry']
-       assert f['type']=='Feature' and g['type']=='LineString'
-       assert set(p)<= {'g','s','a','n','id'} and {'g','id'}<=set(p)
-       assert type(p['g']) is int and p['g'] in range(6) and type(p['id']) is int
-       assert all(isinstance(p[k],str) for k in ['s','a','n'] if k in p)
-       coords=g['coordinates']; assert len(set(map(tuple,coords)))>=2
-       for xy in coords:
-        assert len(xy)==2 and -180<=xy[0]<=180 and -90<=xy[1]<=90
-        assert all(v==round(v,6) for v in xy)
-       count+=1; grades[str(p['g'])]+=1; ids.add(p['id'])
-     assert count==stats['count'] and dict(grades)==stats['grades']
-     archive=work/(stem+'.pmtiles'); digest=hashlib.file_digest(archive.open('rb'),'sha256').hexdigest()
-     assert archive.stat().st_size==stats['archive_bytes'] and digest==stats['sha256']
-     checks=[]
-     with archive.open('rb') as f:
-      reader=Reader(MmapSource(f)); h=reader.header(); meta=reader.metadata()
-      assert (h['min_zoom'],h['max_zoom'])==(8,14)
-      assert [l['id'] for l in meta['vector_layers']]==['osm']
-      for z in range(8,15):
-       x=int((-90.81941+180)/360*2**z);y=int((1-math.asinh(math.tan(math.radians(44.51971)))/math.pi)/2*2**z)
-       data=reader.get(z,x,y)
-       if z<10: assert data is None
-       if data:
-        decoded=mapbox_vector_tile.decode(gzip.decompress(data));assert list(decoded)==['osm']
-        features=decoded['osm']['features'];assert features
-        for ft in features:
-         p=ft['properties']; assert {'id','g'}<=set(p) and set(p)<={'g','s','a','n','id'}
-         assert p['g'] in range(6)
-         assert all(isinstance(p[k],str) for k in ['s','a','n'] if k in p)
-        checks.append({'z':z,'x':x,'y':y,'features':len(features),'bytes':len(data)})
-     results[stem]={'passed':True,'features':count,'unique_osm_ways':len(ids),'grades':dict(grades),'sha256':digest,'wildcat_decoded_tiles':checks,'schema':meta['vector_layers'][0]}
-     print(stem, count, 'features;',len(ids),'unique ways; verified',flush=True)
-    (work/'validation.json').write_text(json.dumps(results,indent=2)+'\n')
+    stats = json.loads((work / (stem + '-stats.json')).read_text())
+    count = 0
+    grades = collections.Counter()
+    ids = set()
+    fields = {'g', 's', 'a', 'n', 'id'}
+    with gzip.open(work / (stem + '.geojsonl.gz'), 'rt') as source:
+        for line in source:
+            feature = json.loads(line)
+            props, geom = feature['properties'], feature['geometry']
+            assert feature['type'] == 'Feature' and geom['type'] == 'LineString'
+            assert {'g', 'id'} <= set(props) <= fields
+            assert type(props['g']) is int and props['g'] in range(6)
+            assert type(props['id']) is int
+            assert all(isinstance(props[k], str) for k in ('s', 'a', 'n') if k in props)
+            coords = geom['coordinates']
+            assert len(set(map(tuple, coords))) >= 2
+            for xy in coords:
+                assert len(xy) == 2 and -180 <= xy[0] <= 180 and -90 <= xy[1] <= 90
+                assert all(value == round(value, 6) for value in xy)
+            count += 1
+            grades[str(props['g'])] += 1
+            ids.add(props['id'])
+    assert count == stats['count'] and dict(grades) == stats['grades']
+    archive = work / (stem + '.pmtiles')
+    with archive.open('rb') as f:
+        digest = hashlib.file_digest(f, 'sha256').hexdigest()
+    assert archive.stat().st_size == stats['archive_bytes'] and digest == stats['sha256']
+    checks = []
+    with archive.open('rb') as f:
+        reader = Reader(MmapSource(f))
+        header, meta = reader.header(), reader.metadata()
+        assert (header['min_zoom'], header['max_zoom']) == (8, 14)
+        assert [layer['id'] for layer in meta['vector_layers']] == ['osm']
+        for z in range(8, 15):
+            x = int((-90.81941 + 180) / 360 * 2**z)
+            y = int((1 - math.asinh(math.tan(math.radians(44.51971))) / math.pi) / 2 * 2**z)
+            data = reader.get(z, x, y)
+            if z < 10:
+                assert data is None
+            if data:
+                decoded = mapbox_vector_tile.decode(gzip.decompress(data))
+                assert list(decoded) == ['osm']
+                features = decoded['osm']['features']
+                assert features
+                for feature in features:
+                    props = feature['properties']
+                    assert {'g', 'id'} <= set(props) <= fields
+                    assert props['g'] in range(6)
+                    assert all(isinstance(props[k], str) for k in ('s', 'a', 'n') if k in props)
+                checks.append({'z': z, 'x': x, 'y': y, 'features': len(features), 'bytes': len(data)})
+    results[stem] = {'passed': True, 'features': count, 'unique_osm_ways': len(ids),
+                     'grades': dict(grades), 'sha256': digest, 'wildcat_decoded_tiles': checks,
+                     'schema': meta['vector_layers'][0]}
+    validation.write_text(json.dumps(results, indent=2) + '\n')
+    print(stem, count, 'features;', len(ids), 'unique ways; verified', flush=True)
+
 
 def report(work):
     lines = ['# OSM highway=track build', '', 'Attribution: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright).',
              '', 'License: [ODbL 1.0]('+LICENSE+'). The exported filtered, normalized derived databases are distributed under ODbL 1.0; preserve attribution and license notices and comply with its share-alike/source-availability requirements when publicly using or redistributing a derivative database. These OSM labels are not public domain.',
-             '', 'License evidence: https://download.geofabrik.de/ explicitly links ODbL 1.0; https://www.openstreetmap.org/copyright identifies ODbL and attribution/share-alike requirements. Both were verified with real requests during this run (2026-10-24).',
+             '', 'License evidence: https://download.geofabrik.de/ explicitly links ODbL 1.0; https://www.openstreetmap.org/copyright identifies ODbL and attribution/share-alike requirements. License pages were verified with real requests on 2026-10-24; acquisition checks are recorded per run.',
              '', 'Acquisition uses HTTP/1.1 with retries. Each source URL, complete successful HEAD response (including redirect, content type, byte length, Last-Modified), download length, verified byte-range responses for the national extract and PBF timestamp are recorded in the corresponding `*-sources.json`. GET downloads were checked by osmium fileinfo and tags-filter.',
              '', 'One vector layer `osm`; header zooms 8–14, feature minimum zoom 10 (z8–9 intentionally empty). z8–11 may drop dense lines; independent z12–14 build uses --no-feature-limit --no-tile-size-limit. Tile-join uses no tile-size limit. Geometry is zoom-simplified by tippecanoe. Source geometries in exports are unsimplified except six-decimal rounding and lower-48 bbox clipping.',
              '', 'Properties: `g` integer tracktype grade 1–5, or 0 for missing/unrecognized; `id` integer OSM way ID; optional `s` surface, `a` access, `n` name strings. Exports are newline-delimited GeoJSON (GeoJSONSeq without RS), gzip-compressed, EPSG:4326, six-decimal coordinates. Tracktype is a physical grade, not access permission. No access filtering is applied.',
-             '', 'Midwest coverage: Geofabrik Wisconsin, Minnesota, Michigan, Iowa, Illinois extract footprints, including complete cross-border ways; duplicate way IDs retained once. National coverage: US extract clipped to [-124.85,24.4,-66.85,49.4], the lower-48 envelope (not a land/state mask); Alaska/Hawaii/territories outside it excluded. Only highway=track ways with LineString geometry are exported; other highway classes, point/area/relation geometries and degenerate rounded lines are excluded. osmium export stops on geometry errors.',
+             '', 'Midwest coverage: Geofabrik Wisconsin, Minnesota, Michigan, Iowa, Illinois extract footprints, including complete cross-border ways; duplicate way IDs retained once. National coverage: US extract clipped to [-124.85,24.4,-66.85,49.4], the lower-48 envelope (not a land/state mask); Alaska/Hawaii/territories outside it excluded. Counts describe output line segments; the national bbox intersection can node/split self-intersecting ways, so the unique OSM way counts are listed under Validation. Only highway=track ways with LineString geometry are exported; other highway classes, point/area/relation geometries and degenerate rounded lines are excluded. osmium export stops on geometry errors.',
              '', 'Lengths: WGS84 ellipsoidal line lengths. Wildcat Ln: (-90.81941,44.51971); counts within 5 km use distance to each line in a local azimuthal equidistant projection; grade 0 includes missing/unrecognized tracktype.', '']
     for path in sorted(work.glob('osm-tracks*-stats.json')):
         s = json.loads(path.read_text()); stem = path.name.removesuffix('-stats.json')
@@ -310,7 +336,7 @@ def report(work):
         lines += ['']
     validation = work / 'validation.json'
     if validation.exists():
-        lines += ['## Validation', '', 'Full export schema, geometry, coordinate precision, grade counts and archive SHA256 checks; PMTiles header/layer checks and decoded Wildcat tiles are recorded in `validation.json`.']
+        lines += ['## Validation', '', 'Full export schema, geometry, coordinate precision, grade counts and archive SHA256 checks; PMTiles header/layer checks and decoded Wildcat tiles are recorded in `validation.json`.', '']
         for name, result in json.loads(validation.read_text()).items():
             lines += [f'- {name}: passed; {result["features"]:,} line features, {result["unique_osm_ways"]:,} unique OSM ways.']
         lines += ['', 'Decoded feature counts are in `validation.json`. A missing exact-point z14 tile means nearby tracks fall outside that small tile. Archive vector metadata can infer `n` as Mixed for numeric-looking source names; explicit attribute typing keeps tile values as strings.', '']
@@ -325,13 +351,15 @@ def main():
     for region in (['midwest','lower48'] if args.region == 'both' else [args.region]):
         stem = 'osm-tracks-midwest' if region == 'midwest' else 'osm-tracks'
         statfile = args.work / (stem+'-stats.json')
-        if not statfile.exists():
+        outputs = [statfile, args.work / (stem+'.pmtiles'), args.work / (stem+'.geojsonl.gz')]
+        if not all(path.exists() for path in outputs):
             guard(args.work)
             checkpoint = args.work / (stem+'-normalized.json')
             tileinput = args.work / ('scratch-'+region) / 'tiles.geojsonl'
             if checkpoint.exists() and tileinput.exists():
                 stats = json.loads(checkpoint.read_text())
             else:
+                checkpoint.unlink(missing_ok=True)
                 stats, tileinput = normalize(region, args.work, stem)
                 checkpoint.write_text(json.dumps(stats, indent=2))
             stats.update(build_tiles(stem, tileinput, args.work))

@@ -8,7 +8,7 @@ it('osm-tracks: registers, installs valid cased lines below labels and caches it
   const def = layerRegistry.get('osm-tracks')!;
   expect(def).toMatchObject({ category: 'trails', minzoom: 10, cacheStrategy: 'CacheFirst', identifyPresentation: 'sheet' });
   expect(def.attribution).toContain('OpenStreetMap');
-  expect(def.cacheRoute!.test('https://freehuntingmap.com/tiles/osm-tracks/v1/12/1/2.mvt')).toBe(true);
+  expect(def.cacheRoute!.test('https://freehuntingmap.com/tiles/osm-tracks/v2/12/1/2.mvt')).toBe(true);
   expect(def.cacheRoute!.test('https://freehuntingmap.com/tiles/other/v1/12/1/2.mvt')).toBe(false);
   const sources: Record<string, SourceSpecification> = {};
   const layers: LayerSpecification[] = [];
@@ -28,7 +28,7 @@ it('osm-tracks: registers, installs valid cased lines below labels and caches it
     expect(validateStyleMin({ version: 8, sources, layers })).toEqual([]);
     expect(layers.every(layer => 'source-layer' in layer && layer['source-layer'] === 'osm')).toBe(true);
   }
-  expect(sources[def.id]).toMatchObject({ type: 'vector', minzoom: 8, maxzoom: 14, attribution: def.attribution, tiles: ['/tiles/osm-tracks/v1/{z}/{x}/{y}.mvt'] });
+  expect(sources[def.id]).toMatchObject({ type: 'vector', minzoom: 8, maxzoom: 14, attribution: def.attribution, tiles: ['/tiles/osm-tracks/v2/{z}/{x}/{y}.mvt'] });
   expect(layers.map(layer => layer.id)).toEqual(def.layerIds);
   for (const call of map.addLayer.mock.calls) expect(call[1]).toBe('labels');
   const installed = layers.length;
