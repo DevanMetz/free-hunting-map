@@ -22,12 +22,11 @@ describe('CACHE_ROUTES', () => {
   });
 });
 
-it('caches parcel and water requests, excluding all DNR requests', async () => {
+it('caches parcel, water and deer imagery while keeping DNR identification live', async () => {
   const { PARCELS_QUERY, NHD_TILES, NWI_EXPORT, DEER_EXPORT, DEER_SERVICE } = await import('./sources');
   expect(CACHE_ROUTES.parcels.test(PARCELS_QUERY + '?where=1%3D1')).toBe(true);
   expect(CACHE_ROUTES.nhd.test(NHD_TILES)).toBe(true);
   expect(CACHE_ROUTES.nwi.test(NWI_EXPORT)).toBe(true);
-  for (const url of [DEER_EXPORT, DEER_SERVICE + '/2/query?f=json']) {
-    expect(Object.values(CACHE_ROUTES).some(pattern => pattern.test(url))).toBe(false);
-  }
+  expect(CACHE_ROUTES.deer.test(DEER_EXPORT)).toBe(true);
+  expect(Object.values(CACHE_ROUTES).some(pattern => pattern.test(DEER_SERVICE + '/2/query?f=json'))).toBe(false);
 });

@@ -2,6 +2,8 @@ import { version } from './package.json';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { CACHE_ROUTES } from './src/map/cacheRoutes';
+import { layerRegistry } from './src/map/layerRegistry';
+import './src/map/builtinLayers';
 
 const DAY = 60 * 60 * 24;
 
@@ -76,7 +78,7 @@ export default defineConfig({
           { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/api/'), handler: 'NetworkOnly', method: 'POST' },
           { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/assets/') && /\.m?js$/.test(url.pathname), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-modules-v1' } },
           { urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/lidar/'), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-assets-v1' } },
-          { urlPattern: /^https:\/\/dnrmaps\.wi\.gov\//, handler: 'NetworkOnly' },
+
           tileCache('parcels', CACHE_ROUTES.parcels, 4000),
           tileCache('tiles-nhd', CACHE_ROUTES.nhd, 3000),
           tileCache('tiles-nwi', CACHE_ROUTES.nwi, 3000),
@@ -84,6 +86,7 @@ export default defineConfig({
           tileCache('tiles-usgs-imagery', CACHE_ROUTES.usgsImagery, 4000),
           tileCache('tiles-padus', CACHE_ROUTES.padus, 3000),
           tileCache('tiles-hillshade', CACHE_ROUTES.hillshade, 3000),
+          ...layerRegistry.cacheRoutes().map(pattern => tileCache('tiles-data-layers', pattern, 6000)),
           tileCache('tiles-openfreemap', CACHE_ROUTES.openfreemapTiles, 4000),
           {
             urlPattern: CACHE_ROUTES.openfreemapStyles,

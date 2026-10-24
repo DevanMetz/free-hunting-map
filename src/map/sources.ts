@@ -84,3 +84,10 @@ export const DEER_ATTR = 'Wisconsin DNR';
 /** Full-density 3DEP point clouds and v4 gap-fill elevation (USGS public domain). */
 export const LIDAR_EPT_ROOT = 'https://s3-us-west-2.amazonaws.com/usgs-lidar-public';
 export const LIDAR_DEM_ROOT = 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage';
+
+/** Verified colored 3DEP server functions, USGS public domain. */
+const terrainExport = (name: string): string => LIDAR_DEM_ROOT +
+  '?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&renderingRule=' +
+  encodeURIComponent(JSON.stringify({ rasterFunction: name })) + '&f=image';
+export const SLOPE_EXPORT = terrainExport('Slope Map');
+export const ASPECT_EXPORT = terrainExport('Aspect Map');

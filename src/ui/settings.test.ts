@@ -1,20 +1,29 @@
 import { expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from './settings';
-it('defaults overlays off while preserving saved toggles', () => {
-  expect(DEFAULT_SETTINGS).toMatchObject({ parcels: false, water: false, deerUnits: false });
-  expect({ ...DEFAULT_SETTINGS, ...{ water: true } }).toMatchObject({ parcels: false, water: true, deerUnits: false });
-});
-
-import { loadSettings } from './settings';
+import { DEFAULT_SETTINGS, loadSettings } from './settings';
 import { PUBLIC_LANDS, publicLandDefaults } from '../map/publicLands';
-it('defaults each category off and migrates the legacy toggle', () => {
-  expect(loadSettings().publicLand).toEqual(publicLandDefaults());
-  expect(loadSettings({ publicLands: true }).publicLand).toEqual(publicLandDefaults(true));
-  expect(loadSettings({ publicLands: false }).publicLand).toEqual(publicLandDefaults());
-  const state = publicLandDefaults();
-  state.usfs = true;
-  expect(loadSettings({ publicLands: true, publicLand: state }).publicLand).toEqual(state);
-  expect(loadSettings({ publicLands: true })).not.toHaveProperty('publicLands');
-  loadSettings().publicLand.usfs = true;
-  expect(PUBLIC_LANDS.every(c => !DEFAULT_SETTINGS.publicLand[c.id])).toBe(true);
+it('defaults overlays off with fresh state per load', () => {
+  const state = loadSettings(); expect(Object.values(state.layers).every(v => !v.on)).toBe(true);
+  state.layers.hillshade!.on = true; expect(loadSettings().layers.hillshade!.on).toBe(false);
+  expect(DEFAULT_SETTINGS.layers).toEqual({});
+});
+it('migrates old toggles including water to both layers and individual public land choices', () => {
+  const saved = loadSettings({ publicLands: true, hillshade: true, parcels: true, water: true, deerUnits: true });
+  for (const c of PUBLIC_LANDS) expect(saved.layers[`padus-${c.id}`]!.on).toBe(true);
+  for (const id of ['hillshade', 'parcels', 'water-nhd', 'water-nwi', 'deer-units']) expect(saved.layers[id]!.on).toBe(true);
+  expect(saved).not.toHaveProperty('water'); expect(saved).not.toHaveProperty('publicLands');
+  const publicLand = { ...publicLandDefaults(), usfs: true };
+  const individual = loadSettings({ publicLands: true, publicLand });
+  expect(PUBLIC_LANDS.filter(c => individual.layers[`padus-${c.id}`]!.on).map(c => c.id)).toEqual(['usfs']);
+});
+it('new state wins over legacy and retains unknown IDs and category memories', () => {
+  const saved = loadSettings({ water: true, layers: { 'water-nhd': { on: false, opacity: 0.4 }, future: { on: true, opacity: 0.6 } }, collapsed: { water: true }, remembered: { terrain: ['future'] } });
+  expect(saved.layers['water-nhd']).toEqual({ on: false, opacity: 0.4 });
+  expect(saved.layers.future).toEqual({ on: true, opacity: 0.6 });
+  expect(saved.collapsed).toEqual({ water: true }); expect(saved.remembered.terrain).toEqual(['future']);
+  expect(loadSettings(saved)).toEqual(saved);
+});
+it('clamps persisted opacity and label sizes', () => {
+  const state = loadSettings({ layers: { future: { on: true, opacity: 3 }, slope: { on: true, opacity: NaN } }, labelScale: 100 });
+  expect(state.layers.future!.opacity).toBe(1); expect(state.layers.slope!.opacity).toBe(0.65);
+  expect(state.labelScale).toBeLessThan(100);
 });

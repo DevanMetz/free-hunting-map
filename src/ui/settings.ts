@@ -1,27 +1,39 @@
-import { publicLandDefaults } from '../map/publicLands';
+import { PUBLIC_LANDS } from '../map/publicLands';
 import { clampLabelScale } from '../map/labels';
+import { layerRegistry } from '../map/layerRegistry';
+import '../map/builtinLayers';
 import type { MapState, MapView } from '../map/map';
 
-export interface Settings extends MapState {
-  view: MapView;
-}
-
+export interface Settings extends MapState { view: MapView }
 export const DEFAULT_SETTINGS: Settings = {
-  basemap: 'topo',
-  publicLand: publicLandDefaults(),
-  hillshade: false,
-  parcels: false,
-  water: false,
-  deerUnits: false,
-  labels: true,
-  labelScale: 1,
-  view: { center: [-98.5, 39.8], zoom: 3.5 },
+  basemap: 'topo', layers: {}, collapsed: {}, remembered: {},
+  labels: true, labelScale: 1, view: { center: [-98.5, 39.8], zoom: 3.5 },
 };
-
-
-export function loadSettings(saved?: Partial<Settings> & { publicLands?: boolean }): Settings {
-  const { publicLands, ...current } = saved ?? {};
-  return { ...DEFAULT_SETTINGS, ...current,
-    publicLand: { ...publicLandDefaults(!current.publicLand && publicLands === true), ...current.publicLand },
-    labelScale: clampLabelScale(current.labelScale) };
+type LegacySettings = Partial<Settings> & {
+  publicLands?: boolean; publicLand?: Record<string, boolean>;
+  hillshade?: boolean; parcels?: boolean; water?: boolean; deerUnits?: boolean;
+};
+export function loadSettings(saved: LegacySettings = {}): Settings {
+  const state: Settings = { ...DEFAULT_SETTINGS,
+    basemap: saved.basemap ?? DEFAULT_SETTINGS.basemap,
+    labels: saved.labels ?? true, labelScale: clampLabelScale(saved.labelScale),
+    view: saved.view ?? { ...DEFAULT_SETTINGS.view, center: [...DEFAULT_SETTINGS.view.center] },
+    layers: {}, collapsed: { ...saved.collapsed },
+    remembered: Object.fromEntries(Object.entries(saved.remembered ?? {}).map(([id, ids]) => [id, [...ids]])),
+  };
+  const legacy = {
+    ...Object.fromEntries(PUBLIC_LANDS.map(c => [`padus-${c.id}`, saved.publicLand ? saved.publicLand[c.id] === true : saved.publicLands === true])),
+    hillshade: saved.hillshade === true, parcels: saved.parcels === true,
+    'water-nhd': saved.water === true, 'water-nwi': saved.water === true, 'deer-units': saved.deerUnits === true,
+  };
+  for (const def of layerRegistry.layers()) if (!def.action) state.layers[def.id] = {
+    on: legacy[def.id as keyof typeof legacy] ?? def.defaultOn ?? false, opacity: def.defaultOpacity,
+  };
+  for (const [id, value] of Object.entries(saved.layers ?? {})) {
+    if (value && typeof value.on === 'boolean') state.layers[id] = {
+      on: value.on, opacity: typeof value.opacity === 'number' && Number.isFinite(value.opacity)
+        ? Math.max(0, Math.min(1, value.opacity)) : layerRegistry.get(id)?.defaultOpacity ?? 1,
+    };
+  }
+  return state;
 }

@@ -1,5 +1,6 @@
 /** Service-worker runtime-cache URL patterns (used by vite.config.ts; tested against real endpoint URLs). */
 export const CACHE_ROUTES = {
+  deer: /^https:\/\/dnrmaps\.wi\.gov\/arcgis\/rest\/services\/WM_CWD\/WM_DMU_MSU_DMZ_Ext\/MapServer\/export\?/,
   parcels: /^https:\/\/services3\.arcgis\.com\/n6uYoouQZW75n5WI\/arcgis\/rest\/services\/Wisconsin_Statewide_Parcels_DB\/FeatureServer\/0\/query\?/,
   nhd: /^https:\/\/basemap\.nationalmap\.gov\/arcgis\/rest\/services\/USGSHydroCached\/MapServer\/tile\//,
   nwi: /^https:\/\/fwspublicservices\.wim\.usgs\.gov\/wetlandsmapservice\/rest\/services\/Wetlands\/MapServer\/export\?/,

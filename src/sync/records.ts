@@ -22,6 +22,16 @@ export function portablePreferences(value: unknown): Record<string, unknown> {
     const p = r.publicLand as Record<string, unknown>;
     out.publicLand = Object.fromEntries(lands.filter(k => typeof p[k] === 'boolean').map(k => [k, p[k]]));
   }
+  if (r.layers && typeof r.layers === 'object') {
+    out.layers = Object.fromEntries(Object.entries(r.layers).flatMap(([id, value]) => {
+      const v = value as Record<string, unknown> | null;
+      return id.length <= 120 && v && typeof v.on === 'boolean' && typeof v.opacity === 'number' && Number.isFinite(v.opacity)
+        ? [[id, { on: v.on, opacity: Math.max(0, Math.min(1, v.opacity)) }]] : [];
+    }));
+  }
+  if (r.collapsed && typeof r.collapsed === 'object') out.collapsed = Object.fromEntries(Object.entries(r.collapsed).filter(([, v]) => typeof v === 'boolean'));
+  if (r.remembered && typeof r.remembered === 'object') out.remembered = Object.fromEntries(Object.entries(r.remembered).flatMap(([id, v]) =>
+    Array.isArray(v) ? [[id, v.filter((s): s is string => typeof s === 'string' && s.length <= 120).slice(0, 200)]] : []));
   return out;
 }
 

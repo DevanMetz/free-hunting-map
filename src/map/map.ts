@@ -13,9 +13,9 @@ import { WAYPOINT_ICONS, type Item, type LngLat } from '../types';
 import { loadIconImage } from './icons';
 import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, clampLabelScale, labelLayers, labelTextSizes, labelsSource, roadLineLayers } from './labels';
 import { ParcelLoader } from './parcels';
-import { DEER_EXPORT, DEER_ATTR, NHD_TILES, NHD_ATTR, NWI_EXPORT, NWI_ATTR, PARCELS_ATTR, basemapStyle, HILLSHADE_ATTR, HILLSHADE_EXPORT, PADUS_ATTR, type BasemapId } from './sources';
-
-import { PUBLIC_LANDS, publicLandExportUrl, type PublicLandId, type PublicLandState } from './publicLands';
+import { basemapStyle, type BasemapId } from './sources';
+import { layerRegistry, layerSetting, type LayerDef, type LayerContext, type LayerPreferences } from './layerRegistry';
+import './builtinLayers';
 
 // MapLibre v6 ships its worker as a separate module; point it at the bundled asset.
 setWorkerUrl(workerUrl);
@@ -26,13 +26,8 @@ const SRC_ITEMS_PT = 'ohm-items-pt';
 const SRC_ITEMS_LN = 'ohm-items-ln';
 const SRC_SKETCH = 'ohm-sketch';
 
-export interface MapState {
+export interface MapState extends LayerPreferences {
   basemap: BasemapId;
-  publicLand: PublicLandState;
-  hillshade: boolean;
-  parcels: boolean;
-  water: boolean;
-  deerUnits: boolean;
   labels: boolean;
   labelScale: number;
 }
@@ -73,48 +68,80 @@ export class HuntMap {
     });
     this.map.addControl(this.geolocate, 'top-left');
     this.map.addControl(new ScaleControl({ unit: 'imperial' }), 'bottom-left');
-    this.map.on('style.load', () => void this.installOverlays());
+    this.map.on('style.load', () => { this.styleReady = true; this.installed.clear(); void this.installOverlays(); });
+    const unsubscribe = layerRegistry.subscribe(() => this.syncLayers());
+    this.map.on('remove', unsubscribe);
   }
 
   get mapState(): MapState {
-    return { ...this.state, publicLand: { ...this.state.publicLand } };
+    return { ...this.state, layers: Object.fromEntries(Object.entries(this.state.layers).map(([id, value]) => [id, { ...value }])),
+      collapsed: { ...this.state.collapsed }, remembered: Object.fromEntries(Object.entries(this.state.remembered).map(([id, ids]) => [id, [...ids]])) };
   }
 
   setBasemap(id: BasemapId): void {
     if (id === this.state.basemap) return;
     this.state.basemap = id;
+    this.styleReady = false;
     this.map.setStyle(basemapStyle(id), { diff: false });
   }
 
-  setHillshade(on: boolean): void {
-    this.state.hillshade = on;
-    if (this.map.getLayer('hillshade')) this.map.setLayoutProperty('hillshade', 'visibility', on ? 'visible' : 'none');
+  private installed = new Set<string>();
+  private styleReady = false;
+
+  setLayer(id: string, on: boolean): void {
+    const def = layerRegistry.get(id);
+    const value = this.state.layers[id] ?? { on: false, opacity: def?.defaultOpacity ?? 1 };
+    this.state.layers[id] = { ...value, on };
+    this.syncLayers();
   }
 
-  setPublicLand(id: PublicLandId, on: boolean): void {
-    this.state.publicLand[id] = on;
-    this.setVisibility([`padus-${id}`], on);
+  setLayerOpacity(id: string, opacity: number): void {
+    const def = layerRegistry.get(id);
+    if (!def || !Number.isFinite(opacity)) return;
+    this.state.layers[id] = { ...layerSetting(this.state, def), opacity: Math.max(0, Math.min(1, opacity)) };
+    this.syncLayers();
   }
 
-  setParcels(on: boolean): void {
-    this.state.parcels = on;
-    this.setVisibility(['parcels-fill', 'parcels-line'], on);
-    this.parcelLoader.setEnabled(on);
+  setCategoryCollapsed(id: string, collapsed: boolean): void { this.state.collapsed[id] = collapsed; }
+  setCategoryRemembered(id: string, ids: string[]): void { this.state.remembered[id] = [...ids]; }
+
+  private layerContext(beforeId?: string): LayerContext {
+    return { basemap: this.state.basemap, beforeId, setParcelsEnabled: on => this.parcelLoader.setEnabled(on) };
   }
 
-  setWater(on: boolean): void {
-    this.state.water = on;
-    this.setVisibility(['water-nhd', 'water-nwi'], on);
+  private syncLayers(): void {
+    if (!this.styleReady) return;
+    const m = this.map;
+    // Insert before basemap labels/roads and before application overlays.
+    const before = m.getStyle()?.layers?.find(layer => !this.dataLayerIds().has(layer.id) &&
+      (layer.type === 'line' || layer.type === 'symbol' || layer.id.startsWith('ohm-')))?.id;
+    for (const def of layerRegistry.layers()) {
+      if (def.action) continue;
+      const value = layerSetting(this.state, def);
+      const ctx = this.layerContext(before);
+      if (value.on && !this.installed.has(def.id)) {
+        if (def.source) {
+          const { kind: _kind, ...source } = def.source;
+          m.addSource(def.id, { type: 'raster', tileSize: 256, ...source, attribution: def.attribution });
+          m.addLayer({ id: def.id, type: 'raster', source: def.id, minzoom: def.minzoom, maxzoom: def.maxzoom }, before);
+        } else def.install?.(m, ctx);
+        this.installed.add(def.id);
+      }
+      if (!this.installed.has(def.id)) continue;
+      if (def.source) {
+        m.setLayoutProperty(def.id, 'visibility', value.on ? 'visible' : 'none');
+        m.setPaintProperty(def.id, 'raster-opacity', value.opacity);
+      } else {
+        def.setVisible?.(m, value.on, ctx);
+        def.setOpacity?.(m, value.opacity, ctx);
+      }
+    }
+    // Turning an earlier category on later still preserves registry order.
+    for (const def of layerRegistry.layers()) for (const id of this.layerIds(def)) if (m.getLayer(id)) m.moveLayer(id, before);
   }
 
-  setDeerUnits(on: boolean): void {
-    this.state.deerUnits = on;
-    this.setVisibility(['deer-units'], on);
-  }
-
-  private setVisibility(ids: string[], on: boolean): void {
-    for (const id of ids) if (this.map.getLayer(id)) this.map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
-  }
+  private layerIds(def: LayerDef): string[] { return def.layerIds ?? (def.source ? [def.id] : []); }
+  private dataLayerIds(): Set<string> { return new Set(layerRegistry.layers().flatMap(def => this.layerIds(def))); }
 
   setLabels(on: boolean): void {
     this.state.labels = on;
@@ -149,51 +176,7 @@ export class HuntMap {
 
   private async installOverlays(): Promise<void> {
     const m = this.map;
-    const before = m.getStyle()?.layers?.find(layer => layer.type === 'line' || layer.type === 'symbol')?.id;
-    if (!m.getSource('hillshade')) {
-      m.addSource('hillshade', {
-        type: 'raster', tiles: [HILLSHADE_EXPORT], tileSize: 256, minzoom: 11, maxzoom: 17, attribution: HILLSHADE_ATTR,
-      });
-      // Preserve the streets basemap's road lines and labels above the shading.
-      m.addLayer({
-        id: 'hillshade',
-        type: 'raster',
-        source: 'hillshade',
-        paint: { 'raster-opacity': this.state.basemap === 'satellite' ? 0.45 : 0.55, 'raster-contrast': 0.2 },
-        layout: { visibility: this.state.hillshade ? 'visible' : 'none' },
-      }, before);
-    }
-    for (const [id, tiles, attribution, minzoom, opacity] of [
-      ['water-nhd', NHD_TILES, NHD_ATTR, 0, 1],
-      ['water-nwi', NWI_EXPORT, NWI_ATTR, 11, 0.7],
-    ] as const) {
-      if (!m.getSource(id)) {
-        m.addSource(id, { type: 'raster', tiles: [tiles], tileSize: 256, maxzoom: 16, attribution });
-        m.addLayer({ id, type: 'raster', source: id, minzoom, paint: { 'raster-opacity': opacity }, layout: { visibility: this.state.water ? 'visible' : 'none' } }, before);
-      }
-    }
-    for (const category of PUBLIC_LANDS) {
-      const id = `padus-${category.id}`;
-      if (!m.getSource(id)) {
-        m.addSource(id, { type: 'raster', tiles: [publicLandExportUrl(category)], tileSize: 256, minzoom: 5, attribution: PADUS_ATTR });
-        m.addLayer({ id, type: 'raster', source: id, minzoom: 5,
-          layout: { visibility: this.state.publicLand[category.id] ? 'visible' : 'none' } }, before);
-      }
-    }
-    if (!m.getSource('parcels')) {
-      m.addSource('parcels', { type: 'geojson', data: emptyFC(), attribution: PARCELS_ATTR });
-      const layout = { visibility: this.state.parcels ? 'visible' as const : 'none' as const };
-      m.addLayer({ id: 'parcels-fill', type: 'fill', source: 'parcels', minzoom: 13, layout, paint: { 'fill-opacity': 0 } }, before);
-      m.addLayer({ id: 'parcels-line', type: 'line', source: 'parcels', minzoom: 13, layout, paint: {
-        'line-color': this.state.basemap === 'satellite' ? '#ffd400' : '#b0306a',
-        'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.6, 17, 1.6],
-      } }, before);
-    }
-    this.parcelLoader.setEnabled(this.state.parcels);
-    if (!m.getSource('deer-units')) {
-      m.addSource('deer-units', { type: 'raster', tiles: [DEER_EXPORT], tileSize: 256, attribution: DEER_ATTR });
-      m.addLayer({ id: 'deer-units', type: 'raster', source: 'deer-units', minzoom: 6, layout: { visibility: this.state.deerUnits ? 'visible' : 'none' }, paint: { 'raster-opacity': 0.8 } }, before);
-    }
+    this.syncLayers();
     // Streets (OpenFreeMap Liberty) has its own labels. Added before our tracks/waypoints so those draw on top.
     const { basemap } = this.state;
     if (basemap !== 'streets' && !m.getSource(LABELS_SOURCE_ID)) {
