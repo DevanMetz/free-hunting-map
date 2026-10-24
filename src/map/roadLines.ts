@@ -4,7 +4,7 @@ import { trailAt } from './trails';
 
 interface RoadClass { key: string; label: string; color: string; dash?: number[]; filter?: FilterSpecification }
 interface RoadOptions {
-  id: string; name: string; archive: string; sourceLayer: string; attribution: string;
+  id: string; name: string; archive: string; version?: string; sourceLayer: string; attribution: string;
   classes: RoadClass[];
   details(properties: Record<string, unknown>): IdentifyResult;
 }
@@ -13,7 +13,7 @@ export const roadRows = (rows: [string, string][]): [string, string][] => rows.f
 
 /** Shared mechanics only; each inventory owns its schema, styles and registration. */
 export function roadLineDef(options: RoadOptions): LayerDef {
-  const { id, name, archive, sourceLayer, attribution, classes } = options;
+  const { id, name, archive, version = 'v1', sourceLayer, attribution, classes } = options;
   const hits = classes.map(c => `${id}-${c.key}`);
   const layerIds = hits.flatMap(hit => [`${hit}-casing`, hit]);
   return {
@@ -22,7 +22,7 @@ export function roadLineDef(options: RoadOptions): LayerDef {
     cacheRoute: new RegExp(`/tiles/${archive}/v\\d+/\\d+/\\d+/\\d+\\.mvt$`), cacheStrategy: 'CacheFirst',
     layerIds,
     install(map, ctx) {
-      if (!map.getSource(id)) map.addSource(id, { type: 'vector', tiles: [`/tiles/${archive}/v1/{z}/{x}/{y}.mvt`], minzoom: 8, maxzoom: 14, attribution });
+      if (!map.getSource(id)) map.addSource(id, { type: 'vector', tiles: [`/tiles/${archive}/${version}/{z}/{x}/{y}.mvt`], minzoom: 8, maxzoom: 14, attribution });
       classes.forEach((c, i) => {
         const rgb = c.color.slice(1).match(/../g)!.map(hex => parseInt(hex, 16));
         const light = rgb[0]! * 0.299 + rgb[1]! * 0.587 + rgb[2]! * 0.114 > 150;

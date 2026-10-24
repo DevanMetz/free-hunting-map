@@ -28,7 +28,7 @@ it('census-4wd: registers, installs valid cased lines below labels and caches it
     expect(validateStyleMin({ version: 8, sources, layers })).toEqual([]);
     expect(layers.every(layer => 'source-layer' in layer && layer['source-layer'] === 'tiger')).toBe(true);
   }
-  expect(sources[def.id]).toMatchObject({ type: 'vector', minzoom: 8, maxzoom: 14, attribution: def.attribution, tiles: ['/tiles/tiger-trails/v1/{z}/{x}/{y}.mvt'] });
+  expect(sources[def.id]).toMatchObject({ type: 'vector', minzoom: 8, maxzoom: 14, attribution: def.attribution, tiles: ['/tiles/tiger-trails/v2/{z}/{x}/{y}.mvt'] });
   expect(layers.map(layer => layer.id)).toEqual(def.layerIds);
   for (const call of map.addLayer.mock.calls) expect(call[1]).toBe('labels');
   const installed = layers.length;

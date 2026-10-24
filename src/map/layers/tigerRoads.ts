@@ -2,7 +2,7 @@ import { registerLayer } from '../layerRegistry';
 import { roadLineDef, roadRows, roadText as text } from '../roadLines';
 
 registerLayer(roadLineDef({
-  id: 'census-4wd', name: 'Census 4WD roads', archive: 'tiger-trails', sourceLayer: 'tiger',
+  id: 'census-4wd', name: 'Census 4WD roads', archive: 'tiger-trails', version: 'v2', sourceLayer: 'tiger',
   attribution: 'U.S. Census Bureau TIGER/Line',
   classes: [
     { key: '4wd', label: '4WD trail', color: '#b02c87', dash: [3, 2], filter: ['==', ['get', 'c'], 'S1500'] },
