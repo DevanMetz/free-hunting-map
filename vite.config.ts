@@ -68,7 +68,7 @@ export default defineConfig({
         clientsClaim: true,
         // App shell, including the MapLibre worker module.
         globIgnores: ['**/worker-*.js', '**/lab-*.js', '**/ort-*.js', 'lidar/**'],
-        globPatterns: ['**/*.{js,mjs,css,html,svg,png,webmanifest}'],
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,webmanifest}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/(?:privacy|terms)(?:\.html)?(?:\/|$|\?)/],
