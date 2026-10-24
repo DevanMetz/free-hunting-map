@@ -1,4 +1,4 @@
-import { estimateBox } from "./boxDrawing";
+import { scanTiles } from "./download";
 import { checkedBox, emptyStats, groundTile, type Box } from "./ept";
 import { demFeatures, normalize, type Normalization } from "./features";
 import { extract, type Calibration } from "./postprocess";
@@ -13,7 +13,7 @@ scope.onmessage = async (
   const started = performance.now(),
     stats = emptyStats(),
     progress = (stage: string) =>
-      scope.postMessage({ type: "progress", stage, bytes: stats.bytes, totalMB: estimateBox(e.data.box).mb });
+      scope.postMessage({ type: "progress", stage, bytes: stats.bytes });
   let runtime: Awaited<ReturnType<typeof session>> | undefined;
   try {
     const bb = checkedBox(e.data.box),
@@ -27,37 +27,28 @@ scope.onmessage = async (
       new TextDecoder().decode(await cached("/lidar/calibration.json")),
     ) as Calibration;
     const channels = st.channels.map(() => new Float32Array(w * h));
-    for (
-      let tx = Math.floor(pad[0] / 1000);
-      tx <= Math.floor((pad[2] - 1) / 1000);
-      tx++
-    )
-      for (
-        let ty = Math.floor(pad[1] / 1000);
-        ty <= Math.floor((pad[3] - 1) / 1000);
-        ty++
-      ) {
-        progress(`Lidar ${tx}_${ty}`);
-        const dtm = await groundTile(tx, ty, stats, progress),
-          t = performance.now();
-        const features = normalize(demFeatures(dtm, 1128, 1128), st);
-        stats.featureMs += performance.now() - t;
-        for (let c = 0; c < channels.length; c++)
+    for (const [tx, ty] of scanTiles(e.data.box)) {
+      progress(`Lidar ${tx}_${ty}`);
+      const dtm = await groundTile(tx, ty, stats, progress),
+        t = performance.now();
+      const features = normalize(demFeatures(dtm, 1128, 1128), st);
+      stats.featureMs += performance.now() - t;
+      for (let c = 0; c < channels.length; c++)
+        for (
+          let yy = Math.max(pad[1], ty * 1000);
+          yy < Math.min(pad[3], ty * 1000 + 1000);
+          yy++
+        )
           for (
-            let yy = Math.max(pad[1], ty * 1000);
-            yy < Math.min(pad[3], ty * 1000 + 1000);
-            yy++
+            let xx = Math.max(pad[0], tx * 1000);
+            xx < Math.min(pad[2], tx * 1000 + 1000);
+            xx++
           )
-            for (
-              let xx = Math.max(pad[0], tx * 1000);
-              xx < Math.min(pad[2], tx * 1000 + 1000);
-              xx++
-            )
-              channels[c]![(pad[3] - yy - 1) * w + xx - pad[0]] =
-                features[c]![
-                  (ty * 1000 + 1064 - yy - 1) * 1128 + xx - tx * 1000 + 64
-                ]!;
-      }
+            channels[c]![(pad[3] - yy - 1) * w + xx - pad[0]] =
+              features[c]![
+                (ty * 1000 + 1064 - yy - 1) * 1128 + xx - tx * 1000 + 64
+              ]!;
+    }
     let provider = e.data.provider;
     progress(`Loading ${provider}`);
     try {

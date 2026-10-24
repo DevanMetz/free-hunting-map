@@ -64,9 +64,10 @@ export async function get(
   url: string,
   stats: Stats,
   timed = true,
+  signal?: AbortSignal,
 ): Promise<ArrayBuffer> {
   const t = performance.now(),
-    r = await fetch(url);
+    r = await fetch(url, { signal });
   if (!r.ok) throw new Error(`HTTP ${r.status}: ${new URL(url).pathname}`);
   const b = await r.arrayBuffer();
   stats.bytes += b.byteLength;
@@ -77,10 +78,11 @@ export async function nodes(
   project: string,
   bb: Box,
   stats: Stats,
+  signal?: AbortSignal,
 ): Promise<string[]> {
   const base = `${EPT_ROOT}/${project}`,
     metadata = JSON.parse(
-      new TextDecoder().decode(await get(`${base}/ept.json`, stats)),
+      new TextDecoder().decode(await get(`${base}/ept.json`, stats, true, signal)),
     ) as { bounds: number[]; dataType: string };
   if (metadata.dataType !== "laszip")
     throw new Error("Unsupported EPT encoding");
@@ -102,7 +104,7 @@ export async function nodes(
     const key = pending.pop()!,
       hierarchy = JSON.parse(
         new TextDecoder().decode(
-          await get(`${base}/ept-hierarchy/${key}.json`, stats),
+          await get(`${base}/ept-hierarchy/${key}.json`, stats, true, signal),
         ),
       ) as Record<string, number>;
     for (const [k, n] of Object.entries(hierarchy)) {
@@ -120,6 +122,9 @@ export async function nodes(
   return [...out];
 }
 let laz: ReturnType<typeof createLazPerf> | undefined;
+export function tileBounds(tx: number, ty: number): Box {
+  return [tx * 1000 - 64, ty * 1000 - 64, tx * 1000 + 1064, ty * 1000 + 1064];
+}
 export async function groundTile(
   tx: number,
   ty: number,
@@ -127,12 +132,7 @@ export async function groundTile(
   progress: (s: string) => void,
 ): Promise<Float32Array> {
   const n = 1128,
-    bb: Box = [
-      tx * 1000 - 64,
-      ty * 1000 - 64,
-      tx * 1000 + 1064,
-      ty * 1000 + 1064,
-    ];
+    bb = tileBounds(tx, ty);
   const sums = new Float64Array(4 * n * n),
     counts = new Uint32Array(sums.length),
     m2 = Math.floor(n / 2) + 1,

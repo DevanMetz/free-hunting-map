@@ -1,9 +1,15 @@
 import type { Box } from './ept';
 export type Point = [number, number];
 export const SQUARE_MILE = 2589988.11;
-export function estimateBox(box: Box): { area: number; mb: number; over: boolean } {
+export function estimateBox(box: Box): { area: number; over: boolean } {
   const area = Math.abs((box[2] - box[0]) * Math.PI / 180 * 6371008.8 * Math.cos((box[1] + box[3]) / 2 * Math.PI / 180) * (box[3] - box[1]) * Math.PI / 180 * 6371008.8) / SQUARE_MILE;
-  return { area, mb: area * 645, over: area > 1 };
+  return { area, over: area > 1 };
+}
+export function boxLabel(box: Box, bytes?: number | null): string {
+  const { area, over } = estimateBox(box);
+  if (over) return ">1 mi²";
+  const size = bytes === null ? "—" : bytes === undefined ? "…" : `${Math.round(bytes / 1e6).toLocaleString("en-US")} MB`;
+  return `${area.toFixed(2)} / 1 mi² · ${size}`;
 }
 export function bounds(a: Point, b: Point): Box {
   return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];

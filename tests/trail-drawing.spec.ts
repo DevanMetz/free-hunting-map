@@ -37,3 +37,18 @@ for (const mobile of [false, true]) {
     await context.close();
   });
 }
+
+test('oversized default-zoom boxes stay compact and never query lidar', async ({ page }) => {
+  const lidarRequests: string[] = [];
+  page.on('request', r => { if (r.url().includes('usgs-lidar-public')) lidarRequests.push(r.url()); });
+  await page.goto(process.env.TRAIL_URL ?? 'http://127.0.0.1:4173');
+  await page.getByRole('button', { name: 'Trail finder', exact: true }).click();
+  await page.getByRole('button', { name: 'Draw box', exact: true }).click();
+  await page.mouse.move(500, 250); await page.mouse.down();
+  await page.mouse.move(780, 530, { steps: 10 }); await page.mouse.up();
+  await expect(page.locator('.trail-box-size')).toHaveText('>1 mi²');
+  await expect(page.locator('.trail-box-size')).toHaveClass(/over/);
+  await expect(page.getByRole('button', { name: 'Find trails', exact: true })).toBeDisabled();
+  await page.waitForTimeout(600);
+  expect(lidarRequests).toEqual([]);
+});

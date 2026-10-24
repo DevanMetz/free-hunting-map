@@ -12,6 +12,7 @@ export async function cached(url: string): Promise<ArrayBuffer> {
 export async function session(
   provider: Provider,
 ): Promise<ort.InferenceSession> {
+  ort.env.logLevel = "error";
   ort.env.wasm.numThreads = globalThis.crossOriginIsolated
     ? Math.min(4, navigator.hardwareConcurrency || 1)
     : 1;

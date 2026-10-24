@@ -1,5 +1,6 @@
+import { estimateDownload } from "./download";
 import { Marker } from "maplibre-gl";
-import { BoxDrawing, estimateBox, type Point } from "./boxDrawing";
+import { BoxDrawing, estimateBox, boxLabel, type Point } from "./boxDrawing";
 import type { AppContext } from "../ui/context";
 import { h } from "../ui/dom";
 import { checkedBox, type Box } from "./ept";
@@ -71,6 +72,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
             ["to-string", ["get", "rank"]],
             " · Unverified",
           ],
+          "text-font": ["Noto Sans Regular"],
           "text-size": 12,
         },
         paint: {
@@ -95,14 +97,39 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
       displayed,
     );
   }
+  const estimates = new Map<string, number>();
+  let estimateTimer: ReturnType<typeof setTimeout> | undefined;
+  let estimateAbort: AbortController | undefined;
+  let estimateKey = "", download: number | null | undefined;
+  function updateEstimate(): void {
+    const key = box?.join(",") ?? "";
+    if (key === estimateKey) return;
+    clearTimeout(estimateTimer);
+    estimateAbort?.abort();
+    estimateKey = key;
+    download = estimates.get(key);
+    if (!box || estimateBox(box).over || download !== undefined) return;
+    const selected = box;
+    const controller = estimateAbort = new AbortController();
+    estimateTimer = setTimeout(() => {
+      void estimateDownload(selected, controller.signal).then(bytes => {
+        if (estimates.size >= 32) estimates.delete(estimates.keys().next().value!);
+        estimates.set(key, bytes);
+        if (estimateKey === key) { download = bytes; badge.textContent = boxLabel(selected, bytes); }
+      }).catch(() => {
+        if (!controller.signal.aborted && estimateKey === key) { download = null; badge.textContent = boxLabel(selected, null); }
+      });
+    }, 400);
+  }
   function showBox(): void {
+    updateEstimate();
     if (!box) {
       (map.getSource("lidar-box") as GeoJSONSource | undefined)?.setData(empty);
       marker.remove();
       return;
     }
     const estimate = estimateBox(box);
-    badge.textContent = `${estimate.area.toFixed(2)} / 1 mi² · ~${Math.round(estimate.mb)} MB`;
+    badge.textContent = boxLabel(box, download);
     badge.classList.toggle("over", estimate.over);
     marker.setLngLat([(box[0] + box[2]) / 2, box[3]]).addTo(map);
     if (map.getLayer("lidar-box")) map.setPaintProperty("lidar-box", "line-color", estimate.over ? "#ff6262" : "#ffc45c");
@@ -223,7 +250,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
     draw.disabled = true;
     clear.disabled = true;
     cancel.hidden = false;
-    status.textContent = `Loading · 0 / ~${Math.round(estimateBox(box).mb)} MB · 0%`;
+    status.textContent = "Loading · 0 MB";
     worker = new Worker(new URL("./worker.ts", import.meta.url), {
       type: "module",
     });
@@ -232,7 +259,10 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
       stop();
     };
     worker.onmessage = async (e: MessageEvent) => {
-      if (e.data.type === "progress") status.textContent = `${e.data.stage} · ${(e.data.bytes / 1e6).toFixed(1)} / ~${Math.round(e.data.totalMB)} MB · ${Math.min(99, Math.round(e.data.bytes / 1e6 / e.data.totalMB * 100))}%`;
+      if (e.data.type === "progress") {
+        const mb = (e.data.bytes / 1e6).toFixed(1);
+        status.textContent = download ? `${e.data.stage} · ${mb} / ${Math.round(download / 1e6)} MB · ${Math.min(99, Math.round(e.data.bytes / download * 100))}%` : `${e.data.stage} · ${mb} MB`;
+      }
       if (e.data.type === "error") {
         status.textContent = e.data.message;
         stop();
