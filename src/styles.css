@@ -453,3 +453,7 @@ input[type='color'] { min-width: 44px; width: 44px; height: 44px; padding: 3px; 
 .hike-trim { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .hike-trim input { width: 100%; min-width: 0; min-height: 44px; margin: 0; accent-color: #b85cff; }
 .hike-trim output { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.item-editor:has(> .hike-share-open) > .item-identity,
+.item-editor:has(> .hike-share-open) > .item-details,
+.item-editor:has(> .hike-share-open) > .actions { display: none; }

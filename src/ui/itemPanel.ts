@@ -98,7 +98,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
   const hikeShare = item.kind === 'track' && item.recorded ? hikeShareControl(ctx, item) : undefined;
   const body = h(
     'div',
-    { class: 'form' },
+    { class: 'form item-editor' },
     picker,
     h('div', { class: 'item-identity' }, name, categoryPicker(ctx, categoryId, id => { categoryId = id; updateCamera(); })),
     cameraBody,
