@@ -5,9 +5,9 @@ export const features = [
     id: 'public-land', enabled: true, image: 'layers',
     requires: [['src/map/sources.ts', 'PADUS_EXPORT'], ['src/map/builtinLayers.ts', 'PUBLIC_LANDS']],
     heading: 'Public land and access',
-    body: '<p>See public land by manager over topo, satellite or street maps. PAD-US helps you spot areas to research; Wisconsin parcels, PAD-US public-access classes, PLSS lines, water and Wisconsin deer units add context. The redesigned Layers panel groups datasets and offers opacity controls, legends and an active-layer list.</p><p>Public ownership does not establish hunting permission or a legal way in. Parcel coverage is Wisconsin-only. Check the managing agency before you go.</p>',
+    body: '<p>See public land by manager over topo, satellite or street maps. PAD-US helps you spot areas to research; Wisconsin parcels, PLSS lines, water and Wisconsin deer units add context. The Layers panel groups datasets and offers opacity controls, legends and an active-layer list.</p><p>Public ownership does not establish hunting permission or a legal way in. Parcel coverage is Wisconsin-only. Check the managing agency before you go.</p>',
     href: '/guides/finding-public-hunting-land', link: 'Find public hunting land',
-    alt: 'Free Hunting Map Layers panel beside a Wisconsin topo map, with the redesigned layer categories and basemap controls.',
+    alt: 'Free Hunting Map Layers panel beside a Wisconsin topo map, with layer categories and basemap controls.',
   },
   {
     id: 'saved', enabled: true, image: 'saved',
@@ -39,7 +39,7 @@ export const features = [
     heading: 'Vegetation, water and terrain',
     body: '<p>Explore 2025 land cover and tree canopy, 2024 vegetation type and height, forest type and ownership, vegetation loss, and 2025 USDA crops. Add wetlands, streams, springs or watersheds to understand the landscape.</p><p>Compare SSURGO soils, ecoregions, contours, elevation tint, hillshade, slope and aspect. Wildfire hazard potential, current wildfires and historic fire perimeters add context. Dataset dates and coverage vary; live identification and refreshed fire information need a connection. These maps do not establish current ground conditions or access.</p>',
     href: '/guides/scouting-lidar-terrain', link: 'Compare terrain and cover',
-    alt: 'USDA Crops (2025) layer and crop-class legend in the redesigned Layers panel over the central Wisconsin demo area.',
+    alt: 'USDA Crops (2025) layer and crop-class legend in the Layers panel over the central Wisconsin demo area.',
   },
   {
     id: 'terrain', enabled: true, image: 'terrain',
