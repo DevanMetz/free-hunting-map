@@ -1,6 +1,13 @@
 import { expect, it } from 'vitest';
-import { sectionContent, townshipContent } from './land';
+import { accessContent, sectionContent, townshipContent } from './land';
 import { attributeResult, mapImage } from './arcgis';
+it('names PAD-US access codes and treats unrecognized access as unknown', () => {
+  expect(accessContent({ Unit_Nm: 'Forest', Pub_Access: 'OA' })).toEqual({ title: 'Forest', rows: [['Access', 'Open']] });
+  expect(accessContent({ Pub_Access: 'RA' })?.rows).toEqual([['Access', 'Restricted']]);
+  expect(accessContent({ Pub_Access: 'XA' })?.rows).toEqual([['Access', 'Closed']]);
+  expect(accessContent({ Pub_Access: 'unexpected' })?.rows).toEqual([['Access', 'Unknown']]);
+  expect(accessContent({})).toBeNull();
+});
 it('keeps PLSS identifiers, omits missing attributes and preserves numeric zero', () => {
   expect(townshipContent({ TWNSHPLAB: 'T24N R03W' })?.rows).toEqual([['Township / range', 'T24N R03W']]);
   expect(sectionContent({ FRSTDIVNO: '09', PLSSID: 'WI230240N0030W0' })?.rows).toContainEqual(['Section', '09']);

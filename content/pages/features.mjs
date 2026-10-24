@@ -5,7 +5,7 @@ export const features = [
     id: 'public-land', enabled: true, image: 'layers',
     requires: [['src/map/sources.ts', 'PADUS_EXPORT'], ['src/map/builtinLayers.ts', 'PUBLIC_LANDS']],
     heading: 'Public land and access',
-    body: '<p>See public land by manager over topo, satellite or street maps. PAD-US helps you spot areas to research; Wisconsin parcels, PLSS lines, water and Wisconsin deer units add context. The Layers panel groups datasets and offers opacity controls, legends and an active-layer list.</p><p>Public ownership does not establish hunting permission or a legal way in. Parcel coverage is Wisconsin-only. Check the managing agency before you go.</p>',
+    body: '<p>See public land by manager over topo, satellite or street maps. PAD-US helps you spot areas to research; Wisconsin parcels, PAD-US public-access classes, PLSS lines, water and Wisconsin deer units add context. The Layers panel groups datasets and offers opacity controls, legends and an active-layer list.</p><p>Public ownership does not establish hunting permission or a legal way in. Parcel coverage is Wisconsin-only. Check the managing agency before you go.</p>',
     href: '/guides/finding-public-hunting-land', link: 'Find public hunting land',
     alt: 'Free Hunting Map Layers panel beside a Wisconsin topo map, with layer categories and basemap controls.',
   },
