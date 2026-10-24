@@ -1,3 +1,4 @@
+import { estimateBox } from "./boxDrawing";
 import { checkedBox, emptyStats, groundTile, type Box } from "./ept";
 import { demFeatures, normalize, type Normalization } from "./features";
 import { extract, type Calibration } from "./postprocess";
@@ -12,7 +13,7 @@ scope.onmessage = async (
   const started = performance.now(),
     stats = emptyStats(),
     progress = (stage: string) =>
-      scope.postMessage({ type: "progress", stage });
+      scope.postMessage({ type: "progress", stage, bytes: stats.bytes, totalMB: estimateBox(e.data.box).mb });
   let runtime: Awaited<ReturnType<typeof session>> | undefined;
   try {
     const bb = checkedBox(e.data.box),

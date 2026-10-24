@@ -50,6 +50,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         // App shell, including the MapLibre worker module.
         globIgnores: ['**/worker-*.js', '**/lab-*.js', '**/ort-*.js', 'lidar/**'],
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,webmanifest}'],

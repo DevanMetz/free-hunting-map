@@ -1,8 +1,10 @@
+import { Marker } from "maplibre-gl";
+import { BoxDrawing, estimateBox, type Point } from "./boxDrawing";
 import type { AppContext } from "../ui/context";
 import { h } from "../ui/dom";
 import { checkedBox, type Box } from "./ept";
 import type { Candidates } from "./postprocess";
-import type { GeoJSONSource, MapMouseEvent } from "maplibre-gl";
+import type { GeoJSONSource } from "maplibre-gl";
 export interface TrailFinder {
   open(): void;
 }
@@ -10,8 +12,13 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
   const map = app.map.map;
   const empty: Candidates = { type: "FeatureCollection", features: [] };
   let displayed = empty,
-    box: Box | undefined,
-    first: [number, number] | undefined;
+    box: Box | undefined;
+  const gesture = new BoxDrawing();
+  const badge = h("output", { class: "trail-box-size" });
+  const marker = new Marker({ element: badge, anchor: "bottom" });
+  const handlers = [map.dragPan, map.boxZoom, map.doubleClickZoom, map.touchZoomRotate];
+  let restore: boolean[] = [];
+  const allowed = () => !!box && !estimateBox(box).over;
   let drawing = false,
     worker: Worker | undefined;
   const draw = h("button", { type: "button", class: "btn" }, "Draw box");
@@ -89,7 +96,16 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
     );
   }
   function showBox(): void {
-    if (!box) return;
+    if (!box) {
+      (map.getSource("lidar-box") as GeoJSONSource | undefined)?.setData(empty);
+      marker.remove();
+      return;
+    }
+    const estimate = estimateBox(box);
+    badge.textContent = `${estimate.area.toFixed(2)} / 1 mi² · ~${Math.round(estimate.mb)} MB`;
+    badge.classList.toggle("over", estimate.over);
+    marker.setLngLat([(box[0] + box[2]) / 2, box[3]]).addTo(map);
+    if (map.getLayer("lidar-box")) map.setPaintProperty("lidar-box", "line-color", estimate.over ? "#ff6262" : "#ffc45c");
     const [x0, y0, x1, y1] = box;
     (map.getSource("lidar-box") as GeoJSONSource | undefined)?.setData({
       type: "Feature",
@@ -110,7 +126,12 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
   }
   function stopDrawing(): void {
     drawing = false;
-    first = undefined;
+    gesture.cancel();
+    restore.forEach((enabled, i) => { if (enabled) handlers[i]!.enable(); });
+    restore = [];
+    draw.classList.remove("selected");
+    draw.textContent = "Draw box";
+    draw.setAttribute("aria-pressed", "false");
     delete map.getCanvas().dataset.lidarDrawing;
     map.getCanvas().style.cursor = "";
   }
@@ -118,7 +139,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
     worker?.terminate();
     worker = undefined;
     cancel.hidden = true;
-    run.disabled = !box;
+    run.disabled = !allowed();
     draw.disabled = false;
     clear.disabled = false;
   }
@@ -130,48 +151,78 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
     features: saved.flatMap((r) => r.candidates.features),
   };
   show();
+  function cancelDrawing(): void {
+    if (!drawing) return;
+    stopDrawing();
+    box = undefined;
+    run.disabled = true;
+    showBox();
+  }
   draw.onclick = () => {
+    if (drawing) { cancelDrawing(); return; }
     drawing = true;
-    first = undefined;
+    gesture.cancel();
+    box = undefined;
+    run.disabled = true;
+    showBox();
+    restore = handlers.map(handler => handler.isEnabled());
+    handlers.forEach(handler => handler.disable());
     map.getCanvas().dataset.lidarDrawing = "";
     map.getCanvas().style.cursor = "crosshair";
     draw.classList.add("selected");
+    draw.textContent = "Cancel box";
+    draw.setAttribute("aria-pressed", "true");
   };
-  map.on("click", (e: MapMouseEvent) => {
-    if (!drawing) return;
-    if (!first) {
-      first = [e.lngLat.lng, e.lngLat.lat];
-      return;
-    }
-    const next: Box = [
-      Math.min(first[0], e.lngLat.lng),
-      Math.min(first[1], e.lngLat.lat),
-      Math.max(first[0], e.lngLat.lng),
-      Math.max(first[1], e.lngLat.lat),
-    ];
-    try {
-      checkedBox(next);
-      box = next;
-      run.disabled = false;
-      status.textContent = "Unverified";
-      showBox();
-    } catch (err) {
-      status.textContent = (err as Error).message;
-    }
+  const canvas = map.getCanvas();
+  let suppressClick = false;
+  function position(e: PointerEvent): { pixel: Point; coord: Point } {
+    const rect = canvas.getBoundingClientRect();
+    const pixel: Point = [e.clientX - rect.left, e.clientY - rect.top];
+    const p = map.unproject(pixel);
+    return { pixel, coord: [p.lng, p.lat] };
+  }
+  canvas.addEventListener("pointerdown", e => {
+    if (!drawing || !e.isPrimary || e.button !== 0) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const p = position(e);
+    suppressClick = true;
+    gesture.start(p.pixel, p.coord);
+    canvas.setPointerCapture(e.pointerId);
+  }, true);
+  canvas.addEventListener("pointermove", e => {
+    if (!drawing || !e.isPrimary) return;
+    const p = position(e), preview = gesture.move(p.pixel, p.coord);
+    if (preview) { box = preview; showBox(); }
+  }, true);
+  canvas.addEventListener("pointerup", e => {
+    if (!drawing || !e.isPrimary) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const p = position(e);
+    gesture.move(p.pixel, p.coord);
+    const result = gesture.end(p.coord);
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    if (!result) return;
+    box = result;
     stopDrawing();
-    draw.classList.remove("selected");
-  });
+    try { checkedBox(box); run.disabled = !allowed(); status.textContent = "Unverified"; }
+    catch (err) { run.disabled = true; status.textContent = (err as Error).message; }
+    showBox();
+  }, true);
+  canvas.addEventListener("pointercancel", cancelDrawing);
+  canvas.addEventListener("click", e => { if (drawing || suppressClick) { suppressClick = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") cancelDrawing(); });
   cancel.onclick = () => {
     stop();
     status.textContent = "Cancelled";
   };
   run.onclick = () => {
-    if (!box || worker) return;
+    if (!box || !allowed() || worker) return;
     stopDrawing();
     run.disabled = true;
     draw.disabled = true;
     clear.disabled = true;
     cancel.hidden = false;
+    status.textContent = `Loading · 0 / ~${Math.round(estimateBox(box).mb)} MB · 0%`;
     worker = new Worker(new URL("./worker.ts", import.meta.url), {
       type: "module",
     });
@@ -180,7 +231,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
       stop();
     };
     worker.onmessage = async (e: MessageEvent) => {
-      if (e.data.type === "progress") status.textContent = e.data.stage;
+      if (e.data.type === "progress") status.textContent = `${e.data.stage} · ${(e.data.bytes / 1e6).toFixed(1)} / ~${Math.round(e.data.totalMB)} MB · ${Math.min(99, Math.round(e.data.bytes / 1e6 / e.data.totalMB * 100))}%`;
       if (e.data.type === "error") {
         status.textContent = e.data.message;
         stop();
@@ -220,7 +271,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
   return {
     open() {
       app.sheet.open("trails", "Trail finder", panel, () => {
-        stopDrawing();
+        cancelDrawing();
         stop();
       });
     },

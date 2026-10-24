@@ -1,3 +1,4 @@
+import { estimateBox } from "./boxDrawing";
 import { LIDAR_EPT_ROOT, LIDAR_DEM_ROOT } from "../map/sources";
 import { Las } from "copc";
 import { createLazPerf } from "laz-perf";
@@ -48,8 +49,8 @@ export function checkedBox(box: Box): Box {
   const a = toUTM(box.slice(0, 2)),
     b = toUTM(box.slice(2));
   const area = (b[0]! - a[0]!) * (b[1]! - a[1]!);
-  if (area <= 0 || area > 2 * 2589988.11)
-    throw new Error("Box exceeds 2 square miles");
+  if (area <= 0 || estimateBox(box).over)
+    throw new Error("Box exceeds 1 square mile");
   if (b[0]! - a[0]! > 4000 || b[1]! - a[1]! > 4000)
     throw new Error("Box side exceeds 4 km");
   return [

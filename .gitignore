@@ -15,3 +15,7 @@ public/lidar/*.wasm
 public/lidar/*.wasm.gz
 public/lidar/ort-*.mjs
 public/lidar/ort-*.bin
+
+# Playwright artifacts.
+test-results/
+playwright-report/

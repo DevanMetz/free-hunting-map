@@ -286,3 +286,7 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
 @media (max-width: 419px) { .toolbar [aria-label='Trail finder'] { display: none; } }
 
 .trail-finder button:disabled { opacity: 0.45; cursor: default; }
+
+.trail-box-size { padding: 5px 8px; border: 1px solid #ffc45c; border-radius: 6px; background: #141a16; color: #ffc45c; white-space: nowrap; font: 600 12px system-ui; pointer-events: none; }
+.trail-box-size.over { border-color: #ff6262; color: #ff6262; }
+canvas[data-lidar-drawing] { touch-action: none; }
