@@ -2,8 +2,8 @@ import { beforeAll,beforeEach,afterEach,afterAll,it,expect,vi } from 'vitest';
 import { Miniflare,convertV4MiniflareOptions } from 'miniflare';
 import { readFileSync } from 'node:fs';
 import worker,{type Env} from './index';
-import { encodeHike } from '../src/community/hike';
-import { tileXY } from '../src/community/geometry';
+import { encodeHike, trimHike } from '../src/community/hike';
+import { tileXY, type Point } from '../src/community/geometry';
 const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'hikes',modules:true,script:'export default {fetch(){return new Response("ok")}}',compatibilityDate:'2026-10-13',d1Databases:['DB'],r2Buckets:['TILES']}]}));
 let env:Env;const origin='http://localhost:8787',admin={Authorization:'Bearer test-secret'};
 const id=(n:number)=>n.toString(16).padStart(64,'0'),secret='f'.repeat(64);
@@ -79,4 +79,21 @@ it('rate limits salted IPs and anonymous reporting device hashes',async()=>{
  const token=id(500);
  for(let i=0;i<30;i++)expect((await api('report',{id:id(999),token},{'CF-Connecting-IP':`192.0.3.${i}`})).status).toBe(404);
  expect((await api('report',{id:id(999),token},{'CF-Connecting-IP':'192.0.3.31'})).status).toBe(429);
+});
+
+it.each([0,200])('accepts selected full/trimmed geometry and keeps secrets and point metadata out of tile/export (trim %s)',async trim=>{
+ const coordinates=[[-90,40,123,987654321],[-89.997,40.000001,234,987654322],[-89.99,40,345,987654323]] as unknown as Point[];
+ const selected=trimHike(coordinates,trim),shareId=id(1000+trim);
+ expect((await api('share',{id:shareId,secret,hike:encodeHike(selected,'2026-10')})).status).toBe(201);
+ const row=await env.DB.prepare('SELECT secret_hash FROM community_hikes WHERE id=?').bind(shareId).first<{secret_hash:string}>();
+ expect(row!.secret_hash).toMatch(/^[a-f0-9]{64}$/);
+ const publicTile=(await tile()).features.find(f=>f.id===shareId)!;
+ const training=(await exported()).find(f=>f.id===shareId)!;
+ for(const feature of [publicTile,training]){
+   const json=JSON.stringify(feature);
+   expect(json).not.toContain(secret);expect(json).not.toContain(row!.secret_hash);
+   expect(json).not.toMatch(/secret|hash|timestamp|elevation|98765432/);
+   expect((feature as unknown as {geometry:{coordinates:Point[]}}).geometry.coordinates).toEqual(selected);
+ }
+ expect((await api('unshare',{id:shareId,secret})).status).toBe(200);
 });

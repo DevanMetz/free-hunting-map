@@ -5,7 +5,7 @@ import './communityHikes';
 const def=layerRegistry.get('community-hikes')!;
 afterEach(()=>vi.unstubAllGlobals());
 it('registers a default violet dashed layer, deduplicates tiles, identifies public fields and restores after style changes',async()=>{
- const feature={type:'Feature',id:'hike-a',geometry:{type:'LineString',coordinates:[[-90,40],[-89.99,40]]},properties:{id:'hike-a',distance:850,month:'2026-10',name:'Public walk',type:'scouting'}};
+ const feature={type:'Feature',id:'hike-a',geometry:{type:'LineString',coordinates:[[-90,40],[-89.99,40]]},properties:{id:'hike-a',distance:850,month:'2026-10',name:'Public walk',type:'scouting',secret:'private-secret',secret_hash:'private-hash'}};
  const fetcher=vi.fn().mockResolvedValue({ok:true,json:async()=>({type:'FeatureCollection',features:[feature]})});vi.stubGlobal('fetch',fetcher);
  const source={setData:vi.fn()},layers=new Set<string>(),listeners=new globalThis.Map<string,()=>void>();let zoom=13;
  const addLayer=vi.fn((l:{id:string})=>layers.add(l.id));

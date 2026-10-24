@@ -25,6 +25,8 @@ export function hikeShareControl(ctx:AppContext,track:Track) {
       const type=h('select',{class:'field','aria-label':'Hike type'},h('option',{value:''},'Type'),...HIKE_TYPES.map(t=>h('option',{value:t},t)));
       const trim=h('input',{type:'range',min:100,max:500,step:50,value:200,'aria-label':'Trim each end (meters)',title:'Trim each end (meters)'});
       const amount=h('output',{},'200 m');
+      const trimEnds=h('input',{type:'checkbox',checked:true});
+      const trimControl=h('div',{class:'hike-trim'},trim,amount);
       const preview=h('div',{class:'row'});
       const month=new Date(track.createdAt).toISOString().slice(0,7);
       let wire:ReturnType<typeof encodeHike>|undefined;
@@ -35,7 +37,8 @@ export function hikeShareControl(ctx:AppContext,track:Track) {
         void ctx.repo.saveHikeShare({trackId:track.id,shareId:randomHikeToken(),secret:randomHikeToken(),shared:true,hike:payload}).then(()=>{ctx.map.setSketch([]);return render();}).catch(()=>{submit.disabled=false;toast('Could not share hike');});
       }},'Share to community');
       const update=()=>{
-        const coords=trimHike(track.coords,Number(trim.value));
+        trimControl.hidden=!trimEnds.checked;
+        const coords=trimHike(track.coords,trimEnds.checked?Number(trim.value):0);
         amount.value=`${trim.value} m`;
         ctx.map.setSketch(coords,'#b85cff');
         if(coords.length) {
@@ -48,7 +51,8 @@ export function hikeShareControl(ctx:AppContext,track:Track) {
         catch { wire=undefined;preview.textContent='Too short to share';submit.disabled=true; }
       };
       trim.oninput=update;
-      root.replaceChildren(name,type,h('div',{class:'hike-trim'},trim,amount),preview,h('div',{class:'actions'},h('button',{type:'button',class:'btn',onclick:()=>{ctx.map.setSketch([]);void render();}},'Cancel'),submit));
+      trimEnds.onchange=update;
+      root.replaceChildren(name,type,h('label',{class:'row'},trimEnds,'Trim ends'),trimControl,preview,h('div',{class:'actions'},h('button',{type:'button',class:'btn',onclick:()=>{ctx.map.setSketch([]);void render();}},'Cancel'),submit));
       update();
     }},'Share to community');
     root.append(open);

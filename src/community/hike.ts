@@ -5,8 +5,9 @@ export const HIKE_REPORT_THRESHOLD = 3;
 export interface Hike { month: string; name: string; type: typeof HIKE_TYPES[number] | null; coordinates: Point[]; distance: number }
 export interface WireHike { v: 1; month: string; name: string; type: Hike['type']; d: number[] }
 export const publicName = (value: string) => value.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '').trim().slice(0, 60);
-/** Interpolate at exact along-track cut points, copying only longitude and latitude. */
+/** Zero shares the full line; otherwise interpolate exact along-track cuts. Always copy only longitude/latitude. */
 export function trimHike(coords: Point[], trim = 200): Point[] {
+  if (trim === 0) return simplify(coords.map(p => roundCoord([p[0], p[1]])), 2.5);
   if (!Number.isFinite(trim) || trim < 100 || trim > 500) return [];
   const total = pathLength(coords);
   if (total - 2 * trim <= 200) return [];
