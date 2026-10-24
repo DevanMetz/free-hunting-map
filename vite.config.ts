@@ -17,8 +17,18 @@ const tileCache = (name: string, urlPattern: RegExp, maxEntries: number) => ({
 
 export default defineConfig({
   // MapLibre alone is ~1 MB minified; it is precached once, so a single chunk is fine.
+  worker: { format: 'es' },
   build: { chunkSizeWarningLimit: 1600 },
   plugins: [
+    {
+      name: 'lidar-external-runtime',
+      generateBundle(_options, bundle) {
+        // The runtime always uses our gzip .bin asset; omit ORT's unused default.
+        for (const [name] of Object.entries(bundle)) {
+          if (/^assets\/ort-wasm-.*\.wasm$/.test(name)) delete bundle[name];
+        }
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
@@ -41,10 +51,13 @@ export default defineConfig({
       },
       workbox: {
         // App shell, including the MapLibre worker module.
+        globIgnores: ['**/worker-*.js', '**/lab-*.js', '**/ort-*.js', 'lidar/**'],
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,webmanifest}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
         runtimeCaching: [
+          { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/assets/') && /\.m?js$/.test(url.pathname), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-modules-v1' } },
+          { urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/lidar/'), handler: 'CacheFirst', options: { cacheName: 'lidar-v4-assets-v1' } },
           { urlPattern: /^https:\/\/dnrmaps\.wi\.gov\//, handler: 'NetworkOnly' },
           tileCache('parcels', CACHE_ROUTES.parcels, 4000),
           tileCache('tiles-nhd', CACHE_ROUTES.nhd, 3000),

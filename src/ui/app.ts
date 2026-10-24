@@ -23,6 +23,7 @@ const RECORD_SAVE_EVERY = 5;
 export class App implements AppContext {
   readonly sheet: Sheet;
   readonly map: HuntMap;
+  private trailFinder: Promise<import('../lidar/lab').TrailFinder> | undefined;
   private liveItems: Item[] = [];
   private tool: Tool | null = null;
   private recorder: TrackRecorder;
@@ -49,7 +50,9 @@ export class App implements AppContext {
       (err) => toast(err.message || 'GPS error'),
     );
 
-    this.map.map.on('click', (e) => this.onMapClick(e));
+    this.map.map.on('click', (e) => {
+      if (!document.querySelector('[data-lidar-drawing]')) this.onMapClick(e);
+    });
     this.map.map.on('moveend', () => this.persistSettings());
     for (const layer of [LAYER_WAYPOINTS, LAYER_TRACKS]) {
       this.map.map.on('mouseenter', layer, () => (this.map.map.getCanvas().style.cursor = 'pointer'));
@@ -63,6 +66,7 @@ export class App implements AppContext {
     const saved = await repo.getMeta<Partial<Settings>>('settings');
     const app = new App(repo, loadSettings(saved), root);
     await app.reloadItems();
+    if ((await repo.listLidarRuns()).length) void app.getTrailFinder().catch(err => toast(String(err)));
     return app;
   }
 
@@ -90,15 +94,29 @@ export class App implements AppContext {
     return h(
       'nav',
       { class: 'toolbar', 'aria-label': 'Tools' },
-      add('layers', 'layers', 'Layers', () => this.togglePanel('layers', () => openLayersPanel(this, () => this.persistSettings()))),
+      add('layers', 'layers', 'Layers', () => this.togglePanel('layers', () => openLayersPanel(this, () => this.persistSettings(), () => this.openTrailFinder()))),
       add('tool:waypoint', 'pin', 'Drop pin', () => this.toggleTool('waypoint')),
       add('tool:track', 'track', 'Draw track', () => this.toggleTool('track')),
+      add('trails', 'scan', 'Trail finder', () => this.openTrailFinder()),
       add('record', 'record', 'Record GPS track', () => void this.toggleRecording()),
       add('tool:measure', 'measure', 'Measure', () => this.toggleTool('measure')),
       add('list', 'list', 'Saved', () => this.togglePanel('list', () => openListPanel(this))),
       add('share', 'share', 'Share', () => this.togglePanel('share', () => openSharePanel(this))),
       add('conditions', 'weather', 'Conditions', () => this.togglePanel('conditions', () => openConditionsPanel(this))),
     );
+  }
+
+  private openTrailFinder(): void {
+    this.togglePanel('trails', () => {
+      this.sheet.open('trails', 'Trail finder', h('progress', { 'aria-label': 'Loading trail finder' }));
+      void this.getTrailFinder().then(f => {
+        if (this.sheet.current === 'trails') f.open();
+      }).catch(err => toast(String(err)));
+    });
+  }
+
+  private getTrailFinder(): Promise<import('../lidar/lab').TrailFinder> {
+    return this.trailFinder ??= import('../lidar/lab').then(m => m.createTrailFinder(this));
   }
 
   private togglePanel(key: string, open: () => void): void {

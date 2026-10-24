@@ -9,3 +9,9 @@ coverage/
 .env.*
 .wrangler/
 .dev.vars*
+
+# Reproduced by scripts/prepare-lidar.mjs from pinned npm dependencies.
+public/lidar/*.wasm
+public/lidar/*.wasm.gz
+public/lidar/ort-*.mjs
+public/lidar/ort-*.bin

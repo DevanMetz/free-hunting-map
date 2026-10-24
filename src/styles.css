@@ -278,3 +278,11 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
 .land-swatch { width: 12px; height: 12px; border-radius: 2px; }
 .land-name { padding: 6px 0; border: 0; background: transparent; color: var(--text); text-align: left; font: inherit; }
 .land-info { position: fixed; z-index: 100; max-width: min(240px, calc(100vw - 16px)); padding: 12px 14px; border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 4px 20px #0006; font: 14px/1.45 system-ui, sans-serif; }
+
+.trail-finder .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.trail-finder output { overflow-wrap: anywhere; }
+.trail-finder [hidden] { display: none; }
+
+@media (max-width: 419px) { .toolbar [aria-label='Trail finder'] { display: none; } }
+
+.trail-finder button:disabled { opacity: 0.45; cursor: default; }

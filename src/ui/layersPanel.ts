@@ -4,7 +4,7 @@ import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
 import type { AppContext } from './context';
 import { h } from './dom';
 
-export function openLayersPanel(ctx: AppContext, persist: () => void): void {
+export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailFinder?: () => void): void {
   let active: HTMLButtonElement | null = null;
   const popover = h('div', { class: 'land-info', role: 'tooltip', id: 'public-land-info', hidden: true });
   const close = () => {
@@ -39,6 +39,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void): void {
     return h(
       'div',
       { class: 'form' },
+      openTrailFinder ? h('button', { type: 'button', class: 'btn', onclick: openTrailFinder }, 'Trail finder') : null,
       h(
         'div',
         { class: 'segmented', role: 'radiogroup', 'aria-label': 'Basemap' },

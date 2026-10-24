@@ -80,3 +80,7 @@ export const NWI_ATTR = 'USFWS NWI';
 export const DEER_SERVICE = 'https://dnrmaps.wi.gov/arcgis/rest/services/WM_CWD/WM_DMU_MSU_DMZ_Ext/MapServer';
 export const DEER_EXPORT = DEER_SERVICE + '/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:2&f=image';
 export const DEER_ATTR = 'Wisconsin DNR';
+
+/** Full-density 3DEP point clouds and v4 gap-fill elevation (USGS public domain). */
+export const LIDAR_EPT_ROOT = 'https://s3-us-west-2.amazonaws.com/usgs-lidar-public';
+export const LIDAR_DEM_ROOT = 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage';

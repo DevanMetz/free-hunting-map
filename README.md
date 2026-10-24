@@ -60,6 +60,7 @@ All endpoints below were verified on 2026-10-22 to return tiles/images or parcel
 | USGS Imagery | `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}` | USGS The National Map orthoimagery (USDA NAIP); public domain, attribution requested. |
 | Streets | `https://tiles.openfreemap.org/styles/liberty` | [OpenFreeMap](https://openfreemap.org) (free, no key). Data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL), © OpenMapTiles. Attribution comes from the TileJSON. |
 | Labels | `https://tiles.openfreemap.org/planet` (TileJSON → vector tiles), glyphs `https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf` | [OpenFreeMap](https://openfreemap.org) vector tiles (OpenMapTiles schema, © OpenMapTiles), free, no key. Data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL). Labels overlay on Topo/Satellite. |
+| Trail finder | `https://s3-us-west-2.amazonaws.com/usgs-lidar-public/WI_Clark_2018/ept.json` and `WI_12County_9_B22/ept.json`; hierarchy JSON and LAZ nodes; 3DEP elevation `exportImage` with F32 TIFF, NAD83 UTM 15N | USGS public-domain 3DEP lidar/elevation. Verified 2026-10-24: JSON, LAZ and TIFF return 200; metadata and TIFF allow browser origins (`Access-Control-Allow-Origin: *`); browser LAZ decode verified. |
 | Hillshade | `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage` with the Hillshade Gray raster function | USGS 3DEP elevation data, public domain. Lidar-derived terrain shading; resolution depends on available elevation coverage. |
 | Public lands | `https://edits.nationalmap.gov/arcgis/rest/services/PAD-US/PAD_US_4_1/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&f=image` | USGS Gap Analysis Project, *Protected Areas Database of the United States (PAD-US) 4.1*, U.S. Geological Survey data release, https://doi.org/10.5066/P96WBCHS. USGS data are public domain. Layer 0 = PAD-US 4.1 Fee, filtered and colored by manager using dynamicLayers; `/MapServer/0/query` identifies enabled public land. |
 | Parcels | Wisconsin Statewide Parcels DB FeatureServer/0/query (`services3.arcgis.com/n6uYoouQZW75n5WI`) | Wisconsin Statewide Parcels V12 (SCO), public domain. Visible at z13+; viewed tiles cached. Default off. |
@@ -91,3 +92,22 @@ See [ROADMAP.md](ROADMAP.md).
 ## License
 
 [MIT](LICENSE) © 2026 Devan Metz
+
+## Trail finder
+
+Toolbar → Trail finder → Draw box → select two corners → Find trails. The selection
+is capped at 2 square miles and 4 km per side. Results are ranked, marked Unverified,
+and stored locally in IndexedDB independently of waypoints and tracks. Clear removes
+only these derived results. Closing the panel cancels active work. Saved candidates
+remain viewable offline; acquiring new lidar requires network access. Coverage is
+limited to the two Wisconsin projects used by v4.
+
+The fixed v4 `unet_r18_dem` dynamic-int8 ONNX model is lazy loaded from
+`public/lidar/model.onnx` (12,588,880 bytes); its normalization and calibration are
+alongside it. Runtime files are reproducibly copied/compressed from pinned npm
+dependencies by `scripts/prepare-lidar.mjs` during dev/build, and cached on first use.
+Inference and terrain processing run in a dedicated worker with WebGPU selection and
+WASM fallback. Non-isolated pages use single-thread WASM SIMD. No inference server
+or proxy is used. OSM road removal is omitted; line simplification uses Douglas–Peucker.
+The restricted evaluation geometry is never shipped. See `THIRD_PARTY.md` for the
+skeletonization lookup-table license.

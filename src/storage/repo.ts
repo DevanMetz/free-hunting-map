@@ -3,7 +3,7 @@ import type { Item } from '../types';
 import { HybridClock } from '../sync/hlc';
 import { mergeItem } from '../sync/merge';
 import { uuid } from '../sync/ids';
-import { openHuntDB, type HuntDB, type OutboxEntry } from './db';
+import { openHuntDB, type HuntDB, type OutboxEntry, type LidarRun } from './db';
 
 export interface ImportResult {
   received: number;
@@ -37,6 +37,16 @@ export class Repo extends EventTarget {
     for (const item of await db.getAll('items')) maxSeen = Math.max(maxSeen, item.updatedAt);
     return new Repo(db, deviceId, new HybridClock(Date.now, maxSeen));
   }
+
+  /** Derived local lab artifacts; excluded from item sync and its outbox. */
+  async saveLidarRun(run: Omit<LidarRun, 'id' | 'createdAt'>): Promise<LidarRun> {
+    const saved = { ...run, id: uuid(), createdAt: this.clock.now() };
+    await this.db.put('lidarRuns', saved);
+    return saved;
+  }
+
+  listLidarRuns(): Promise<LidarRun[]> { return this.db.getAll('lidarRuns'); }
+  async clearLidarRuns(): Promise<void> { await this.db.clear('lidarRuns'); }
 
   /** Live (non-deleted) items. */
   async list(): Promise<Item[]> {
