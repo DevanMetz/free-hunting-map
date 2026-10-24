@@ -43,7 +43,8 @@ it('renders the configured GIS button and forwards its credential', async () => 
   expect(visual.getAttribute('aria-label')).toBe(visual.title);
   expect(visual.tabIndex).toBe(-1);
   expect(visual.getAttribute('aria-hidden')).toBe('true');
-  expect(visual.querySelector('svg')?.getAttribute('fill')).toBe('currentColor');
+  expect([...visual.querySelectorAll('svg path')].map(path => path.getAttribute('fill')))
+    .toEqual(['#4285F4', '#34A853', '#FBBC05', '#EA4335']);
   expect(root.querySelector('.account-sign-in-control .google-sign-in')).not.toBeNull();
   await Promise.resolve();
   expect(renderButton).toHaveBeenCalledOnce();

@@ -22,6 +22,7 @@ for (const width of [1440, 390]) {
       await configReady;
       await route.fulfill({ json: { googleClientId: 'test-client' } });
     });
+    await context.route('https://accounts.google.com/test-popup', route => route.fulfill({ contentType: 'text/html', body: '<title>Google sign-in test</title>' }));
     let signedIn = false;
     const user = { id: 'test-account', name: 'Devan' };
     await page.route('**/api/me', route => route.fulfill({ json: { user: signedIn ? user : null } }));
@@ -60,6 +61,24 @@ for (const width of [1440, 390]) {
     })).toBe('IFRAME');
     await expectClippedFrame(control);
     await page.getByRole('button', { name: 'Layers', exact: true }).click();
+    const glyph = control.locator('svg');
+    await expect(glyph).toHaveAttribute('width', '20');
+    await expect(glyph).toHaveAttribute('height', '20');
+    expect(await glyph.locator('path').evaluateAll(paths => paths.map(path => path.getAttribute('fill'))))
+      .toEqual(['#4285F4', '#34A853', '#FBBC05', '#EA4335']);
+    const neighbor = page.locator('.toolbar > button').first();
+    const neighborBox = (await neighbor.boundingBox())!;
+    expect(neighborBox.width).toBe(box.width);
+    expect(neighborBox.height).toBe(box.height);
+    await expect(neighbor.locator('svg')).toHaveAttribute('height', '22');
+    if (process.env.FHM_SCREENSHOT_DIR) {
+      await page.mouse.move(100, 100);
+      await page.screenshot({ path: `${process.env.FHM_SCREENSHOT_DIR}/color-${width}.png` });
+      await page.screenshot({ path: `${process.env.FHM_SCREENSHOT_DIR}/color-${width}-crop.png`, clip: {
+        x: Math.max(0, box.x - 16), y: Math.max(0, box.y - 16),
+        width: Math.min(76, width - Math.max(0, box.x - 16)), height: 120,
+      } });
+    }
     // Tab enters Google's frame; focus-within paints the ring on the native control.
     await page.locator('.toolbar > button').last().focus();
     for (let i = 0; i < 20; i++) {
@@ -75,8 +94,8 @@ for (const width of [1440, 390]) {
     await popup.close();
     const avatar = account.getByRole('button', { name: /Account: Devan/ });
     await expect(avatar).toBeVisible();
-    const avatarBox = (await avatar.boundingBox())!;
-    expect(avatarBox.width).toBe(44); expect(avatarBox.height).toBe(44);
+    await expect(avatar).toHaveCSS('width', '44px');
+    await expect(avatar).toHaveCSS('height', '44px');
     await avatar.click();
     await expect(account.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
     await expect(account.getByRole('button', { name: 'Delete account' })).toBeVisible();
@@ -86,7 +105,8 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width: width === 390 ? 1440 : 390, height: width === 390 ? 900 : 844 });
     await expect(page.locator('.account-control')).toHaveCount(1);
     await expect(account.getByRole('button', { name: /Account: Devan/ })).toBeVisible();
-    expect(await account.evaluate(el => el.parentElement?.classList.contains('toolbar'))).toBe(width === 390);
+    await expect.poll(() => account.evaluate(el => el.parentElement?.classList.contains('toolbar')))
+      .toBe(width === 390);
     await context.close();
   });
 }
