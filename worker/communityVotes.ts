@@ -1,9 +1,10 @@
+import { sha256 } from './communityShared';
 import { validateVote } from '../src/community/vote';
 import { authorized, purge } from './community';
 import { ApiError } from './sync';
 export async function voteCommunity(request: Request, db: D1Database, raw: unknown, rate: (key:string,limit:number)=>Promise<void>) {
   let v; try { v=validateVote(raw); } catch { throw new ApiError(400,'Invalid vote'); }
-  const device=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v.token))),n=>n.toString(16).padStart(2,'0')).join('');
+  const device=await sha256(v.token);
   await rate(`vote-device:${device}`,30);
   const at=new Date().toISOString();
   const result=await db.batch([

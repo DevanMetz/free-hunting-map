@@ -1,3 +1,5 @@
+import { hikeFeature, type HikeRow } from './communityHikes';
+import { HIKE_REPORT_THRESHOLD } from '../src/community/hike';
 import { authorized } from './community';
 import { hidden } from '../src/community/vote';
 import type { Scan } from '../src/community/geometry';
@@ -27,6 +29,16 @@ export async function exportCommunity(request:Request,db:D1Database,bucket:R2Buc
         const types=await db.prepare('SELECT type,COUNT(*) AS count FROM community_votes WHERE line_id=? AND vote IS NOT NULL AND type IS NOT NULL GROUP BY type ORDER BY count DESC,type').bind(row.id).all<{type:string;count:number}>();
         const {geometry,...metadata}=row;
         yield {type:'Feature',id:row.id,geometry:{type:'LineString',coordinates:JSON.parse(geometry)},properties:{...metadata,dataset:'labeled_lines',hidden:hidden(row.real_votes,row.not_votes,row.override),types:types.results,majority_types:types.results.filter(t=>t.count===types.results[0]?.count).map(t=>t.type)}};
+        cursor=row.id;
+      }
+    }
+    cursor='';
+    while(true){
+      const rows=await db.prepare('SELECT * FROM community_hikes WHERE id>? AND withdrawn=0 AND deleted=0 ORDER BY id LIMIT 100').bind(cursor).all<HikeRow>();
+      if(!rows.results.length)break;
+      for(const row of rows.results){
+        const f=hikeFeature(row);
+        yield {...f,properties:{...f.properties,dataset:'hikes',source:'gps_track',label:'positive',hidden:row.override==='hide'||(row.override!=='show'&&row.reports>=HIKE_REPORT_THRESHOLD),reports:row.reports,override:row.override}};
         cursor=row.id;
       }
     }

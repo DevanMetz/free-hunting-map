@@ -1,3 +1,4 @@
+import { inSupportedUS } from './geometry';
 import { bbox, tiles, simplify, type Point, type Scan, type BBox } from './geometry';
 export interface WireScan {
   v: 1;
@@ -22,9 +23,6 @@ export function encode(scan: Scan): WireScan {
     }),
   };
 }
-const us = (p: Point) => [
-  [-125, 24, -66, 50], [-180, 51, -129, 72], [-161, 18, -154, 23], [172, 51, 180, 72],
-].some(b => p[0] >= b[0]! && p[0] <= b[2]! && p[1] >= b[1]! && p[1] <= b[3]!);
 const fail = (): never => { throw new Error('Invalid community scan'); };
 /** Builds a new allowlisted object; unknown input fields never enter D1 or the hash. */
 export function decode(raw: unknown, now = Date.now()): Scan {
@@ -38,7 +36,7 @@ export function decode(raw: unknown, now = Date.now()): Scan {
   if (!Array.isArray(r.area) || r.area.length !== 4 || !r.area.every(Number.isFinite)) return fail();
   const [w, s, e, n] = r.area;
   if (w >= e || s >= n || e - w > .15 || n - s > .15 || (e - w) * (n - s) > .0025
-    || !us([w, s]) || !us([e, n]) || r.area.some(v => Math.abs(v * 100 - Math.round(v * 100)) > 1e-7)) return fail();
+    || !inSupportedUS([w, s]) || !inSupportedUS([e, n]) || r.area.some(v => Math.abs(v * 100 - Math.round(v * 100)) > 1e-7)) return fail();
   if (!Array.isArray(r.lines) || r.lines.length > 1000) return fail();
   if (r.threshold !== undefined && (typeof r.threshold !== 'number' || !Number.isFinite(r.threshold) || r.threshold < 0 || r.threshold > 1)) return fail();
   if (r.sources !== undefined && (!Array.isArray(r.sources) || r.sources.length > 20 || !r.sources.every(s => typeof s === 'string' && /^[\w./:-]{1,200}$/.test(s)))) return fail();
@@ -53,7 +51,7 @@ export function decode(raw: unknown, now = Date.now()): Scan {
     for (let i = 0; i < l.d.length; i += 2) {
       x += l.d[i]!; y += l.d[i + 1]!;
       const p: Point = [x / 1e6, y / 1e6];
-      if (!us(p) || p[0] < w - .0001 || p[0] > e + .0001 || p[1] < s - .0001 || p[1] > n + .0001) return fail();
+      if (!inSupportedUS(p) || p[0] < w - .0001 || p[0] > e + .0001 || p[1] < s - .0001 || p[1] > n + .0001) return fail();
       coordinates.push(p);
     }
     if (coordinates.every(p => p[0] === coordinates[0]![0] && p[1] === coordinates[0]![1])) return fail();

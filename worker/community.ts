@@ -1,26 +1,27 @@
+import { moderationSelector, sha256 } from './communityShared';
 import { HIDE_MARGIN } from '../src/community/vote';
 import { decode } from '../src/community/codec';
-import { bbox, mergeScan, tiles, simplify, type CommunityLine, type BBox } from '../src/community/geometry';
+import { bbox, mergeScan, tiles, simplify, type CommunityLine } from '../src/community/geometry';
 import { ApiError } from './sync';
 interface Row { id:string; geometry:string; scan_count:number; model:string; confidence:number; first_seen:string; last_confirmed:string }
-const edgeCache=()=>typeof caches !== 'undefined' && 'default' in caches ? (caches as CacheStorage & {default:Cache}).default : undefined;
+export const edgeCache=()=>typeof caches !== 'undefined' && 'default' in caches ? (caches as CacheStorage & {default:Cache}).default : undefined;
 const line=(r:Row):CommunityLine=>({...r,coordinates:JSON.parse(r.geometry) as CommunityLine['coordinates']});
 export const tilePath=(tile:string)=>`/tiles/community/12/${tile}.geojson`;
-export async function purge(origin: string, keys: string[]) {
+export async function purge(origin: string, keys: string[], path = tilePath) {
   // Cache API keys are zone-scoped. Other origins expire via max-age.
   // Invalidation is best effort: a committed write must still report success.
   try {
     const cache = edgeCache();
     if (!cache) return;
     await Promise.all([...new Set(keys)].map(async key => {
-      try { await cache.delete(new Request(origin + tilePath(key))); }
+      try { await cache.delete(new Request(origin + path(key))); }
       catch (error) { console.warn('Community tile cache purge failed', key, error); }
     }));
   } catch (error) { console.warn('Community tile cache unavailable', error); }
 }
 export async function uploadCommunity(db:D1Database,raw:unknown,origin:string,bucket?:R2Bucket){
   let scan;try{scan=decode(raw);}catch{throw new ApiError(400,'Invalid community scan');}
-  const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(scan)))),n=>n.toString(16).padStart(2,'0')).join('');
+  const hash=await sha256(JSON.stringify(scan));
   if (!bucket) throw new ApiError(503,'Training storage unavailable');
   const rawKey = `training/scans/${hash}.json`;
   // Immutable, content-addressed raw scan. An interrupted D1 write can safely retry.
@@ -61,10 +62,7 @@ export async function authorized(request:Request,secret?:string){
 }
 export async function deleteCommunity(request:Request,db:D1Database,raw:unknown,secret?:string){
   if(!await authorized(request,secret))throw new ApiError(403,'Forbidden');
-  const r=raw as {id?:unknown;bbox?:unknown}|null;let query:string,values:(string|number)[];
-  if(r&&typeof r.id==='string'&&/^[\w-]{1,64}$/.test(r.id)){query='id=?';values=[r.id];}
-  else if(r&&Array.isArray(r.bbox)&&r.bbox.length===4&&r.bbox.every(v=>typeof v==='number'&&Number.isFinite(v))&&r.bbox[0]<r.bbox[2]&&r.bbox[1]<r.bbox[3]){const [w,s,e,n]=r.bbox as BBox;query='west<=? AND east>=? AND south<=? AND north>=?';values=[e,w,n,s];}
-  else throw new ApiError(400,'Expected id or bbox');
+  const {query,values}=moderationSelector(raw);
   // One atomic batch also invalidates optimistic upload snapshots.
   const result=await db.batch([
     db.prepare(`SELECT DISTINCT tile FROM community_tiles WHERE line_id IN (SELECT id FROM community_lines WHERE ${query})`).bind(...values),

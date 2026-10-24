@@ -12,7 +12,7 @@ if(!token)throw new Error('Set FHM_ADMIN_TOKEN or --token-file');
 const response=await fetch(new URL('/api/community/export',value('--url')??'https://freehuntingmap.com'),{headers:{Authorization:`Bearer ${token}`}});
 if(!response.ok)throw new Error(`Export failed: HTTP ${response.status}`);
 const out=value('--out')??'community-export';await mkdir(out,{recursive:true});
-const streams=Object.fromEntries(['scan_lines','labeled_lines','votes'].map(k=>[k,createWriteStream(join(out,`${k}.geojson`),{mode:0o600})]));
+const streams=Object.fromEntries(['scan_lines','labeled_lines','votes','hikes'].map(k=>[k,createWriteStream(join(out,`${k}.geojson`),{mode:0o600})]));
 const first=new Set(Object.keys(streams));
 async function write(stream,text){if(!stream.write(text))await once(stream,'drain');}
 for(const stream of Object.values(streams))await write(stream,'{"type":"FeatureCollection","features":[\n');

@@ -1,3 +1,4 @@
+import { shareHike, unshareHike, reportHike, moderateHikes, hikesTile } from './communityHikes';
 import { exportCommunity } from './communityExport';
 import { voteCommunity, overrideCommunity } from './communityVotes';
 import { communityTile, uploadCommunity, deleteCommunity } from './community';
@@ -38,6 +39,9 @@ async function body(request: Request, cap = 8_000_000) {
 export default {
   async fetch(request: Request, env: Env, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname.startsWith('/tiles/community-hikes/')) {
+      try { return await hikesTile(request,env.DB); } catch { return new Response(null,{status:503}); }
+    }
     if (url.pathname.startsWith('/tiles/community/')) {
       try { return await communityTile(request,env.DB); } catch { return new Response(null,{status:503}); }
     }
@@ -65,6 +69,17 @@ export default {
         const input=await body(request,events?8192:1024);
         await rate(env.DB,`ping:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,30);
         return await recordUsage(input,request,env,events);
+      }
+      if (url.pathname.startsWith('/api/community/hikes/')) {
+        const input=await body(request,250_000);
+        const action=url.pathname.slice('/api/community/hikes/'.length);
+        if(action==='delete'||action==='override')return await moderateHikes(request,env.DB,input,env.COMMUNITY_ADMIN_TOKEN,action);
+        await rate(env.DB,`hike-ip:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,60);
+        await env.DB.prepare("DELETE FROM rate_limits WHERE (key LIKE 'hike-ip:%' OR key LIKE 'hike-device:%') AND window<?").bind(Math.floor(Date.now()/60_000)-5).run();
+        if(action==='share')return await shareHike(request,env.DB,input);
+        if(action==='unshare')return await unshareHike(request,env.DB,input);
+        if(action==='report')return await reportHike(request,env.DB,input,(key,limit)=>rate(env.DB,key,limit));
+        return json({error:'Not found'},404);
       }
       if (url.pathname === '/api/community/scans') {
         const input=await body(request,4_000_000);

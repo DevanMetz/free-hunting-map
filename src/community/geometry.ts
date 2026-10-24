@@ -87,3 +87,7 @@ export function tiles(area: BBox): string[] {
   for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) result.push(`${x}/${y}`);
   return result;
 }
+
+export const inSupportedUS = (p: Point) => [
+  [-125, 24, -66, 50], [-180, 51, -129, 72], [-161, 18, -154, 23], [172, 51, 180, 72],
+].some(b => p[0] >= b[0]! && p[0] <= b[2]! && p[1] >= b[1]! && p[1] <= b[3]!);
