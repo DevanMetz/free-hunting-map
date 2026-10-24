@@ -1,0 +1,22 @@
+import { expect, it } from 'vitest';
+import { accessContent, sectionContent, townshipContent } from './land';
+import { attributeResult, mapImage } from './arcgis';
+it('names PAD-US access codes and treats unrecognized access as unknown', () => {
+  expect(accessContent({ Unit_Nm: 'Forest', Pub_Access: 'OA' })).toEqual({ title: 'Forest', rows: [['Access', 'Open']] });
+  expect(accessContent({ Pub_Access: 'RA' })?.rows).toEqual([['Access', 'Restricted']]);
+  expect(accessContent({ Pub_Access: 'XA' })?.rows).toEqual([['Access', 'Closed']]);
+  expect(accessContent({ Pub_Access: 'unexpected' })?.rows).toEqual([['Access', 'Unknown']]);
+  expect(accessContent({})).toBeNull();
+});
+it('keeps PLSS identifiers, omits missing attributes and preserves numeric zero', () => {
+  expect(townshipContent({ TWNSHPLAB: 'T24N R03W' })?.rows).toEqual([['Township / range', 'T24N R03W']]);
+  expect(sectionContent({ FRSTDIVNO: '09', PLSSID: 'WI230240N0030W0' })?.rows).toContainEqual(['Section', '09']);
+  expect(attributeResult('x', { a: 0, b: null, c: '<Null>', d: {} }, [['a', 'A'], ['b', 'B'], ['c', 'C'], ['d', 'D']])?.rows).toEqual([['A', '0']]);
+});
+it('exports transparent PNGs with a literal MapLibre bbox token and encoded renderer', () => {
+  const url = mapImage('https://example.gov/MapServer', { dynamicLayers: '[{"id":0}]' });
+  expect(url).toContain('bbox={bbox-epsg-3857}');
+  expect(new URL(url).searchParams.get('format')).toBe('png32');
+  expect(new URL(url).searchParams.get('transparent')).toBe('true');
+  expect(new URL(url).searchParams.get('dynamicLayers')).toBe('[{"id":0}]');
+});

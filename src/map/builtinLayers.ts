@@ -67,3 +67,5 @@ registerLayers([
   },
   { id: 'trail-finder', category: 'trailfinder', name: 'Find trails', defaultOpacity: 1, attribution: HILLSHADE_ATTR, action: 'trailfinder' },
 ]);
+
+import './layers/land';
