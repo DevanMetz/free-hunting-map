@@ -82,6 +82,7 @@ Data flow: UI -> `Repo` (IndexedDB) -> `change` event -> `App.reloadItems()` -> 
 - `src/share/qr.test.ts` — chunking, assembler ordering/dupes/corruption, and a real `qrcode` -> `jsQR` round trip.
 - `src/share/gpx.test.ts`, `geojson.test.ts` — exact round trips and foreign-file imports.
 - `src/storage/repo.test.ts` — IndexedDB repo with `fake-indexeddb`.
+- Live layer checks from the agent box: launch Chromium with `--disable-http2`. The box resolves every host to one proxy IP, so Chromium coalesces `*.nationalmap.gov` (and similar) onto another host's CloudFront connection and gets 403s with no CORS headers. Real users are not affected; don't remove a layer for that failure without reproducing it with HTTP/2 disabled.
 
 ## Optional cloud sync
 
