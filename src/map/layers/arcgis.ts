@@ -6,10 +6,6 @@ export function mapImage(service: string, params: Record<string, string>): strin
     bboxSR: '3857', imageSR: '3857', size: '512,512', format: 'png32', transparent: 'true', f: 'image', ...params,
   })}`;
 }
-export function polygonSymbol(rgb: number[], alpha = 0, width = 1): object {
-  return { type: 'esriSFS', style: 'esriSFSSolid', color: [...rgb, alpha],
-    outline: { type: 'esriSLS', style: 'esriSLSSolid', color: [...rgb, 255], width } };
-}
 export type Attributes = Record<string, unknown>;
 export function text(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';

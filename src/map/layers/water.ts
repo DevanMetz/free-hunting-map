@@ -3,7 +3,6 @@ import { attributeResult, mapImage, queryPoint, text, type Attributes } from './
 
 const NHD = 'https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer';
 const WBD = 'https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer';
-const RIPARIAN = 'https://imagery.geoplatform.gov/iipp/rest/services/Ecosystems/USFS_EDW_Riparian_Areas/ImageServer';
 const nhdAttribution = '<a href="https://www.usgs.gov/national-hydrography">USGS NHD</a> · Public domain';
 const nhdRoute = /^https:\/\/hydro\.nationalmap\.gov\/arcgis\/rest\/services\/nhd\/MapServer\/export\?/;
 const wbdRoute = /^https:\/\/hydro\.nationalmap\.gov\/arcgis\/rest\/services\/wbd\/MapServer\/export\?/;
@@ -15,9 +14,6 @@ export function waterContent(p: Attributes): IdentifyResult | null {
 }
 export function watershedContent(p: Attributes, digits: 10 | 12): IdentifyResult | null {
   return attributeResult(digits === 10 ? 'Watershed' : 'Subwatershed', p, [['name', 'Name'], [`huc${digits}`, `HUC ${digits}`]]);
-}
-export function riparianContent(value: unknown): IdentifyResult | null {
-  return text(value) === '1' ? { title: 'Riparian area', rows: [['Model', 'USFS potential riparian area']] } : null;
 }
 const nhdIdentify: NonNullable<LayerDef['identify']> = async (lng, lat, signal, map) => {
   const distance = Math.max(5, Math.min(250, 8 * 78271.51696 * Math.cos(lat * Math.PI / 180) / 2 ** map.getZoom()));
@@ -62,23 +58,4 @@ registerLayers([
       return p ? watershedContent(p, c.digits) : null;
     },
   })),
-  {
-    id: 'water-riparian', category: 'water', name: 'Riparian areas', swatch: '#309c7e', minzoom: 10, maxzoom: 20, defaultOpacity: 0.45,
-    attribution: '<a href="https://www.fs.usda.gov/rds/archive/catalog/RDS-2019-0030">USFS potential riparian areas</a> · Public domain',
-    cacheRoute: /^https:\/\/imagery\.geoplatform\.gov\/iipp\/rest\/services\/Ecosystems\/USFS_EDW_Riparian_Areas\/ImageServer\/exportImage\?/,
-    legend: [{ color: '#309c7e', label: 'Potential riparian area' }],
-    source: { kind: 'raster', tileSize: 512, minzoom: 10, maxzoom: 17, tiles: [`${RIPARIAN}/exportImage?bbox={bbox-epsg-3857}&${new URLSearchParams({
-      bboxSR: '3857', imageSR: '3857', size: '512,512', format: 'png32', f: 'image', noData: '0', noDataInterpretation: 'esriNoDataMatchAny',
-      interpolation: 'RSP_NearestNeighbor', renderingRule: JSON.stringify({ rasterFunction: 'Colormap', rasterFunctionArguments: {
-        Raster: '$$', Colormap: [[0, 0, 0, 0], [1, 48, 156, 126]],
-      }, variableName: 'Raster' }),
-    })}`] },
-    async identify(lng, lat, signal) {
-      const params = new URLSearchParams({ f: 'json', geometry: JSON.stringify({ x: lng, y: lat, spatialReference: { wkid: 4326 } }), geometryType: 'esriGeometryPoint', returnGeometry: 'false', returnCatalogItems: 'false' });
-      const response = await fetch(`${RIPARIAN}/identify?${params}`, { signal });
-      if (!response.ok) return null;
-      const data = await response.json() as { value?: unknown };
-      return riparianContent(data.value);
-    },
-  },
 ]);
