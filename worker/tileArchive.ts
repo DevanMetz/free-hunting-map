@@ -49,8 +49,8 @@ export class TileArchive {
 }
 
 /** `version` is a validated path segment such as `v2`; each data build gets a new immutable prefix. */
-export async function openTileArchive(bucket: R2Bucket, version = 'v1'): Promise<TileArchive | null> {
-  const prefix = `trails/${version}/`;
+export async function openTileArchive(bucket: R2Bucket, version = 'v1', name = 'trails'): Promise<TileArchive | null> {
+  const prefix = `${name}/${version}/`;
   const object = await bucket.get(`${prefix}manifest.json`);
   if (!object) return null;
   const m = await object.json<TileManifest>();

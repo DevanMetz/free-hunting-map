@@ -1,6 +1,6 @@
 import { PUBLIC_LANDS } from '../map/publicLands';
 import { clampLabelScale } from '../map/labels';
-import { layerRegistry } from '../map/layerRegistry';
+import { layerRegistry, layerVariant } from '../map/layerRegistry';
 import '../map/builtinLayers';
 import type { MapState, MapView } from '../map/map';
 
@@ -30,10 +30,12 @@ export function loadSettings(saved: LegacySettings = {}): Settings {
     'water-nhd': saved.water === true, 'water-nwi': saved.water === true, 'deer-units': saved.deerUnits === true,
   };
   for (const def of layerRegistry.layers()) if (!def.action) state.layers[def.id] = {
+    ...(def.variants ? { variant: layerVariant(def)!.id } : {}),
     on: legacy[def.id as keyof typeof legacy] ?? def.defaultOn ?? false, opacity: def.defaultOpacity,
   };
   for (const [id, value] of Object.entries(saved.layers ?? {})) {
     if (value && typeof value.on === 'boolean') state.layers[id] = {
+      ...(layerRegistry.get(id)?.variants ? { variant: layerVariant(layerRegistry.get(id)!, value.variant)!.id } : {}),
       on: value.on, opacity: typeof value.opacity === 'number' && Number.isFinite(value.opacity)
         ? Math.max(0, Math.min(1, value.opacity)) : layerRegistry.get(id)?.defaultOpacity ?? 1,
     };

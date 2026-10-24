@@ -7,13 +7,13 @@ export const LAYER_CATEGORIES = [
   { id: 'vegetation', name: 'Vegetation' },
   { id: 'water', name: 'Water' },
   { id: 'agriculture', name: 'Agriculture' },
-  { id: 'terrain', name: 'Terrain' },
+  { id: 'terrain', name: 'Terrain & lidar' },
   { id: 'hazards', name: 'Hazards' },
   { id: 'mydata', name: 'My Data' },
   { id: 'trailfinder', name: 'Trail Finder' },
 ] as const;
 export type CategoryId = typeof LAYER_CATEGORIES[number]['id'];
-export interface LayerSetting { on: boolean; opacity: number }
+export interface LayerSetting { on: boolean; opacity: number; variant?: string }
 export interface LayerPreferences {
   layers: Record<string, LayerSetting>;
   collapsed: Record<string, boolean>;
@@ -40,7 +40,9 @@ export interface LayerDef {
   cacheRoute?: RegExp;
   /** Live feeds must request fresh data before falling back to viewed data. */
   cacheStrategy?: 'CacheFirst' | 'NetworkFirst';
-  source?: { kind: 'raster'; tiles: string[]; tileSize?: number; minzoom?: number; maxzoom?: number };
+  variants?: { id: string; label: string; tiles: string[]; attribution?: string }[];
+  defaultVariant?: string;
+  source?: { kind: 'raster'; tiles: string[]; tileSize?: number; minzoom?: number; maxzoom?: number; bounds?: [number, number, number, number] };
   /** Custom hooks run again on every style load. layerIds controls ordering. */
   layerIds?: string[];
   install?(map: Map, ctx: LayerContext): void;
@@ -98,4 +100,8 @@ export function toggleCategory(defs: readonly LayerDef[], state: LayerPreference
   const remembered = state.remembered[category];
   const restore = remembered?.some(id => toggles.some(d => d.id === id)) ? remembered : toggles.map(d => d.id);
   return Object.fromEntries(toggles.map(d => [d.id, active.length === 0 && restore.includes(d.id)]));
+}
+
+export function layerVariant(def: LayerDef, id?: string) {
+  return def.variants?.find(v => v.id === id) ?? def.variants?.find(v => v.id === def.defaultVariant) ?? def.variants?.[0];
 }

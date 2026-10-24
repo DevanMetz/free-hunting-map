@@ -361,6 +361,7 @@ canvas[data-lidar-drawing] { touch-action: none; }
 .layer-name { overflow-wrap: anywhere; }
 .land-swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; }
 .layer-extra { padding: 0 4px 8px 29px; }
+.layer-extra select { min-height: 44px; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .layer-extra input[type='range'] { display: block; width: 100%; min-height: 44px; margin: 0; accent-color: var(--accent); }
 .layer-legend { display: flex; flex-wrap: wrap; gap: 5px 12px; font-size: 0.75rem; padding-bottom: 4px; }
 .layer-legend > span { display: flex; align-items: center; gap: 5px; }

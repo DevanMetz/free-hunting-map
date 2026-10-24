@@ -62,7 +62,7 @@ export function decodeDirectory(bytes: Uint8Array): Entry[] {
 export class PMTiles {
   private headerPromise?: Promise<Header>;
   private directories = new Map<string, Promise<Entry[]>>();
-  constructor(readonly archive: TileArchive) {}
+  constructor(readonly archive: TileArchive, private readonly tileType = 1) {}
 
   private async header(): Promise<Header> {
     if (!this.headerPromise) this.headerPromise = this.readHeader().catch(error => { this.headerPromise = undefined; throw error; });
@@ -71,7 +71,7 @@ export class PMTiles {
 
   private async readHeader(): Promise<Header> {
     const bytes = await this.archive.bytes(0, 127);
-    if (new TextDecoder().decode(bytes.subarray(0, 7)) !== 'PMTiles' || bytes[7] !== 3 || bytes[99] !== 1) throw new Error('Expected PMTiles v3 vector archive');
+    if (new TextDecoder().decode(bytes.subarray(0, 7)) !== 'PMTiles' || bytes[7] !== 3 || bytes[99] !== this.tileType) throw new Error('Unexpected PMTiles v3 archive type');
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const u64 = (offset: number) => {
       const value = Number(view.getBigUint64(offset, true));

@@ -16,7 +16,7 @@ import { loadIconImage } from './icons';
 import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, clampLabelScale, labelLayers, labelTextSizes, labelsSource, roadLineLayers } from './labels';
 import { ParcelLoader } from './parcels';
 import { basemapStyle, type BasemapId } from './sources';
-import { layerRegistry, layerSetting, type LayerDef, type LayerContext, type LayerPreferences } from './layerRegistry';
+import { layerRegistry, layerSetting, layerVariant, type LayerDef, type LayerContext, type LayerPreferences } from './layerRegistry';
 import './builtinLayers';
 
 // MapLibre v6 ships its worker as a separate module; point it at the bundled asset.
@@ -108,6 +108,19 @@ export class HuntMap {
     if (this.styleReady && this.installed.has(id)) this.applyOpacity(def, this.state.layers[id]!.opacity);
   }
 
+  setLayerVariant(id: string, variant?: string): void {
+    const def = layerRegistry.get(id);
+    if (!def?.source || !def.variants) return;
+    const selected = layerVariant(def, variant)!;
+    this.state.layers[id] = { ...layerSetting(this.state, def), variant: selected.id };
+    if (this.styleReady && this.installed.has(id)) {
+      const source = this.map.getSource(id) as import('maplibre-gl').RasterTileSource;
+      // setTiles reloads TileJSON metadata, including attribution, from these options.
+      source._options.attribution = selected.attribution ?? def.attribution;
+      source.setTiles(selected.tiles);
+    }
+  }
+
   private applyOpacity(def: LayerDef, opacity: number): void {
     if (def.source) this.map.setPaintProperty(def.id, 'raster-opacity', opacity);
     else def.setOpacity?.(this.map, opacity, this.layerContext());
@@ -134,7 +147,8 @@ export class HuntMap {
       if (value.on && !this.installed.has(def.id)) {
         if (def.source) {
           const { kind: _kind, ...source } = def.source;
-          m.addSource(def.id, { type: 'raster', tileSize: 256, ...source, attribution: def.attribution });
+          const variant = layerVariant(def, value.variant);
+          m.addSource(def.id, { type: 'raster', tileSize: 256, ...source, tiles: variant?.tiles ?? source.tiles, attribution: variant?.attribution ?? def.attribution });
           m.addLayer({ id: def.id, type: 'raster', source: def.id, minzoom: def.minzoom, maxzoom: def.maxzoom }, before);
         } else def.install?.(m, ctx);
         this.installed.add(def.id);

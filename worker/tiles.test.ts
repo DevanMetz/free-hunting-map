@@ -24,9 +24,9 @@ function directory(entries: { id: number; run: number; length: number; offset: n
     ...entries.flatMap((entry, i) => varint(i && entry.offset === entries[i - 1]!.offset + entries[i - 1]!.length ? 0 : entry.offset + 1)),
   ]);
 }
-function fixture(leaf: boolean, gzip: boolean) {
+function fixture(leaf: boolean, gzip: boolean, payload = tileBytes) {
   const compress = (bytes: Uint8Array) => gzip ? new Uint8Array(gzipSync(bytes)) : bytes;
-  const a = compress(tileBytes), b = compress(secondTile);
+  const a = compress(payload), b = compress(secondTile);
   // IDs 1 & 2 share a run; ID 3 is absent; ID 4 uses contiguous-offset encoding.
   const entries = [{ id: 1, run: 2, length: a.length, offset: 0 }, { id: 4, run: 1, length: b.length, offset: a.length }];
   const leaves = leaf ? compress(directory(entries)) : new Uint8Array();
@@ -45,9 +45,9 @@ function fixture(leaf: boolean, gzip: boolean) {
   bytes.set(a, tileOffset); bytes.set(b, tileOffset + a.length);
   return bytes;
 }
-async function upload(bytes: Uint8Array) {
-  await bucket.put('trails/v1/manifest.json', JSON.stringify({ size: bytes.length, partSize: PART_SIZE, parts: Math.ceil(bytes.length / PART_SIZE), sha256: sha, built: '2026-10-24', bounds: [-125, 24, -66, 50] }));
-  for (let i = 0; i * PART_SIZE < bytes.length; i++) await bucket.put(`trails/v1/part-${String(i).padStart(3, '0')}`, bytes.slice(i * PART_SIZE, (i + 1) * PART_SIZE));
+async function upload(bytes: Uint8Array, name = 'trails') {
+  await bucket.put(`${name}/v1/manifest.json`, JSON.stringify({ size: bytes.length, partSize: PART_SIZE, parts: Math.ceil(bytes.length / PART_SIZE), sha256: sha, built: '2026-10-24', bounds: [-125, 24, -66, 50] }));
+  for (let i = 0; i * PART_SIZE < bytes.length; i++) await bucket.put(`${name}/v1/part-${String(i).padStart(3, '0')}`, bytes.slice(i * PART_SIZE, (i + 1) * PART_SIZE));
   // A new binding identity simulates a fresh isolate, avoiding cached previous fixtures.
   return new Proxy(bucket, { get(target, key) { const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value; } });
 }
@@ -145,4 +145,36 @@ it('maps known Hilbert coordinates and decodes large varints without 32-bit trun
   const entries = [{ id: 2 ** 40, run: 3, length: 50, offset: 2 ** 35 }, { id: 2 ** 40 + 4, run: 1, length: 10, offset: 2 ** 35 + 50 }];
   expect(decodeDirectory(directory(entries))).toEqual(entries);
   expect(() => decodeDirectory(Uint8Array.from([1, 128]))).toThrow();
+});
+
+it.each(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'])('serves %s WebP tiles, ranges and TileJSON independently of trails', async name => {
+  const bytes = fixture(true, false); bytes[99] = 4;
+  const binding = await upload(bytes, name);
+  const tile = await call(`/tiles/${name}/v1/1/0/0.webp`, binding);
+  expect(tile.status).toBe(200);
+  expect(tile.headers.get('Content-Type')).toBe('image/webp');
+  expect(new Uint8Array(await tile.arrayBuffer())).toEqual(tileBytes);
+  expect((await call(`/tiles/${name}/v1/1/1/1.webp`, binding)).status).toBe(204);
+  expect((await call(`/tiles/${name}/v1/1/0/0.mvt`, binding)).status).toBe(404);
+  expect(await (await call(`/tiles/${name}/v1.json`, binding)).json()).toMatchObject({
+    format: 'webp', minzoom: 8, maxzoom: 16, tiles: [`${origin}/tiles/${name}/v1/{z}/{x}/{y}.webp`],
+  });
+  const raw = await call(`/tiles/${name}/v1.pmtiles`, binding, { headers: { Range: 'bytes=0-126' } });
+  expect(raw.status).toBe(206); expect(new Uint8Array(await raw.arrayBuffer())).toEqual(bytes.slice(0, 127));
+  expect((await call('/tiles/trails/v1/1/0/0.mvt', binding)).headers.get('Content-Type')).toBe('application/vnd.mapbox-vector-tile');
+});
+it('rejects unknown archives and wrong extensions', async () => {
+  for (const path of ['/tiles/unknown/v1.json', '/tiles/unknown/v1.pmtiles', '/tiles/unknown/v1/1/0/0.webp', '/tiles/trails/v1/1/0/0.webp']) {
+    expect((await call(path)).status).toBe(404);
+  }
+  expect(await (await call('/tiles/lidar-lrm/v1.json')).text()).toBe('Terrain unavailable');
+});
+
+it('keys archive readers by name and version on the same R2 binding', async () => {
+  await upload(fixture(false, false));
+  const raster = fixture(false, false, secondTile); raster[99] = 4;
+  const binding = await upload(raster, 'lidar-lrm');
+  expect(new Uint8Array(await (await call('/tiles/lidar-lrm/v1/1/0/0.webp', binding)).arrayBuffer())).toEqual(secondTile);
+  expect(new Uint8Array(await (await call('/tiles/trails/v1/1/0/0.mvt', binding)).arrayBuffer())).toEqual(tileBytes);
+  expect((await call('/tiles/lidar-lrm/v2/1/0/0.webp', binding)).status).toBe(503);
 });

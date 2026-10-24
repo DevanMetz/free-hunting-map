@@ -18,7 +18,7 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
   const map = {
     on: vi.fn(), getZoom: () => 10,
     getSource: (id: string) => sources.get(id),
-    addSource: (id: string, source: unknown) => sources.set(id, { ...source as object, setData: vi.fn() }),
+    addSource: (id: string, source: unknown) => sources.set(id, { ...source as object, setData: vi.fn(), setTiles: vi.fn(), _options: { ...source as object } }),
     getStyle: () => ({ layers }),
     addLayer: (layer: LayerSpecification, before?: string) => {
       const index = layers.findIndex(l => l.id === before); layers.splice(index < 0 ? layers.length : index, 0, layer);
@@ -31,7 +31,7 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
   };
   const hunt = Object.assign(Object.create(HuntMap.prototype), {
     map, state, categories: [], refreshVersion: 0, styleVersion: 0, styleReady: true, installed: new Set(), parcelLoader: { setEnabled: vi.fn() }, items: [], sketch: { line: [], color: '#ffd54f' },
-  }) as Pick<HuntMap, 'setLayer' | 'setLayerOpacity' | 'mapState'> & { installOverlays(): Promise<void>; installed: Set<string> };
+  }) as Pick<HuntMap, 'setLayer' | 'setLayerOpacity' | 'setLayerVariant' | 'mapState'> & { installOverlays(): Promise<void>; installed: Set<string> };
   await hunt.installOverlays();
   expect(sources.has('public-trails')).toBe(false); expect(sources.has('hillshade')).toBe(false); expect(sources.has('water-nhd')).toBe(false);
   hunt.setLayer('public-trails', true); hunt.setLayer('slope', true); hunt.setLayer('water-nwi', true); hunt.setLayer('padus-usfs', true); hunt.setLayer('parcels', true);
@@ -45,6 +45,17 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
     if (basemap === 'streets') expect(ids.indexOf('slope')).toBeLessThan(ids.indexOf('roads'));
     expect(map.getLayer('parcels-line')).toMatchObject({ paint: { 'line-color': basemap === 'satellite' ? '#ffd400' : '#b0306a' } });
   };
+  hunt.setLayer('historic-aerials', true);
+  hunt.setLayerOpacity('historic-aerials', 0.46);
+  const order = layers.map(l => l.id);
+  const aerial = sources.get('historic-aerials');
+  hunt.setLayerVariant('historic-aerials', '1938');
+  expect(aerial.setTiles).toHaveBeenCalledWith(layerRegistry.get('historic-aerials')!.variants!.at(-1)!.tiles);
+  expect(aerial._options.attribution).toContain('1937–41');
+  expect(layers.map(l => l.id)).toEqual(order);
+  expect(hunt.mapState.layers['historic-aerials']).toEqual({ on: true, opacity: 0.46, variant: '1938' });
+  reset(); hunt.installed.clear(); await hunt.installOverlays();
+  expect(sources.get('historic-aerials').tiles).toEqual(layerRegistry.get('historic-aerials')!.variants!.at(-1)!.tiles);
   check(); hunt.setLayerOpacity('public-trails', 0.4);
   expect(map.setPaintProperty).toHaveBeenCalledWith('public-trails-foot', 'line-opacity', 0.4);
   expect(map.setPaintProperty).toHaveBeenCalledWith('public-trails-mvum-casing', 'line-opacity', 0.4 * 0.95);

@@ -148,6 +148,7 @@ export class App implements AppContext {
     this.map.setLabels(saved.labels);
     this.map.setLabelScale(saved.labelScale);
     for (const [id, value] of Object.entries(saved.layers)) {
+      this.map.setLayerVariant(id, value.variant);
       this.map.setLayer(id, value.on);
       this.map.setLayerOpacity(id, value.opacity);
     }

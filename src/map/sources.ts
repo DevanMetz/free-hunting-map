@@ -95,3 +95,12 @@ const terrainExport = (name: string): string => LIDAR_DEM_ROOT +
   encodeURIComponent(JSON.stringify({ rasterFunction: name })) + '&f=image';
 export const SLOPE_EXPORT = terrainExport('Slope Map');
 export const ASPECT_EXPORT = terrainExport('Aspect Map');
+
+export const LIDAR_VERSION = 'v1';
+export const LIDAR_BOUNDS: [number, number, number, number] = [-90.991, 44.399, -90.202, 45.136];
+export const LIDAR_TILES = Object.fromEntries(
+  ['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'].map(name =>
+    [name, `/tiles/${name}/${LIDAR_VERSION}/{z}/{x}/{y}.webp`]),
+);
+export const HISTORIC_AERIAL_SERVICE = 'https://dnrmaps.wi.gov/arcgis_image/rest/services/DW_Imagery/EN_Image_Basemap_';
+export const WISCONSIN_BOUNDS: [number, number, number, number] = [-92.89, 42.49, -86.25, 47.31];

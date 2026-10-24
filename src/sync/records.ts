@@ -30,7 +30,7 @@ export function portablePreferences(value: unknown): Record<string, unknown> {
     out.layers = Object.fromEntries(Object.entries(r.layers).flatMap(([id, value]) => {
       const v = value as Record<string, unknown> | null;
       return id.length <= 120 && v && typeof v.on === 'boolean' && typeof v.opacity === 'number' && Number.isFinite(v.opacity)
-        ? [[id, { on: v.on, opacity: Math.max(0, Math.min(1, v.opacity)) }]] : [];
+        ? [[id, { on: v.on, ...(typeof v.variant === 'string' && v.variant.length <= 120 ? { variant: v.variant } : {}), opacity: Math.max(0, Math.min(1, v.opacity)) }]] : [];
     }));
   }
   if (r.collapsed && typeof r.collapsed === 'object') out.collapsed = Object.fromEntries(Object.entries(r.collapsed).filter(([, v]) => typeof v === 'boolean'));

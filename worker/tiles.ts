@@ -1,19 +1,24 @@
 import { PMTiles } from './pmtiles';
 import { openTileArchive } from './tileArchive';
 
+const ARCHIVES: Record<string, { ext: string; contentType: string }> = {
+  trails: { ext: 'mvt', contentType: 'application/vnd.mapbox-vector-tile' },
+  ...Object.fromEntries(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'].map(name => [name, { ext: 'webp', contentType: 'image/webp' }])),
+};
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const readers = new WeakMap<R2Bucket, Map<string, Promise<PMTiles | null>>>();
-async function reader(bucket: R2Bucket, version: string): Promise<PMTiles | null> {
+async function reader(bucket: R2Bucket, name: string, version: string): Promise<PMTiles | null> {
+  const key = `${name}/${version}`;
   let byVersion = readers.get(bucket);
   if (!byVersion) readers.set(bucket, byVersion = new Map());
   const versions = byVersion;
-  let pending = versions.get(version);
+  let pending = versions.get(key);
   if (!pending) {
-    pending = openTileArchive(bucket, version).then(archive => {
-      if (!archive) versions.delete(version); // Uploads may still be in progress.
-      return archive ? new PMTiles(archive) : null;
-    }).catch(error => { versions.delete(version); throw error; });
-    versions.set(version, pending);
+    pending = openTileArchive(bucket, version, name).then(archive => {
+      if (!archive) versions.delete(key); // Uploads may still be in progress.
+      return archive ? new PMTiles(archive, name === 'trails' ? 1 : 4) : null;
+    }).catch(error => { versions.delete(key); throw error; });
+    versions.set(key, pending);
   }
   return pending;
 }
@@ -35,14 +40,16 @@ function unchanged(request: Request, etag: string): boolean {
 
 export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
   const url = new URL(request.url);
-  const route = /^\/tiles\/trails\/(v[1-9]\d{0,3})(?:\/(\d+)\/(\d+)\/(\d+)\.mvt|\.pmtiles|\.json)$/.exec(url.pathname);
-  if (!route) return new Response('Not found', { status: 404 });
-  const version = route[1]!;
-  const tile = route[2] !== undefined ? route.slice(1) : null;
+  const route = /^\/tiles\/([^/]+)\/(v[1-9]\d{0,3})(?:\/(\d+)\/(\d+)\/(\d+)\.(mvt|webp)|\.pmtiles|\.json)$/.exec(url.pathname);
+  const name = route?.[1] ?? '';
+  const archive = Object.hasOwn(ARCHIVES, name) ? ARCHIVES[name] : undefined;
+  if (!route || !archive || (route[6] && route[6] !== archive.ext)) return new Response('Not found', { status: 404 });
+  const version = route[2]!;
+  const tile = route[3] !== undefined ? route.slice(3, 6) : null;
   const raw = url.pathname.endsWith('.pmtiles');
   const tilejson = url.pathname.endsWith('.json');
   if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
-  const [z, x, y] = tile ? tile.slice(1).map(Number) as [number, number, number] : [0, 0, 0];
+  const [z, x, y] = tile ? tile.map(Number) as [number, number, number] : [0, 0, 0];
   if (tile && (!Number.isInteger(z) || z > 26 || !Number.isInteger(x) || !Number.isInteger(y) || x >= 2 ** z || y >= 2 ** z)) return new Response('Invalid tile coordinate', { status: 400 });
   // Only tile GETs enter Cache API; never buffer a full archive there.
   const cache = typeof caches !== 'undefined' && 'default' in caches ? (caches as CacheStorage & { default: Cache }).default : undefined;
@@ -55,8 +62,8 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     }
   }
   try {
-    const pm = bucket ? await reader(bucket, version) : null;
-    if (!pm) return new Response('Trails unavailable', { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
+    const pm = bucket ? await reader(bucket, name, version) : null;
+    if (!pm) return new Response(name === 'trails' ? 'Trails unavailable' : 'Terrain unavailable', { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
     const { manifest } = pm.archive;
     const etag = `"${manifest.sha256}${tile ? `-${z}-${x}-${y}` : tilejson ? '-json' : ''}"`;
     const headers = new Headers({ 'Cache-Control': IMMUTABLE, ETag: etag });
@@ -78,10 +85,10 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     }
     if (tilejson) {
       headers.set('Content-Type', 'application/json');
-      return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: 'Public trails', tiles: [`${url.origin}/tiles/trails/${version}/{z}/{x}/{y}.mvt`], minzoom: 6, maxzoom: 14, bounds: manifest.bounds, attribution: 'USFS, BLM, NPS, USGS trails (public domain)', vector_layers: [{ id: 'trails', fields: { type: 'String', src: 'String', agency: 'String' } }] }), { headers });
+      return new Response(request.method === 'HEAD' ? null : JSON.stringify(name === 'trails' ? { tilejson: '3.0.0', name: 'Public trails', tiles: [`${url.origin}/tiles/trails/${version}/{z}/{x}/{y}.mvt`], minzoom: 6, maxzoom: 14, bounds: manifest.bounds, attribution: 'USFS, BLM, NPS, USGS trails (public domain)', vector_layers: [{ id: 'trails', fields: { type: 'String', src: 'String', agency: 'String' } }] } : { tilejson: '3.0.0', name, format: archive.ext, tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.${archive.ext}`], minzoom: 8, maxzoom: 16, bounds: manifest.bounds, attribution: 'USGS 3DEP lidar' }), { headers });
     }
     const bytes = await pm.tile(z, x, y);
-    headers.set('Content-Type', 'application/vnd.mapbox-vector-tile');
+    headers.set('Content-Type', archive.contentType);
     const response = new Response(bytes ? new Uint8Array(bytes).buffer : null, { status: bytes ? 200 : 204, headers });
     if (cache && request.method === 'GET') {
       const put = cache.put(cacheKey, response.clone());
@@ -90,6 +97,6 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     return request.method === 'HEAD' ? new Response(null, { status: response.status, headers }) : response;
   } catch (error) {
     console.error('Tile request failed', error);
-    return new Response('Trails unavailable', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' } });
+    return new Response(name === 'trails' ? 'Trails unavailable' : 'Terrain unavailable', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' } });
   }
 }
