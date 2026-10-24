@@ -166,7 +166,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   const root = h('div', { class: 'layers-panel' }, basemaps, labelControls, activeBar, activeList, categories,
     h('footer', { class: 'layers-footer' },
       h('label', { class: 'layer-toggle' }, h('input', { type: 'checkbox', role: 'switch', checked: usageAllowed(), disabled: privacyBlocked(), onchange: (e: Event) => setUsageEnabled((e.target as HTMLInputElement).checked) }), 'Usage analytics'),
-      h('nav', { class: 'policy-links', 'aria-label': 'Policies' }, h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'))));
+      h('nav', { class: 'policy-links', 'aria-label': 'Site' }, h('a', { href: '/features' }, 'Features'), h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'))));
   ctx.sheet.open('layers', 'Layers', root, () => {
     unsubscribe(); close(); popover.remove();
     document.removeEventListener('pointerdown', outside);

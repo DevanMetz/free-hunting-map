@@ -1,0 +1,693 @@
+[
+  {
+    "slug": "alabama",
+    "name": "Alabama",
+    "abbr": "AL",
+    "agency": "Alabama Department of Conservation and Natural Resources",
+    "links": {
+      "agency": "https://www.outdooralabama.com/",
+      "regulations": "https://www.outdooralabama.com/hunting/alabama-hunting-and-fishing-regulations",
+      "publicLand": "https://www.outdooralabama.com/hunting/wildlife-management-areas",
+      "license": "https://www.outdooralabama.com/license-information"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "alaska",
+    "name": "Alaska",
+    "abbr": "AK",
+    "agency": "Alaska Department of Fish and Game",
+    "links": {
+      "agency": "https://www.adfg.alaska.gov/",
+      "regulations": "https://www.adfg.alaska.gov/index.cfm?adfg=wildliferegulations.hunting",
+      "publicLand": "https://www.adfg.alaska.gov/index.cfm?adfg=access.fh_access",
+      "license": "https://www.adfg.alaska.gov/store/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "arizona",
+    "name": "Arizona",
+    "abbr": "AZ",
+    "agency": "Arizona Game and Fish Department",
+    "links": {
+      "agency": "https://www.azgfd.com/",
+      "regulations": "https://www.azgfd.com/hunting/regulations/",
+      "publicLand": "https://www.azgfd.com/hunting/where-to-hunt/",
+      "license": "https://www.azgfd.com/hunting/hunt-draw-and-licenses/hunting-licenses/"
+    },
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "arkansas",
+    "name": "Arkansas",
+    "abbr": "AR",
+    "agency": "Arkansas Game and Fish Commission",
+    "links": {
+      "agency": "https://www.agfc.com/",
+      "regulations": "https://www.agfc.com/regulations/general-hunting-regulations/",
+      "publicLand": "https://www.agfc.com/hunting/where-to-hunt/",
+      "license": "https://www.agfc.com/resources/licensing/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "california",
+    "name": "California",
+    "abbr": "CA",
+    "agency": "California Department of Fish and Wildlife",
+    "links": {
+      "agency": "https://wildlife.ca.gov/",
+      "regulations": "https://wildlife.ca.gov/Regulations",
+      "publicLand": "https://apps.wildlife.ca.gov/lands/",
+      "license": "https://wildlife.ca.gov/Licensing"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "colorado",
+    "name": "Colorado",
+    "abbr": "CO",
+    "agency": "Colorado Parks and Wildlife",
+    "links": {
+      "agency": "https://cpw.state.co.us/",
+      "regulations": "https://cpw.state.co.us/rules-and-regulations",
+      "publicLand": "https://cpw.state.co.us/activities/hunting/where-hunt",
+      "license": "https://www.cpwshop.com/licensing.page"
+    },
+    "licenseVendor": true,
+    "programs": [
+      "Walk-in Access Program"
+    ],
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "connecticut",
+    "name": "Connecticut",
+    "abbr": "CT",
+    "agency": "Connecticut Department of Energy and Environmental Protection",
+    "links": {
+      "agency": "https://portal.ct.gov/deep",
+      "regulations": "https://portal.ct.gov/deep/hunting/hunting-and-connecticut-gun-laws",
+      "publicLand": "https://portal.ct.gov/deep/hunting/public-hunting-areas",
+      "license": "https://portal.ct.gov/deep/hunting/hunting-licenses-and-permits"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "delaware",
+    "name": "Delaware",
+    "abbr": "DE",
+    "agency": "Delaware Department of Natural Resources and Environmental Control",
+    "links": {
+      "agency": "https://dnrec.delaware.gov/",
+      "regulations": "https://dnrec.delaware.gov/fish-wildlife/hunting/",
+      "publicLand": "https://dnrec.delaware.gov/fish-wildlife/wildlife-areas/",
+      "license": "https://dnrec.delaware.gov/fish-wildlife/licenses/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "florida",
+    "name": "Florida",
+    "abbr": "FL",
+    "agency": "Florida Fish and Wildlife Conservation Commission",
+    "links": {
+      "agency": "https://myfwc.com/",
+      "regulations": "https://myfwc.com/hunting/regulations/",
+      "publicLand": "https://myfwc.com/recreation/wmas/",
+      "license": "https://myfwc.com/license/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "georgia",
+    "name": "Georgia",
+    "abbr": "GA",
+    "agency": "Georgia Department of Natural Resources, Wildlife Resources Division",
+    "links": {
+      "agency": "https://georgiawildlife.com/",
+      "regulations": "https://georgiawildlife.com/regulations",
+      "publicLand": "https://georgiawildlife.com/locations/hunting",
+      "license": "https://georgiawildlife.com/licenses-permits-passes"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "hawaii",
+    "name": "Hawaii",
+    "abbr": "HI",
+    "agency": "Hawaii Department of Land and Natural Resources, Division of Forestry and Wildlife",
+    "links": {
+      "agency": "https://dlnr.hawaii.gov/dofaw/",
+      "regulations": "https://dlnr.hawaii.gov/recreation/hunting",
+      "publicLand": "https://dlnr.hawaii.gov/recreation/hunting/gma/",
+      "license": "https://hunting.ehawaii.gov/hunting/license.html"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "idaho",
+    "name": "Idaho",
+    "abbr": "ID",
+    "agency": "Idaho Department of Fish and Game",
+    "links": {
+      "agency": "https://idfg.idaho.gov/",
+      "regulations": "https://fishandgame.idfg.idaho.gov/ifwis/huntplanner/",
+      "publicLand": "https://fishandgame.idfg.idaho.gov/ifwis/huntplanner/",
+      "license": "https://license.gooutdoorsidaho.com/Licensing/CustomerLookup.aspx"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "illinois",
+    "name": "Illinois",
+    "abbr": "IL",
+    "agency": "Illinois Department of Natural Resources",
+    "links": {
+      "agency": "https://dnr.illinois.gov/",
+      "regulations": "https://dnr.illinois.gov/hunting/hunttrapdigest.html",
+      "publicLand": "https://dnr.illinois.gov/hunting/publichuntingareas.html",
+      "license": "https://dnr.illinois.gov/lpr.html"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "indiana",
+    "name": "Indiana",
+    "abbr": "IN",
+    "agency": "Indiana Department of Natural Resources",
+    "links": {
+      "agency": "https://www.in.gov/dnr/",
+      "regulations": "https://www.in.gov/dnr/fish-and-wildlife/hunting-and-trapping/hunting-trapping-guide/index",
+      "publicLand": "https://www.in.gov/dnr/fish-and-wildlife/hunting-and-trapping/where-to-hunt",
+      "license": "https://www.gooutdoorsin.com/"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "iowa",
+    "name": "Iowa",
+    "abbr": "IA",
+    "agency": "Iowa Department of Natural Resources",
+    "links": {
+      "agency": "https://www.iowadnr.gov/",
+      "regulations": "https://www.iowadnr.gov/things-do/hunting-trapping",
+      "publicLand": "https://www.iowadnr.gov/places-go/wildlife-management-areas",
+      "license": "https://gooutdoorsiowa.com/"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "kansas",
+    "name": "Kansas",
+    "abbr": "KS",
+    "agency": "Kansas Department of Wildlife and Parks",
+    "links": {
+      "agency": "https://ksoutdoors.gov/Hunting",
+      "regulations": "https://www.ksoutdoors.gov/programs-services/law-enforcement/regulations-statutes/hunting-regulations",
+      "publicLand": "https://www.ksoutdoors.gov/outdoor-activities/hunting-in-kansas/where-to-hunt",
+      "license": "https://license.gooutdoorskansas.com/"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "kentucky",
+    "name": "Kentucky",
+    "abbr": "KY",
+    "agency": "Kentucky Department of Fish and Wildlife Resources",
+    "links": {
+      "agency": "https://fw.ky.gov/",
+      "regulations": "https://fw.ky.gov/Hunt/Pages/Guides.aspx",
+      "publicLand": "https://fw.ky.gov/Hunt/Pages/Public-Land-Hunting.aspx",
+      "license": "https://app.fw.ky.gov/Solar/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "louisiana",
+    "name": "Louisiana",
+    "abbr": "LA",
+    "agency": "Louisiana Department of Wildlife and Fisheries",
+    "links": {
+      "agency": "https://www.wlf.louisiana.gov/",
+      "regulations": "https://www.wlf.louisiana.gov/page/seasons-and-regulations",
+      "publicLand": "https://www.wlf.louisiana.gov/page/other-hunting-opportunities",
+      "license": "https://www.wlf.louisiana.gov/buy-a-license"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "maine",
+    "name": "Maine",
+    "abbr": "ME",
+    "agency": "Maine Department of Inland Fisheries and Wildlife",
+    "links": {
+      "agency": "https://www.maine.gov/ifw/",
+      "regulations": "https://www.maine.gov/ifw/hunting-trapping/hunting/laws-rules/index.html",
+      "publicLand": "https://www.maine.gov/ifw/fish-wildlife/wildlife/lands/wildlife-management-areas/index.html",
+      "license": "https://apps1.web.maine.gov/cgi-bin/online/moses_v3/index"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "maryland",
+    "name": "Maryland",
+    "abbr": "MD",
+    "agency": "Maryland Department of Natural Resources",
+    "links": {
+      "agency": "https://dnr.maryland.gov/",
+      "regulations": "https://dnr.maryland.gov/wildlife/Pages/hunt_trap/home.aspx",
+      "publicLand": "https://dnr.maryland.gov/wildlife/Pages/publiclands/home.aspx",
+      "license": "https://mdoutdoors.maryland.gov/login"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "massachusetts",
+    "name": "Massachusetts",
+    "abbr": "MA",
+    "agency": "Massachusetts Division of Fisheries and Wildlife",
+    "links": {
+      "agency": "https://www.mass.gov/orgs/division-of-fisheries-and-wildlife",
+      "regulations": "https://www.mass.gov/hunting-regulations",
+      "publicLand": "https://www.mass.gov/info-details/wildlife-management-areas-wmas",
+      "license": "https://www.mass.gov/info-details/hunting-licenses-permits-and-stamps"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "michigan",
+    "name": "Michigan",
+    "abbr": "MI",
+    "agency": "Michigan Department of Natural Resources",
+    "links": {
+      "agency": "https://www.michigan.gov/dnr",
+      "regulations": "https://www.michigan.gov/dnr/managing-resources/laws/regulations",
+      "publicLand": "https://www.michigan.gov/dnr/things-to-do/hunting/where",
+      "license": "https://www.mdnr-elicense.com/"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "minnesota",
+    "name": "Minnesota",
+    "abbr": "MN",
+    "agency": "Minnesota Department of Natural Resources",
+    "links": {
+      "agency": "https://www.dnr.state.mn.us/",
+      "regulations": "https://www.dnr.state.mn.us/regulations/hunting/index.html",
+      "publicLand": "https://www.dnr.state.mn.us/wmas/index.html",
+      "license": "https://www.dnr.state.mn.us/licenses/online-sales.html"
+    },
+    "programs": [
+      "Walk-In Access (WIA) Program"
+    ],
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "mississippi",
+    "name": "Mississippi",
+    "abbr": "MS",
+    "agency": "Mississippi Department of Wildlife, Fisheries, and Parks",
+    "links": {
+      "agency": "https://www.mdwfp.com/",
+      "regulations": "https://www.mdwfp.com/wildlife-hunting/general-hunting-rules-regulations",
+      "publicLand": "https://www.mdwfp.com/wildlife-hunting/wildlife-management-areas",
+      "license": "https://www.mdwfp.com/licenses-permits"
+    },
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "missouri",
+    "name": "Missouri",
+    "abbr": "MO",
+    "agency": "Missouri Department of Conservation",
+    "links": {
+      "agency": "https://mdc.mo.gov/",
+      "regulations": "https://mdc.mo.gov/hunting-trapping/regulations",
+      "publicLand": "https://mdc.mo.gov/hunting-trapping/where-hunt-and-shoot",
+      "license": "https://mdc-web.s3licensing.com/"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "montana",
+    "name": "Montana",
+    "abbr": "MT",
+    "agency": "Montana Fish, Wildlife & Parks",
+    "links": {
+      "agency": "https://fwp.mt.gov/",
+      "regulations": "https://fwp.mt.gov/hunt/regulations",
+      "publicLand": "https://fwp.mt.gov/hunt/access",
+      "license": "https://ols.fwp.mt.gov"
+    },
+    "programs": [
+      "Block Management"
+    ],
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "nebraska",
+    "name": "Nebraska",
+    "abbr": "NE",
+    "agency": "Nebraska Game and Parks Commission",
+    "links": {
+      "agency": "https://outdoornebraska.gov/",
+      "regulations": "https://outdoornebraska.gov/guides-maps/hunting-guides/big-game-guide/",
+      "publicLand": "https://outdoornebraska.gov/guides-maps/public-access-atlas/",
+      "license": "https://www.gooutdoorsne.com/login"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "nevada",
+    "name": "Nevada",
+    "abbr": "NV",
+    "agency": "Nevada Department of Wildlife",
+    "links": {
+      "agency": "https://www.ndow.org/",
+      "regulations": "https://www.ndow.org/get-outside/hunting/rules-regulations/",
+      "publicLand": "https://www.ndow.org/your-public-land/",
+      "license": "https://www.ndow.org/apply-buy/apply-buy-hunting/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "new-hampshire",
+    "name": "New Hampshire",
+    "abbr": "NH",
+    "agency": "New Hampshire Fish and Game Department",
+    "links": {
+      "agency": "https://www.wildlife.nh.gov/",
+      "regulations": "https://gc.nh.gov/rules/state_agencies/fis300.html",
+      "publicLand": "https://www.wildlife.nh.gov/hunting-nh/where-hunt",
+      "license": "https://www.nhfishandgame.com/"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "new-jersey",
+    "name": "New Jersey",
+    "abbr": "NJ",
+    "agency": "New Jersey Department of Environmental Protection, Fish & Wildlife",
+    "links": {
+      "agency": "https://dep.nj.gov/njfw/hunting/",
+      "regulations": "https://dep.nj.gov/njfw/digests/hunting-and-trapping/",
+      "publicLand": "https://dep.nj.gov/njfw/destinations/maps/",
+      "license": "https://nj.aspirafocus.com/internetsales"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "new-mexico",
+    "name": "New Mexico",
+    "abbr": "NM",
+    "agency": "New Mexico Department of Wildlife",
+    "links": {
+      "agency": "https://wildlife.dgf.nm.gov/",
+      "regulations": "https://wildlife.dgf.nm.gov/home/publications/",
+      "publicLand": "https://wildlife.dgf.nm.gov/hunting/maps/",
+      "license": "https://onlinesales.wildlife.state.nm.us/"
+    },
+    "programs": [
+      "Open Gate"
+    ],
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "new-york",
+    "name": "New York",
+    "abbr": "NY",
+    "agency": "New York State Department of Environmental Conservation",
+    "links": {
+      "agency": "https://dec.ny.gov/things-to-do/hunting",
+      "regulations": "https://dec.ny.gov/things-to-do/hunting/hunting-trapping-regulations",
+      "publicLand": "https://dec.ny.gov/things-to-do/hunting/places",
+      "license": "https://decals.east.licensing.app/"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "north-carolina",
+    "name": "North Carolina",
+    "abbr": "NC",
+    "agency": "North Carolina Wildlife Resources Commission",
+    "links": {
+      "agency": "https://www.ncwildlife.gov/",
+      "regulations": "https://www.ncwildlife.gov/hunting/fishing-hunting-trapping-regulations",
+      "publicLand": "https://www.ncwildlife.gov/hunting/where-hunt-shoot",
+      "license": "https://license.gooutdoorsnorthcarolina.com/Licensing/CustomerLookup.aspx"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "north-dakota",
+    "name": "North Dakota",
+    "abbr": "ND",
+    "agency": "North Dakota Game and Fish Department",
+    "links": {
+      "agency": "https://gf.nd.gov/",
+      "regulations": "https://gf.nd.gov/regulations",
+      "publicLand": "https://gf.nd.gov/hunting/where",
+      "license": "https://gf.nd.gov/hunting/licensing"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "ohio",
+    "name": "Ohio",
+    "abbr": "OH",
+    "agency": "Ohio Department of Natural Resources, Division of Wildlife",
+    "links": {
+      "agency": "https://ohiodnr.gov/",
+      "regulations": "https://ohiodnr.gov/wps/portal/gov/odnr/buy-and-apply/hunting-fishing-boating/hunting-resources/hunting-regulations",
+      "publicLand": "https://ohiodnr.gov/wps/portal/gov/odnr/go-and-do/outdoor/hunting/hunting",
+      "license": "https://ohiodnr.gov/wps/portal/gov/odnr/buy-and-apply/hunting-fishing-boating/hunting-resources/hunting-licenses-permits"
+    },
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "oklahoma",
+    "name": "Oklahoma",
+    "abbr": "OK",
+    "agency": "Oklahoma Department of Wildlife Conservation",
+    "links": {
+      "agency": "https://www.wildlifedepartment.com/",
+      "regulations": "https://www.wildlifedepartment.com/hunting/regs",
+      "publicLand": "https://www.wildlifedepartment.com/hunting/wma",
+      "license": "https://gooutdoorsoklahoma.com/"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "oregon",
+    "name": "Oregon",
+    "abbr": "OR",
+    "agency": "Oregon Department of Fish and Wildlife",
+    "links": {
+      "agency": "https://myodfw.com/",
+      "regulations": "https://myodfw.com/articles/oregon-fishing-hunting-regulations-and-updates",
+      "publicLand": "https://myodfw.com/articles/maps",
+      "license": "https://odfw.huntfishoregon.com/login"
+    },
+    "licenseVendor": true,
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "pennsylvania",
+    "name": "Pennsylvania",
+    "abbr": "PA",
+    "agency": "Pennsylvania Game Commission",
+    "links": {
+      "agency": "https://www.pa.gov/agencies/pgc.html",
+      "regulations": "https://www.pa.gov/agencies/pgc/huntingandtrapping/regulations",
+      "publicLand": "https://www.pa.gov/agencies/pgc/huntingandtrapping/where-to-hunt/state-game-land-maps",
+      "license": "https://www.pa.gov/services/pgc/purchase-a-hunting-and-trapping-license"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "rhode-island",
+    "name": "Rhode Island",
+    "abbr": "RI",
+    "agency": "Rhode Island Department of Environmental Management",
+    "links": {
+      "agency": "https://dem.ri.gov/",
+      "regulations": "https://rules.sos.ri.gov/regulations/part/250-60-00-9",
+      "publicLand": "https://dem.ri.gov/natural-resources-bureau/fish-wildlife/wildlife-hunting",
+      "license": "https://dem.ri.gov/natural-resources-bureau/fish-wildlife/wildlife-hunting"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "south-carolina",
+    "name": "South Carolina",
+    "abbr": "SC",
+    "agency": "South Carolina Department of Natural Resources",
+    "links": {
+      "agency": "https://www.dnr.sc.gov/",
+      "regulations": "https://www.dnr.sc.gov/regulations.html",
+      "publicLand": "https://www.dnr.sc.gov/wma/maps.html",
+      "license": "https://www.dnr.sc.gov/purchase.html"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "south-dakota",
+    "name": "South Dakota",
+    "abbr": "SD",
+    "agency": "South Dakota Game, Fish and Parks",
+    "links": {
+      "agency": "https://gfp.sd.gov/",
+      "regulations": "https://gfp.sd.gov/pages/regulations",
+      "publicLand": "https://gfp.sd.gov/hunting-areas/",
+      "license": "https://gfp.sd.gov/hunt-fish-license/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "tennessee",
+    "name": "Tennessee",
+    "abbr": "TN",
+    "agency": "Tennessee Wildlife Resources Agency",
+    "links": {
+      "agency": "https://www.tn.gov/twra.html",
+      "regulations": "https://www.tn.gov/twra/guide.html",
+      "publicLand": "https://www.tn.gov/twra/wildlife-management-areas.html",
+      "license": "https://www.tn.gov/twra/license-sales/buy-your-license-now.html"
+    },
+    "sourceCheckedAt": "2026-10-24",
+    "botProtected": true
+  },
+  {
+    "slug": "texas",
+    "name": "Texas",
+    "abbr": "TX",
+    "agency": "Texas Parks and Wildlife Department",
+    "links": {
+      "agency": "https://tpwd.texas.gov/",
+      "regulations": "https://tpwd.texas.gov/regulations/outdoor-annual/hunting/",
+      "publicLand": "https://tpwd.texas.gov/huntwild/hunt/public/",
+      "license": "https://tpwd.texas.gov/business/licenses/online_sales/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "utah",
+    "name": "Utah",
+    "abbr": "UT",
+    "agency": "Utah Division of Wildlife Resources",
+    "links": {
+      "agency": "https://wildlife.utah.gov/",
+      "regulations": "https://wildlife.utah.gov/hunting",
+      "publicLand": "https://wildlife.utah.gov/walkinaccess",
+      "license": "https://wildlifelicense.utah.gov/hflo"
+    },
+    "programs": [
+      "Walk-in Access Program"
+    ],
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "vermont",
+    "name": "Vermont",
+    "abbr": "VT",
+    "agency": "Vermont Fish & Wildlife Department",
+    "links": {
+      "agency": "https://vtfishandwildlife.com/",
+      "regulations": "https://vtfishandwildlife.com/hunt/hunting-regulations",
+      "publicLand": "https://vtfishandwildlife.com/hunt/find-a-place-to-hunt",
+      "license": "https://vtfishandwildlife.com/licenses-and-lotteries/license-center"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "virginia",
+    "name": "Virginia",
+    "abbr": "VA",
+    "agency": "Virginia Department of Wildlife Resources",
+    "links": {
+      "agency": "https://dwr.virginia.gov/",
+      "regulations": "https://dwr.virginia.gov/hunting/regulations/",
+      "publicLand": "https://dwr.virginia.gov/hunting/where-to-hunt-in-virginia/",
+      "license": "https://dwr.virginia.gov/licenses/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "washington",
+    "name": "Washington",
+    "abbr": "WA",
+    "agency": "Washington Department of Fish and Wildlife",
+    "links": {
+      "agency": "https://wdfw.wa.gov/",
+      "regulations": "https://wdfw.wa.gov/hunting/regulations",
+      "publicLand": "https://wdfw.wa.gov/hunting/locations",
+      "license": "https://wdfw.wa.gov/licenses/hunting"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "west-virginia",
+    "name": "West Virginia",
+    "abbr": "WV",
+    "agency": "West Virginia Division of Natural Resources",
+    "links": {
+      "agency": "https://wvdnr.gov/",
+      "regulations": "https://wvdnr.gov/hunting/hunting-regulations/",
+      "publicLand": "https://wvdnr.gov/lands-waters/wildlife-management-areas/",
+      "license": "https://wvdnr.gov/buy-a-license/"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "wisconsin",
+    "name": "Wisconsin",
+    "abbr": "WI",
+    "agency": "Wisconsin Department of Natural Resources",
+    "links": {
+      "agency": "https://dnr.wisconsin.gov/",
+      "regulations": "https://dnr.wisconsin.gov/topic/hunt/regulations.html",
+      "publicLand": "https://dnr.wisconsin.gov/topic/Lands/WildlifeAreas/alpha.html",
+      "license": "https://gowild.wi.gov"
+    },
+    "sourceCheckedAt": "2026-10-24"
+  },
+  {
+    "slug": "wyoming",
+    "name": "Wyoming",
+    "abbr": "WY",
+    "agency": "Wyoming Game and Fish Department",
+    "links": {
+      "agency": "https://wgfd.wyo.gov/",
+      "regulations": "https://wgfd.wyo.gov/regulations",
+      "publicLand": "https://wgfd.wyo.gov/public-access",
+      "license": "https://wgfd.wyo.gov/licenses-applications"
+    },
+    "programs": [
+      "Access Yes"
+    ],
+    "sourceCheckedAt": "2026-10-24"
+  }
+]

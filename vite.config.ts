@@ -4,8 +4,17 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { trailsCacheMatch, CACHE_ROUTES } from './src/map/cacheRoutes';
 import { layerRegistry } from './src/map/layerRegistry';
 import './src/map/builtinLayers';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { buildPages, generatedFiles } from './scripts/build-pages.mjs';
 
 const DAY = 60 * 60 * 24;
+export const NAVIGATION_FALLBACK_DENYLIST = [
+  /^\/tiles(?:\/|$)/,
+  /^\/api(?:\/|$)/,
+  /^\/(?:privacy|terms|features|about|free-onx-alternative|guides|public-land|links|faq)(?:\.html)?(?:\/|$|\?)/,
+  /^\/(?:robots\.txt|sitemap\.xml)(?:$|\?)/,
+];
 
 /** CacheFirst for map imagery so previously viewed areas work offline. */
 const tileCache = (name: string, urlPattern: RegExp, maxEntries: number) => ({
@@ -35,6 +44,16 @@ export default defineConfig({
   build: { chunkSizeWarningLimit: 1600 },
   plugins: [
     {
+      name: 'static-content',
+      apply: 'build',
+      async buildStart() { await buildPages(); },
+      async generateBundle() {
+        for (const fileName of await generatedFiles()) {
+          this.emitFile({ type: 'asset', fileName, source: await readFile(resolve('.generated-pages', fileName)) });
+        }
+      },
+    },
+    {
       name: 'lidar-external-runtime',
       generateBundle(_options, bundle) {
         // The runtime always uses our gzip .bin asset; omit ORT's unused default.
@@ -50,7 +69,7 @@ export default defineConfig({
       manifest: {
         name: 'Free Hunting Map',
         short_name: 'Free Hunting Map',
-        description: 'Offline-first hunting and camping map.',
+        description: 'Free, open-source hunting maps with offline caching, waypoints, GPS tracks and GPX sharing.',
         theme_color: '#1f2e24',
         background_color: '#141a16',
         display: 'standalone',
@@ -68,10 +87,12 @@ export default defineConfig({
         clientsClaim: true,
         // App shell, including the MapLibre worker module.
         globIgnores: ['**/worker-*.js', '**/lab-*.js', '**/ort-*.js', 'lidar/**'],
-        globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,webmanifest}'],
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,avif,webmanifest,txt,xml}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/tiles(?:\/|$)/, /^\/api(?:\/|$)/, /^\/(?:privacy|terms)(?:\.html)?(?:\/|$|\?)/],
+        // Workbox's precache matches cleanURLs (/about -> about.html) and
+        // directoryIndex (/guides/ -> guides/index.html) before app navigation.
+        navigateFallbackDenylist: NAVIGATION_FALLBACK_DENYLIST,
         // Keep cache names stable across branding changes to retain offline assets.
         runtimeCaching: [
           { urlPattern: ({ url }: { url: URL }) => url.origin === globalThis.location.origin && url.pathname.startsWith('/api/'), handler: 'NetworkOnly', method: 'GET' },

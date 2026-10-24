@@ -34,6 +34,54 @@ npm test          # unit tests (Vitest)
 
 Geolocation and camera need a secure context: `localhost` works; on a phone, serve over HTTPS.
 
+## Static pages and SEO
+
+`npm run build` runs the plain Node generator in `scripts/build-pages.mjs` through
+Vite, emits `.generated-pages/` into `dist/`, then lets Workbox precache the HTML,
+styles and screenshots. Generated HTML is gitignored. The map remains at `/`;
+content routes are excluded from the app navigation fallback. Workbox's clean-URL
+and directory-index matching serves these pages offline after the map installs its
+service worker. Cloudflare's SPA not-found handling remains unchanged.
+
+Copy lives in `content/pages/`. The official resource inputs are
+`content/states.json` (50 entries with `slug`, `name`, `agency`, `links`) and
+`content/links.json` (resources with `group`, `title`, `url`, `description`).
+State-specific editorial notes live in `content/pages/state-details.mjs`; a state's
+own `notes` field takes precedence if provided. Missing links or state notes fail
+the build. Feature sections in `content/pages/features.mjs` have explicit toggles
+and source checks so stale feature claims fail visibly.
+
+Canonicals use `https://freehuntingmap.com`: `/features`, `/about`, `/faq`, etc.
+have no trailing slash; `/guides/` and `/public-land/` are directory indexes.
+Privacy and terms keep their policy text in `public/` and share the content-site
+navigation and stylesheet. The sitemap includes all 66 public HTML pages.
+
+```bash
+npm run build
+node scripts/check-pages.mjs                         # internal links + JSON-LD
+node scripts/check-pages.mjs --external --browser    # also check official sites
+node scripts/verify-content.mjs                      # online/offline + review shots
+node scripts/capture-screenshots.mjs                 # real app shots + social image
+npm run build                                       # copy refreshed images to dist
+```
+
+Screenshot capture starts and stops Vite preview itself, imports synthetic GeoJSON
+through Share, and centers near 44.51971, -90.81941 in Wisconsin. It captures
+Organize categories, a trail-cam view cone, the redesigned Layers panel and
+the 2025 USDA crops layer. The federal-trails view moves to Chequamegon-Nicolet
+National Forest near Hayward; preview forwards real trail requests to the
+production Worker because local preview has no R2 binding. It uses installed
+Playwright Chromium and Python Pillow to make responsive WebP/AVIF assets. It
+never uses personal data or fabricates map tiles or forecasts. Set
+`FHM_CAPTURE_URL` to capture another running build, or `FHM_NOTES_DIR` to change
+the default `/workspace/fhm-seo-notes` location for raw/review images and reports.
+
+For Lighthouse, start `npm run preview -- --host 127.0.0.1 --port 4180`, then run
+`CHROME_PATH=/usr/bin/google-chrome npx -y --package=lighthouse@12 -c 'node scripts/audit-pages.mjs'`.
+The audit covers five content routes on mobile and desktop. Stop preview afterward.
+Some official sites block automation or have certificate problems; link-check
+failures are written to the notes directory for review, never silently ignored.
+
 ## Offline design
 
 | Concern | How |

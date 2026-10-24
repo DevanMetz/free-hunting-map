@@ -20,3 +20,6 @@ public/lidar/ort-*.bin
 test-results/
 playwright-report/
 __pycache__/
+
+# Build-time HTML, emitted by Vite before Workbox builds its precache.
+.generated-pages/

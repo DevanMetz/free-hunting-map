@@ -1,0 +1,122 @@
+[
+  {
+    "group": "USFS",
+    "title": "Motor Vehicle Use Maps",
+    "url": "https://www.fs.usda.gov/visit/maps",
+    "description": "Forest Service map resources, including maps showing designated motor vehicle routes and seasonal restrictions."
+  },
+  {
+    "group": "USFS",
+    "title": "Interactive Visitor Map",
+    "url": "https://www.fs.usda.gov/visit/maps/visitormap",
+    "description": "Interactive map of national forests and grasslands, roads, trails, and recreation sites."
+  },
+  {
+    "group": "USFS",
+    "title": "FSGeodata Clearinghouse",
+    "url": "https://data.fs.usda.gov/geodata/index.php",
+    "description": "Forest Service geospatial data and downloadable map resources."
+  },
+  {
+    "group": "BLM",
+    "title": "National Data",
+    "url": "https://www.blm.gov/about/data/National-Datasets",
+    "description": "National datasets maintained by the Bureau of Land Management."
+  },
+  {
+    "group": "BLM",
+    "title": "Geospatial Program",
+    "url": "https://www.blm.gov/services/geospatial",
+    "description": "BLM national data viewer and geospatial resources."
+  },
+  {
+    "group": "BLM",
+    "title": "Land Records",
+    "url": "https://www.blm.gov/services/land-records",
+    "description": "Federal land records resources, including land status and survey information."
+  },
+  {
+    "group": "BLM",
+    "title": "Hunting and Fishing",
+    "url": "https://www.blm.gov/programs/recreation/recreation-activities/hunting-fishing",
+    "description": "Information about hunting and fishing on BLM-managed public lands."
+  },
+  {
+    "group": "USGS",
+    "title": "PAD-US Data Explorer",
+    "url": "https://maps.usgs.gov/padusdataexplorer/",
+    "description": "Explore the Protected Areas Database of the United States in an interactive map."
+  },
+  {
+    "group": "USGS",
+    "title": "PAD-US Data Download",
+    "url": "https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-download",
+    "description": "Download national and state Protected Areas Database datasets."
+  },
+  {
+    "group": "USGS",
+    "title": "PAD-US Web Services",
+    "url": "https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-web-services",
+    "description": "Map services for Protected Areas Database layers."
+  },
+  {
+    "group": "USGS",
+    "title": "The National Map Viewer",
+    "url": "https://www.usgs.gov/tools/national-map-viewer",
+    "description": "Explore USGS base maps, geographic datasets, and topographic map availability."
+  },
+  {
+    "group": "USGS",
+    "title": "The National Map Data Downloads",
+    "url": "https://www.usgs.gov/the-national-map-data-delivery/gis-data-download",
+    "description": "Download geographic datasets, elevation data, and topographic maps."
+  },
+  {
+    "group": "USGS",
+    "title": "topoView",
+    "url": "https://ngmdb.usgs.gov/topoview/viewer/",
+    "description": "Find and download USGS topographic maps, including historical editions."
+  },
+  {
+    "group": "USGS",
+    "title": "3DEP LidarExplorer",
+    "url": "https://apps.nationalmap.gov/lidar-explorer/",
+    "description": "Search, download, and visualize USGS 3DEP lidar and elevation data."
+  },
+  {
+    "group": "Weather",
+    "title": "National Weather Service",
+    "url": "https://www.weather.gov/",
+    "description": "Official National Weather Service forecasts, warnings, and weather information."
+  },
+  {
+    "group": "Weather",
+    "title": "NOAA",
+    "url": "https://www.noaa.gov/",
+    "description": "National Oceanic and Atmospheric Administration weather, ocean, and climate resources."
+  },
+  {
+    "group": "Weather",
+    "title": "NOAA Weather",
+    "url": "https://www.noaa.gov/weather",
+    "description": "NOAA weather information and links to forecasting resources."
+  },
+  {
+    "group": "USFWS",
+    "title": "National Wildlife Refuge Hunting",
+    "url": "https://www.fws.gov/activity/hunting",
+    "description": "Find U.S. Fish and Wildlife Service locations offering hunting and check local requirements."
+  },
+  {
+    "group": "Recreation",
+    "title": "Recreation.gov",
+    "url": "https://www.recreation.gov/",
+    "description": "Federal recreation reservations, permits, passes, and trip-planning resources."
+  },
+  {
+    "group": "NPS",
+    "title": "Hunting in National Park System Units",
+    "url": "https://www.nps.gov/subjects/hunting/visit.htm",
+    "description": "Find park units that may offer hunting and consult each park for its rules."
+  }
+]
