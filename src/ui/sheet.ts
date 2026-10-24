@@ -34,6 +34,10 @@ export class Sheet {
     this.body.replaceChildren(content);
   }
 
+  setTitle(title: string): void {
+    this.titleEl.textContent = title;
+  }
+
   close(): void {
     this.runOnClose();
     this.current = null;

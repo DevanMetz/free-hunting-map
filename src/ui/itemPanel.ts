@@ -14,7 +14,7 @@ export function displayName(item: Item): string {
 }
 
 /** Icon picker row shared by the waypoint tool and the edit form. */
-export function iconPicker(selected: WaypointIcon, onPick: (icon: WaypointIcon) => void): HTMLElement {
+export function iconPicker(selected: WaypointIcon, onPick: (icon: WaypointIcon) => void): HTMLElement & { select(icon: WaypointIcon): void } {
   const row = h('div', { class: 'icon-picker', role: 'radiogroup', 'aria-label': 'Icon' });
   const render = (sel: WaypointIcon): void => {
     row.replaceChildren(
@@ -36,7 +36,7 @@ export function iconPicker(selected: WaypointIcon, onPick: (icon: WaypointIcon) 
     );
   };
   render(selected);
-  return row;
+  return Object.assign(row, { select: render });
 }
 
 export function openItemPanel(ctx: AppContext, item: Item): void {
@@ -92,17 +92,18 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
     void navigator.clipboard?.writeText(info).then(() => toast('Copied'));
   };
 
+  const title = (): string => item.kind === 'track' ? 'Track' : icon === 'trailcam' ? 'Trail cam' : 'Waypoint';
+  const picker = item.kind === 'waypoint' ? iconPicker(icon, (i) => { icon = i; iconOverride = true; updateCamera(); ctx.sheet.setTitle(title()); }) : null;
   const body = h(
     'div',
     { class: 'form' },
-    item.kind === 'waypoint' ? iconPicker(icon, (i) => { icon = i; iconOverride = true; updateCamera(); }) : null,
-    name,
-    categoryPicker(ctx, categoryId, id => { categoryId = id; updateCamera(); }),
+    picker,
+    h('div', { class: 'item-identity' }, name, categoryPicker(ctx, categoryId, id => { categoryId = id; updateCamera(); })),
     cameraBody,
     h('details', { class: 'item-details', open: item.kind !== 'waypoint' || item.icon !== 'trailcam' || window.innerWidth >= 760 }, h('summary', {}, 'Details'), h('div', { class: 'form' }, cameraDetails, note,
     h('div', { class: 'row item-appearance' },
       h('label', { class: 'row' }, 'Color', h('input', { type: 'color', 'aria-label': 'Item color', value: color ?? '#e87826', onchange: (e: Event) => { color = (e.target as HTMLInputElement).value; updateCamera(); } })),
-      h('button', { type: 'button', class: 'btn', onclick: () => { color = undefined; iconOverride = false; icon = 'pin'; if (item.kind === 'waypoint' && item.icon === 'trailcam') icon = 'trailcam'; updateCamera(); } }, 'Use category style')),
+      h('button', { type: 'button', class: 'btn', onclick: () => { color = undefined; iconOverride = false; icon = 'pin'; if (item.kind === 'waypoint' && item.icon === 'trailcam') icon = 'trailcam'; picker?.select(icon); ctx.sheet.setTitle(title()); updateCamera(); } }, 'Use category style')),
     h('div', { class: 'row' }, h('span', { class: 'mono' }, info), item.kind === 'waypoint' ? iconButton('copy', 'Copy coordinates', copy) : null))),
     h(
       'div',
@@ -111,7 +112,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
       h('button', { type: 'button', class: 'btn primary', onclick: () => void save() }, 'Save'),
     ),
   );
-  ctx.sheet.open(`item:${item.id}`, item.kind === 'waypoint' ? 'Waypoint' : 'Track', body, () => cameraEditor?.close());
+  ctx.sheet.open(`item:${item.id}`, title(), body, () => cameraEditor?.close());
   updateCamera();
   if (!item.name && (item.kind !== 'waypoint' || item.icon !== 'trailcam' || window.innerWidth >= 760)) name.focus();
 }

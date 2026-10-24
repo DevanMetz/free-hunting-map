@@ -1,6 +1,6 @@
 import { useFeature } from '../usage';
 import { iconSvg } from '../map/icons';
-import { categoryOf, effectiveColor, effectiveIcon, isVisible, type ItemType } from '../organize/model';
+import { categoryOf, effectiveColor, effectiveIcon, isVisible, itemType, type ItemType } from '../organize/model';
 import { matchRanges, searchItems } from '../organize/search';
 import type { Category, Item } from '../types';
 import type { AppContext } from './context';
@@ -14,10 +14,12 @@ export function openListPanel(ctx: AppContext): void {
   const selected = new Set<string>(), collapsed = new Set<string>();
   const search = h('input', { type: 'search', class: 'field', placeholder: 'Search', 'aria-label': 'Search saved items', autocomplete: 'off' });
   const filters = h('div', { class: 'organize-filters' });
+  filters.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { filters.scrollLeft += e.deltaY; e.preventDefault(); } });
   const groups = h('div', { class: 'organize-groups' });
   const bulk = h('div', { class: 'organize-bulk', hidden: true });
+  let allButton = iconButton('eye', 'Hide all items', () => {});
   const selectButton = iconButton('check', 'Select items', () => { selecting = !selecting; selected.clear(); render(); });
-  const categoryFilter = h('select', { class: 'category-filter', 'aria-label': 'Filter category', onchange: () => { categoryId = categoryFilter.value === ':all' ? undefined : categoryFilter.value; render(); } });
+  const categoryFilter = h('select', { class: 'chip category-filter', 'aria-label': 'Filter category', onchange: () => { categoryId = categoryFilter.value === ':all' ? undefined : categoryFilter.value; render(); } });
   const setHidden = async (ids: string[], hidden: boolean): Promise<void> => {
     for (const id of ids) { const item = await ctx.repo.get(id); if (item && !item.deleted) await ctx.repo.update(item, { hidden }); }
     await refresh();
@@ -31,14 +33,25 @@ export function openListPanel(ctx: AppContext): void {
   const render = (): void => {
     selectButton.classList.toggle('active', selecting);
     selectButton.setAttribute('aria-pressed', String(selecting));
-    filters.replaceChildren(...([
-      ['pin', 'Pins', 'showPins'], ['trail', 'Trails', 'showTrails'], ['recording', 'Recordings', 'showRecordings'], ['trailcam', 'Trail cams', undefined],
-    ] as const).map(([key, label, visibility]) => h('div', { class: 'type-chip' },
-      h('button', { type: 'button', class: `chip${type === key ? ' active' : ''}`, 'aria-pressed': String(type === key), onclick: () => { type = type === key ? undefined : key; render(); } }, label),
-      visibility ? iconButton(ctx.visibility()[visibility] ? 'eye' : 'eyeOff', `${ctx.visibility()[visibility] ? 'Hide' : 'Show'} all ${label.toLowerCase()}`, () => void ctx.setTypeVisibility({ [visibility]: !ctx.visibility()[visibility] }).then(refresh)) : null,
+    const shown = ctx.visibility(), cams = items.filter(i => itemType(i) === 'trailcam');
+    const camsShown = shown.showPins && (!cams.length || cams.some(i => !i.hidden));
+    const anyShown = items.some(i => isVisible(i, categories, shown));
+    allButton.replaceWith(allButton = iconButton(anyShown ? 'eye' : 'eyeOff', `${anyShown ? 'Hide' : 'Show'} all items`, () => void allVisibility(anyShown), anyShown ? '' : 'is-off'));
+    filters.replaceChildren(categoryFilter, ...([
+      ['pin', 'Pins', shown.showPins, () => ctx.setTypeVisibility({ showPins: !shown.showPins })],
+      ['trail', 'Trails', shown.showTrails, () => ctx.setTypeVisibility({ showTrails: !shown.showTrails })],
+      ['recording', 'Recordings', shown.showRecordings, () => ctx.setTypeVisibility({ showRecordings: !shown.showRecordings })],
+      ['trailcam', 'Trail cams', camsShown, async () => {
+        await setHidden(cams.map(i => i.id), camsShown);
+        if (!camsShown && !shown.showPins) await ctx.setTypeVisibility({ showPins: true });
+      }],
+    ] as const).map(([key, label, on, toggle]) => h('div', { class: `type-chip${type === key ? ' active' : ''}${on ? '' : ' is-off'}` },
+      h('button', { type: 'button', class: 'chip', 'aria-pressed': String(type === key), onclick: () => { type = type === key ? undefined : key; render(); } }, label),
+      iconButton(on ? 'eye' : 'eyeOff', `${on ? 'Hide' : 'Show'} all ${label.toLowerCase()}`, () => void toggle().then(refresh)),
     )));
     categoryFilter.replaceChildren(h('option', { value: ':all' }, 'All categories'), h('option', { value: '' }, 'Uncategorized'), ...categories.map(c => h('option', { value: c.id }, c.name)));
     categoryFilter.value = categoryId ?? ':all';
+    categoryFilter.classList.toggle('active', categoryFilter.value !== ':all');
     const result = searchItems(items, categories, search.value, { type, categoryId });
     bulk.hidden = !selecting;
     bulk.replaceChildren(h('span', { class: 'selected-count', role: 'status' }, String(selected.size)),
@@ -65,7 +78,8 @@ export function openListPanel(ctx: AppContext): void {
         } }, action)));
         const eye = category ? iconButton(category.hidden ? 'eyeOff' : 'eye', `${category.hidden ? 'Show' : 'Hide'} category ${name}`, () => void ctx.repo.updateCategory(category, { hidden: !category.hidden }).then(() => { useFeature('category_hide'); void refresh(); }))
           : iconButton(members.length && members.every(i => i.hidden) ? 'eyeOff' : 'eye', `${members.length && members.every(i => i.hidden) ? 'Show' : 'Hide'} Uncategorized`, () => void setHidden(members.map(i => i.id), !members.every(i => i.hidden)));
-        return h('section', { class: 'category-group', 'data-category': id },
+        const off = category ? category.hidden : members.length > 0 && members.every(i => i.hidden);
+        return h('section', { class: `category-group${off ? ' is-hidden' : ''}`, 'data-category': id },
           h('div', { class: 'category-head' },
             h('button', { type: 'button', class: 'category-name', 'aria-expanded': String(!collapsed.has(id)), onclick: () => { collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id); render(); } },
               h('span', { class: 'category-dot', style: `background:${category?.color ?? '#9fb0a2'}` }), h('span', { class: 'category-title' }, name), h('span', { class: 'category-count' }, String(members.length))),
@@ -97,9 +111,8 @@ export function openListPanel(ctx: AppContext): void {
   const onChange = (): void => { void refresh(); };
   ctx.repo.addEventListener('change', onChange); ctx.repo.addEventListener('preferences', onChange);
   const body = h('div', { class: 'organize' },
-    h('div', { class: 'organize-search row' }, search, iconButton('plus', 'New category', () => categoryDialog(ctx)), selectButton),
-    filters, h('div', { class: 'organize-options row' }, categoryFilter,
-      iconButton('eye', 'Show all items', () => void allVisibility(false)), iconButton('eyeOff', 'Hide all items', () => void allVisibility(true))), bulk, groups);
+    h('div', { class: 'organize-search row' }, search, allButton, iconButton('plus', 'New category', () => categoryDialog(ctx)), selectButton),
+    filters, bulk, groups);
   ctx.sheet.open('list', 'Organize', body, () => { closed = true; ctx.repo.removeEventListener('change', onChange); ctx.repo.removeEventListener('preferences', onChange); });
   void refresh();
 }
