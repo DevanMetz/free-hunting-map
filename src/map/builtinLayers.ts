@@ -7,6 +7,7 @@ import './layers/agriculture';
 import './layers/vegetation';
 import './layers/trails';
 import './layers/tigerRoads';
+import './layers/usfsClosedRoads';
 import './layers/osmTracks';
 import './layers/wiForestRoads';
 import './layers/community';
