@@ -19,3 +19,8 @@ it('rotates/resizes tip and clamps edge widths, including north wrap and cardina
   expect(dragEdge(origin, destination(origin, 180, 25), fov).angle).toBe(120);
   expect(dragEdge(origin, destination(origin, 0, 25), fov).angle).toBe(10);
 });
+
+it('keeps a camera wedge crossing the dateline near its pin', () => {
+  const ring = wedge([179.9999, 0], { bearing: 90, angle: 120, range: 100 });
+  expect(Math.max(...ring.map(p => p[0])) - Math.min(...ring.map(p => p[0]))).toBeLessThan(.01);
+});

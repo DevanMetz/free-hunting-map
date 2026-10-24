@@ -369,3 +369,54 @@ canvas[data-lidar-drawing] { touch-action: none; }
 .layer-action { margin: 0 0 8px 8px; width: calc(100% - 8px); }
 .layers-footer { border-top: 1px solid var(--line); padding-top: 8px; }
 .layers-footer .policy-links a { display: inline-flex; align-items: center; min-height: 44px; }
+.organize { display: flex; flex-direction: column; gap: 8px; }
+.organize-search .field { min-width: 0; flex: 1; }
+.organize-search .icon-btn { flex: none; }
+.organize-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.type-chip { display: flex; min-width: 0; align-items: center; border: 1px solid var(--line); border-radius: 10px; flex: none; overflow: hidden; }
+.type-chip .chip { flex: 1; }
+.type-chip .icon-btn { width: 44px; flex: none; border-radius: 0; }
+.type-chip .icon-btn svg { width: 18px; }
+.chip { min-height: 44px; padding: 0 10px; border: 0; background: transparent; cursor: pointer; white-space: nowrap; }
+.chip.active { background: var(--accent); color: #111; }
+.category-filter { flex: 1; min-width: 0; min-height: 44px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; font: inherit; }
+.organize-options .icon-btn { flex: none; }
+.category-head { display: flex; align-items: center; gap: 0; border-bottom: 1px solid var(--line); }
+.category-head > .icon-btn { flex: none; }
+.category-name { display: flex; gap: 8px; align-items: center; min-width: 0; flex: 1; border: 0; background: transparent; min-height: 48px; padding: 0 4px; font-weight: 650; text-align: left; cursor: pointer; }
+.category-name[aria-expanded='false'] { opacity: .65; }
+.category-count { margin-left: auto; padding: 0 6px; font-variant-numeric: tabular-nums; }
+.category-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.category-menu { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
+.organized-item { display: flex; align-items: center; }
+.organized-item .item-row { flex: 1; min-width: 0; min-height: 48px; border: 0; }
+.organized-item > .icon-btn { flex: none; }
+.organized-item.is-hidden .item-row { opacity: .45; }
+.selection-target { width: 44px; min-height: 44px; display: grid; place-items: center; flex: none; }
+.selection-target input { width: 20px; height: 20px; accent-color: var(--accent); }
+.organize-bulk { display: flex; align-items: center; gap: 4px; position: sticky; top: 0; background: var(--panel-2); border-radius: 10px; padding: 4px; z-index: 1; }
+.selected-count { min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; }
+.organize-bulk .btn { margin-right: auto; }
+.organize mark { background: #e8782655; color: inherit; border-radius: 2px; }
+.organize-dialog { width: min(360px, calc(100% - 24px)); padding: 16px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+.organize-dialog::backdrop { background: #0009; }
+.organize-dialog input[type='text'], .organize-dialog input:not([type]) { min-width: 0; }
+input[type='color'] { min-width: 44px; width: 44px; height: 44px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); cursor: pointer; }
+.btn.danger { color: var(--danger); }
+.organize-dialog .btn, .organize .btn, .item-appearance .btn { min-height: 44px; }
+.icon-choice { min-width: 44px; min-height: 44px; }
+.icon-picker { gap: 3px; }
+.fov-fields { display: flex; gap: 8px; align-items: end; }
+.fov-fields label { min-width: 0; flex: 1; font-size: .85rem; }
+.fov-fields .field { margin-top: 4px; padding: 10px 6px; }
+.fov-handle { background: var(--panel); border: 2px solid var(--accent); border-radius: 50%; color: var(--text); box-shadow: 0 2px 8px #0008; cursor: grab; }
+.fov-handle:active { cursor: grabbing; }
+.date-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.date-fields label { min-width: 0; font-size: .85rem; }
+.date-fields input { margin-top: 4px; padding: 10px 6px; min-width: 0; }
+.item-appearance { justify-content: space-between; }
+.category-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-details > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.item-details > summary::after { content: '+'; margin-left: auto; padding: 0 12px; }
+.item-details[open] > summary::after { content: '−'; }
+.item-details > .form { margin-top: 4px; }

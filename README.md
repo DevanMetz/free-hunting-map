@@ -10,7 +10,9 @@ Built because pins dropped on one phone in the woods never showed up on another 
 - **Labels overlay** (Topo and Satellite): place, road, trail, peak and water names from OpenFreeMap vector tiles; toggle under Layers.
 - **Hillshade overlay:** USGS 3DEP lidar-derived terrain shading, available under Layers.
 - **Public land overlays:** USGS PAD-US 4.1 toggles for USFS, BLM, NPS, FWS, state wildlife, state parks, state trust, DOD and other public land; tap land for its manager and designation.
-- **Waypoints:** tap to drop; name, note and icon (pin, stand, blood, rub, camp, truck). Drop at your GPS location.
+- **Waypoints:** tap to drop; name, note and icon (pin, stand, blood, rub, camp, truck, trail cam). Drop at your GPS location.
+- **Organize:** search offline by name, note, folder, type, camera model or date. Create colored categories for pins, trails and recordings; move one item in its editor or use Select for bulk moves, visibility and deletion. Category, item and type eyes control the map. Opening a hidden search result reveals its item, category and type.
+- **Trail cams:** Drop pin → Trail cam. Edit bearing, angle and range with numeric controls or drag the center/edge handles on the map (mouse, touch or arrow keys). Camera model and set/check dates are under Details on phones. Save commits the draft. Field of view, category names and styles travel with GPX, GeoJSON and QR.
 - **Tracks:** draw by tapping, or record from GPS (screen wake-lock while recording; points saved as you go).
 - **Measure:** polyline distance in mi / ft / km.
 - **GPS locate:** MapLibre GeolocateControl.
@@ -46,13 +48,21 @@ Geolocation and camera need a secure context: `localhost` works; on a phone, ser
 
 Import accepts GPX, GeoJSON, and Google Takeout ZIP, CSV and JSON files. In [Google Takeout](https://takeout.google.com/), select **Saved** (one CSV per list), **Maps (your places)** (starred places in `Saved Places.json`), and optionally **Maps → My labeled places** (`Labeled places.json`). Import the whole ZIP or individual files from Share → Import file.
 
-Takeout places become waypoint markers. List names, notes/comments, tags and addresses go into the existing note field; Google Maps source URLs are retained through exports, QR and sync. Coordinates come from Point geometry, Location Geo Coordinates, or coordinate-bearing URLs (`!3d/!4d`, `@`, `/maps/search/lat,lng`, `/maps/place/lat,lng`, `q`, `ll`, `query`). Actual place coordinates take precedence over a URL viewport. Rows without usable coordinates—including place-ID/cid-only links—are counted as skipped; importing uses no network or geocoding. Existing live waypoints and places within an import deduplicate by identical source URL, or case/whitespace-insensitive title within five meters. The result reports imported, duplicate and skipped counts.
+Takeout places become waypoint markers. Each list becomes a category (matched by name); notes/comments, tags and addresses remain in the note field; Google Maps source URLs are retained through exports, QR and sync. Coordinates come from Point geometry, Location Geo Coordinates, or coordinate-bearing URLs (`!3d/!4d`, `@`, `/maps/search/lat,lng`, `/maps/place/lat,lng`, `q`, `ll`, `query`). Actual place coordinates take precedence over a URL viewport. Rows without usable coordinates—including place-ID/cid-only links—are counted as skipped; importing uses no network or geocoding. Existing live waypoints and places within an import deduplicate by identical source URL, or case/whitespace-insensitive title within five meters. The result reports imported, duplicate and skipped counts.
 
 Foreign GPX/GeoJSON files without our metadata get deterministic content-hash ids and `updatedAt = 0`, so re-importing the same file never duplicates and any local edit wins.
 
 ### QR format
 
 `OHM1:<setId>:<index>:<total>:<data>` — `data` chunks concatenate to base64url(deflate(JSON)) of a compact array encoding (coordinates as integer micro-degrees, track points delta-encoded). `setId` is a hash of the payload and doubles as a checksum. Default chunk size is 600 characters (error correction L).
+
+### Organize data and migration
+
+IndexedDB v4 preserves every v3 store and reuses `records` for category snapshots and tombstones. Categories use the existing HLC, outbox, sanitizeRecord and pure LWW merge; Worker/D1 needs no migration. Items carry optional `categoryId`, `hidden`, color and pin icon override fields. Missing or deleted categories resolve to implicit Uncategorized. Type visibility is an allowlisted portable preference; search, selection, collapsed groups and camera previews stay local to the current panel.
+
+At first Repo open, the idempotent Takeout migration recognizes Google Maps sources and legacy Takeout IDs (or standard/list names from CSV import logs), moves the final list-name note line into a category, and stamps each change through Repo. It retains coordinates, source URLs, metadata and all other note lines. File/QR sharing includes category names so imports find or create matching categories; hidden state is sync-only. Existing interchange identifiers and older payloads remain valid. Foreign GeoJSON also accepts `category` and `fov_bearing`/`fov_angle`/`fov_range` properties.
+
+Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/workspace/fhm-notes/organize npx playwright test tests/organize.spec.ts --workers=1`. These cover 1440×900 and 390×844, stub external tiles locally, exercise mouse/touch handles, and capture screenshots. To run the same flow against a deployed PWA and verify an offline reload, add `FHM_ORGANIZE_LIVE=1` and set `TRAIL_URL=https://freehuntingmap.com`; it uses isolated browser data without Google sign-in.
 
 ## Data sources
 

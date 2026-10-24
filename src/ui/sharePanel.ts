@@ -1,3 +1,4 @@
+import { forSharing } from '../organize/model';
 import { useFeature } from '../usage';
 import { parseTakeoutText, parseTakeoutZip } from '../share/takeout/parse';
 import { importTakeout } from '../share/takeout/import';
@@ -15,7 +16,7 @@ const QR_CYCLE_MS = 1100;
 
 export function openSharePanel(ctx: AppContext): void {
   const selected = new Set(ctx.items().map((i) => i.id));
-  const picked = (): Item[] => ctx.items().filter((i) => selected.has(i.id));
+  const picked = (): Item[] => ctx.items().filter((i) => selected.has(i.id)).map(i => forSharing(i, ctx.categories()));
 
   const list = h(
     'ul',

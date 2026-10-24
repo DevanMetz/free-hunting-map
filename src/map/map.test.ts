@@ -29,7 +29,7 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
     setLayoutProperty: vi.fn(), setPaintProperty: vi.fn(),
   };
   const hunt = Object.assign(Object.create(HuntMap.prototype), {
-    map, state, styleReady: true, installed: new Set(), parcelLoader: { setEnabled: vi.fn() }, items: [], sketch: { line: [], color: '#ffd54f' },
+    map, state, categories: [], refreshVersion: 0, styleVersion: 0, styleReady: true, installed: new Set(), parcelLoader: { setEnabled: vi.fn() }, items: [], sketch: { line: [], color: '#ffd54f' },
   }) as Pick<HuntMap, 'setLayer' | 'setLayerOpacity' | 'mapState'> & { installOverlays(): Promise<void>; installed: Set<string> };
   await hunt.installOverlays();
   expect(sources.has('hillshade')).toBe(false); expect(sources.has('water-nhd')).toBe(false);
@@ -48,5 +48,24 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
   hunt.setLayer('slope', false); expect(map.setLayoutProperty).toHaveBeenCalledWith('slope', 'visibility', 'none');
   reset(); hunt.installed.clear(); await hunt.installOverlays(); expect(sources.has('slope')).toBe(false);
   hunt.setLayer('my-items', false); expect(map.setLayoutProperty).toHaveBeenCalledWith('ohm-waypoints', 'visibility', 'none');
+  expect(map.setLayoutProperty).toHaveBeenCalledWith('ohm-fov-fill', 'visibility', 'none');
   const copy = hunt.mapState; copy.layers.slope!.on = true; expect(hunt.mapState.layers.slope!.on).toBe(false);
+});
+
+it('removes hidden items from render and hit-test sources and colors camera wedges', async () => {
+  const data = new Map<string, any>();
+  const map = { getSource: (id: string) => ({ setData: (value: unknown) => data.set(id, value) }), hasImage: () => true };
+  const category = { kind: 'category', id: 'category-123', name: 'North', color: '#123456', hidden: false, deleted: false };
+  const cam = { kind: 'waypoint', id: 'camera-123', name: 'Camera', note: '', icon: 'trailcam', coord: [-90, 44], categoryId: category.id, fov: { bearing: 90, angle: 45, range: 25 }, deleted: false };
+  const hunt = Object.assign(Object.create(HuntMap.prototype), { map, styleReady: true, styleVersion: 0, state: { showPins: true }, items: [cam], categories: [category], refreshVersion: 0 }) as unknown as Pick<HuntMap, 'setItems'> & { refreshItems(): Promise<void> };
+  await hunt.refreshItems();
+  expect(data.get('ohm-items-pt').features).toHaveLength(1);
+  expect(data.get('ohm-fov').features[0].properties.color).toBe('#123456');
+  expect(data.get('ohm-fov').features[0].geometry.coordinates[0]).toHaveLength(27);
+  for (const hidden of ['item', 'category', 'type']) {
+    Object.assign(hunt, { items: [{ ...cam, hidden: hidden === 'item' }], categories: [{ ...category, hidden: hidden === 'category' }], state: { showPins: hidden !== 'type' } });
+    await hunt.refreshItems();
+    expect(data.get('ohm-items-pt').features).toEqual([]);
+    expect(data.get('ohm-fov').features).toEqual([]);
+  }
 });

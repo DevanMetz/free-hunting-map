@@ -1,3 +1,4 @@
+import { categoryOf, type TypeVisibility } from '../organize/model';
 import { useFeature } from '../usage';
 import { accountControl } from './accountPanel';
 import { CloudSync } from '../sync/cloud';
@@ -8,7 +9,7 @@ import { pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
-import type { Item, LngLat, Track } from '../types';
+import type { Category, Item, LngLat, Track } from '../types';
 import { openConditionsPanel } from './conditionsPanel';
 import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
@@ -28,6 +29,8 @@ export class App implements AppContext {
   readonly map: HuntMap;
   private trailFinder: Promise<import('../lidar/lab').TrailFinder> | undefined;
   private liveItems: Item[] = [];
+  private liveCategories: Category[] = [];
+  private reloadVersion = 0;
   private tool: Tool | null = null;
   private recorder: TrackRecorder;
   private recording: Track | null = null;
@@ -95,6 +98,28 @@ export class App implements AppContext {
     return this.liveItems;
   }
 
+  categories(): Category[] { return this.liveCategories; }
+  visibility(): TypeVisibility {
+    const { showPins, showTrails, showRecordings } = this.map.mapState;
+    const savedOn = this.map.mapState.layers['my-items']?.on !== false;
+    return { showPins: savedOn && showPins, showTrails: savedOn && showTrails, showRecordings: savedOn && showRecordings };
+  }
+  async setTypeVisibility(patch: Partial<TypeVisibility>): Promise<void> {
+    if (Object.values(patch).some(Boolean) && this.map.mapState.layers['my-items']?.on === false) this.map.setLayer('my-items', true);
+    this.map.setTypeVisibility(patch);
+    const saved = await this.repo.getMeta<Partial<Settings>>('settings');
+    await this.repo.setMeta('settings', { ...saved, ...this.map.mapState, view: this.map.view() });
+    this.repo.dispatchEvent(new Event('preferences'));
+  }
+  async revealItem(item: Item): Promise<Item> {
+    const current = await this.repo.get(item.id) ?? item;
+    const category = categoryOf(current, await this.repo.categories());
+    if (category?.hidden) await this.repo.updateCategory(category, { hidden: false });
+    const key = current.kind === 'waypoint' ? 'showPins' : current.recorded ? 'showRecordings' : 'showTrails';
+    if (!this.visibility()[key]) await this.setTypeVisibility({ [key]: true });
+    return current.hidden ? this.repo.update(current, { hidden: false }) : current;
+  }
+
   openItem(item: Item): void {
     this.setTool(null);
     openItemPanel(this, item);
@@ -102,8 +127,12 @@ export class App implements AppContext {
   }
 
   private async reloadItems(): Promise<void> {
-    this.liveItems = await this.repo.list();
-    this.map.setItems(this.liveItems);
+    const version = ++this.reloadVersion;
+    const [items, categories] = await Promise.all([this.repo.list(), this.repo.categories()]);
+    if (version !== this.reloadVersion) return;
+    this.liveItems = items;
+    this.liveCategories = categories;
+    this.map.setItems(this.liveItems, categories);
     if (!this.trailFinder && (await this.repo.listLidarRuns()).length) void this.getTrailFinder().catch(err => toast(String(err)));
   }
 
@@ -119,6 +148,7 @@ export class App implements AppContext {
     }
     for (const [id, collapsed] of Object.entries(saved.collapsed)) this.map.setCategoryCollapsed(id, collapsed);
     for (const [id, ids] of Object.entries(saved.remembered)) this.map.setCategoryRemembered(id, ids);
+    this.map.setTypeVisibility(saved);
   }
 
   private buildToolbar(): HTMLElement {
@@ -136,7 +166,7 @@ export class App implements AppContext {
       add('trails', 'scan', 'Trail finder', () => this.openTrailFinder()),
       add('record', 'record', 'Record GPS track', () => void this.toggleRecording()),
       add('tool:measure', 'measure', 'Measure', () => this.toggleTool('measure')),
-      add('list', 'list', 'Saved', () => this.togglePanel('list', () => openListPanel(this))),
+      add('list', 'list', 'Organize', () => this.togglePanel('list', () => openListPanel(this))),
       add('share', 'share', 'Share', () => this.togglePanel('share', () => openSharePanel(this))),
       add('conditions', 'weather', 'Conditions', () => this.togglePanel('conditions', () => openConditionsPanel(this))),
     );

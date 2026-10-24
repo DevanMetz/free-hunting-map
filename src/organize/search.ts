@@ -6,14 +6,14 @@ const normalize = (s: string): string => s.normalize('NFKD').replace(/[\u0300-\u
 function dateTerms(ms: number): string {
   const d = new Date(ms);
   if (!Number.isFinite(d.getTime())) return '';
-  return `${d.getFullYear()} ${d.toLocaleString('en-US', { month: 'long' })} ${d.getMonth() + 1}/${d.getDate()} ${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${d.toISOString().slice(0, 10)}`;
+  return `${d.getFullYear()} ${['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'][d.getMonth()]} ${d.getMonth() + 1}/${d.getDate()} ${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${d.toISOString().slice(0, 10)}`;
 }
 /** All query tokens must match. Lower scores are stronger; ties are stable across devices. */
 export function searchItems(items: Item[], categories: Category[], query: string, filter: SearchFilter = {}): Item[] {
   const q = normalize(query.trim());
   const terms = q.split(/\s+/).filter(Boolean);
   return items.flatMap(item => {
-    if (item.deleted || (filter.type && itemType(item) !== filter.type)) return [];
+    if (item.deleted || (filter.type && (filter.type === 'pin' ? item.kind !== 'waypoint' : itemType(item) !== filter.type))) return [];
     const category = categoryOf(item, categories);
     if (filter.categoryId !== undefined && (category?.id ?? '') !== filter.categoryId) return [];
     const name = normalize(item.name);

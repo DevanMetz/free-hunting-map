@@ -16,7 +16,14 @@ export function bearingTo(origin: LngLat, point: LngLat): number {
 }
 export function wedge(origin: LngLat, input: FieldOfView, segments = 24): LngLat[] {
   const f = sanitizeFov(input), n = Math.max(16, Math.floor(segments));
-  return [origin, ...Array.from({ length: n + 1 }, (_, i) => destination(origin, f.bearing - f.angle / 2 + f.angle * i / n, f.range)), origin];
+  const arc = Array.from({ length: n + 1 }, (_, i) => {
+    const p = destination(origin, f.bearing - f.angle / 2 + f.angle * i / n, f.range);
+    // Render across the dateline near the origin rather than spanning the world.
+    if (p[0] - origin[0] > 180) p[0] -= 360;
+    if (p[0] - origin[0] < -180) p[0] += 360;
+    return p;
+  });
+  return [origin, ...arc, origin];
 }
 export function dragTip(origin: LngLat, point: LngLat, fov: FieldOfView): FieldOfView {
   return sanitizeFov({ ...fov, bearing: bearingTo(origin, point), range: haversine(origin, point) });

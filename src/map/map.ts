@@ -1,3 +1,5 @@
+import { wedge } from './fov';
+import { effectiveColor, effectiveIcon, isVisible, type TypeVisibility } from '../organize/model';
 import {
   GeolocateControl,
   Map as MLMap,
@@ -9,7 +11,7 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { FeatureCollection } from 'geojson';
-import { WAYPOINT_ICONS, type Item, type LngLat } from '../types';
+import type { Category, FieldOfView, Item, LngLat, Waypoint } from '../types';
 import { loadIconImage } from './icons';
 import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, clampLabelScale, labelLayers, labelTextSizes, labelsSource, roadLineLayers } from './labels';
 import { ParcelLoader } from './parcels';
@@ -26,7 +28,7 @@ const SRC_ITEMS_PT = 'ohm-items-pt';
 const SRC_ITEMS_LN = 'ohm-items-ln';
 const SRC_SKETCH = 'ohm-sketch';
 
-export interface MapState extends LayerPreferences {
+export interface MapState extends LayerPreferences, TypeVisibility {
   basemap: BasemapId;
   labels: boolean;
   labelScale: number;
@@ -46,6 +48,9 @@ export class HuntMap {
   readonly geolocate: GeolocateControl;
   private state: MapState;
   private items: Item[] = [];
+  private categories: Category[] = [];
+  private refreshVersion = 0;
+  private preview: ({ id: string; fov: FieldOfView } & Pick<Waypoint, 'categoryId' | 'color' | 'icon'>) | undefined;
   private readonly parcelLoader: ParcelLoader;
   private sketch: { line: LngLat[]; color: string } = { line: [], color: '#ffd54f' };
 
@@ -165,8 +170,19 @@ export class HuntMap {
     }
   }
 
-  setItems(items: Item[]): void {
+  setItems(items: Item[], categories: Category[] = this.categories): void {
     this.items = items;
+    this.categories = categories;
+    this.refreshItems();
+  }
+
+  setTypeVisibility(patch: Partial<TypeVisibility>): void {
+    for (const key of ['showPins', 'showTrails', 'showRecordings'] as const) if (typeof patch[key] === 'boolean') this.state[key] = patch[key];
+    this.refreshItems();
+  }
+
+  setFovPreview(id?: string, fov?: FieldOfView, appearance: Pick<Waypoint, 'categoryId' | 'color' | 'icon'> = { icon: 'trailcam' }): void {
+    this.preview = id && fov ? { id, fov, ...appearance } : undefined;
     this.refreshItems();
   }
 
@@ -207,7 +223,7 @@ export class HuntMap {
         type: 'line',
         source: SRC_ITEMS_LN,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': ['case', ['get', 'recorded'], '#4fc3f7', '#ff7043'], 'line-width': 3.5 },
+        paint: { 'line-color': ['get', 'color'], 'line-width': 3.5 },
       });
     }
     if (!m.getSource(SRC_SKETCH)) {
@@ -227,14 +243,11 @@ export class HuntMap {
         paint: { 'circle-radius': 4.5, 'circle-color': ['get', 'color'], 'circle-stroke-color': '#000', 'circle-stroke-width': 1.5 },
       });
     }
-    await Promise.all(
-      WAYPOINT_ICONS.map(async (icon) => {
-        const name = `ohm-${icon}`;
-        if (m.hasImage(name)) return;
-        const img = await loadIconImage(icon, 40);
-        if (generation === this.styleVersion && this.styleReady && !m.hasImage(name)) m.addImage(name, img, { pixelRatio: 2 });
-      }),
-    );
+    if (!m.getSource('ohm-fov')) {
+      m.addSource('ohm-fov', { type: 'geojson', data: emptyFC() });
+      m.addLayer({ id: 'ohm-fov-fill', source: 'ohm-fov', type: 'fill', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 } });
+      m.addLayer({ id: 'ohm-fov-line', source: 'ohm-fov', type: 'line', paint: { 'line-color': ['get', 'color'], 'line-width': 1.5 } });
+    }
     if (generation !== this.styleVersion || !this.styleReady) return;
     if (!m.getSource(SRC_ITEMS_PT)) {
       m.addSource(SRC_ITEMS_PT, { type: 'geojson', data: emptyFC() });
@@ -243,7 +256,7 @@ export class HuntMap {
         type: 'symbol',
         source: SRC_ITEMS_PT,
         layout: {
-          'icon-image': ['concat', 'ohm-', ['get', 'icon']],
+          'icon-image': ['get', 'image'],
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
         },
@@ -254,24 +267,42 @@ export class HuntMap {
     this.refreshSketch();
   }
 
-  private refreshItems(): void {
+  private async refreshItems(): Promise<void> {
+    const version = ++this.refreshVersion;
+    const generation = this.styleVersion;
+    if (!this.styleReady) return;
     const pt = this.map.getSource<GeoJSONSource>(SRC_ITEMS_PT);
     const ln = this.map.getSource<GeoJSONSource>(SRC_ITEMS_LN);
     if (!pt || !ln) return;
-    const live = this.items.filter((i) => !i.deleted);
+    const live = this.items.map(i => i.kind === 'waypoint' && this.preview?.id === i.id ? { ...i, ...this.preview } : i).filter(i => isVisible(i, this.categories, this.state));
+    await Promise.all(live.map(async item => {
+      if (item.kind !== 'waypoint') return;
+      const icon = effectiveIcon(item, this.categories), color = effectiveColor(item, this.categories);
+      const image = `ohm-${icon}-${color.slice(1)}`;
+      if (this.map.hasImage(image)) return;
+      const img = await loadIconImage(icon, 40, color);
+      if (version === this.refreshVersion && generation === this.styleVersion && this.styleReady && this.map.getSource(SRC_ITEMS_PT) && !this.map.hasImage(image)) this.map.addImage(image, img, { pixelRatio: 2 });
+    }));
+    if (version !== this.refreshVersion || generation !== this.styleVersion || !this.styleReady || !this.map.getSource(SRC_ITEMS_PT)) return;
     pt.setData({
       type: 'FeatureCollection',
       features: live.flatMap((i) =>
         i.kind === 'waypoint'
-          ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: i.coord }, properties: { id: i.id, icon: i.icon } }]
+          ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: i.coord }, properties: { id: i.id, icon: effectiveIcon(i, this.categories), image: `ohm-${effectiveIcon(i, this.categories)}-${effectiveColor(i, this.categories).slice(1)}` } }]
           : [],
       ),
+    });
+    this.map.getSource<GeoJSONSource>('ohm-fov')?.setData({
+      type: 'FeatureCollection', features: live.flatMap(i => i.kind === 'waypoint' && i.icon === 'trailcam' ? [{
+        type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: [wedge(i.coord, i.fov ?? { bearing: 0, angle: 45, range: 25 })] },
+        properties: { id: i.id, color: effectiveColor(i, this.categories) },
+      }] : []),
     });
     ln.setData({
       type: 'FeatureCollection',
       features: live.flatMap((i) =>
         i.kind === 'track' && i.coords.length > 1
-          ? [{ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: i.coords }, properties: { id: i.id, recorded: i.recorded } }]
+          ? [{ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: i.coords }, properties: { id: i.id, recorded: i.recorded, color: effectiveColor(i, this.categories) } }]
           : [],
       ),
     });

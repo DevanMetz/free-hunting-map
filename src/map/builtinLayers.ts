@@ -57,9 +57,11 @@ registerLayers([
   { id: 'my-items', category: 'mydata', name: 'Saved items', defaultOpacity: 1, defaultOn: true, attribution: '',
     install() {},
     setVisible(map, on) {
-      for (const id of ['ohm-tracks-casing', 'ohm-tracks', 'ohm-waypoints']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+      for (const id of ['ohm-fov-fill', 'ohm-fov-line', 'ohm-tracks-casing', 'ohm-tracks', 'ohm-waypoints']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
     },
     setOpacity(map, opacity) {
+      if (map.getLayer('ohm-fov-fill')) map.setPaintProperty('ohm-fov-fill', 'fill-opacity', opacity * 0.22);
+      if (map.getLayer('ohm-fov-line')) map.setPaintProperty('ohm-fov-line', 'line-opacity', opacity);
       if (map.getLayer('ohm-tracks')) map.setPaintProperty('ohm-tracks', 'line-opacity', opacity);
       if (map.getLayer('ohm-tracks-casing')) map.setPaintProperty('ohm-tracks-casing', 'line-opacity', opacity * 0.45);
       if (map.getLayer('ohm-waypoints')) map.setPaintProperty('ohm-waypoints', 'icon-opacity', opacity);

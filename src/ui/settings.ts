@@ -8,6 +8,7 @@ export interface Settings extends MapState { view: MapView }
 export const DEFAULT_SETTINGS: Settings = {
   basemap: 'topo', layers: {}, collapsed: {}, remembered: {},
   labels: true, labelScale: 1, view: { center: [-98.5, 39.8], zoom: 3.5 },
+  showPins: true, showTrails: true, showRecordings: true,
 };
 type LegacySettings = Partial<Settings> & {
   publicLands?: boolean; publicLand?: Record<string, boolean>;
@@ -16,6 +17,7 @@ type LegacySettings = Partial<Settings> & {
 export function loadSettings(saved: LegacySettings = {}): Settings {
   const state: Settings = { ...DEFAULT_SETTINGS,
     basemap: saved.basemap ?? DEFAULT_SETTINGS.basemap,
+    showPins: saved.showPins !== false, showTrails: saved.showTrails !== false, showRecordings: saved.showRecordings !== false,
     labels: saved.labels ?? true, labelScale: clampLabelScale(saved.labelScale),
     view: saved.view ?? { ...DEFAULT_SETTINGS.view, center: [...DEFAULT_SETTINGS.view.center] },
     layers: {}, collapsed: { ...saved.collapsed },
