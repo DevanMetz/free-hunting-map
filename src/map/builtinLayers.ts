@@ -5,6 +5,8 @@ import './layers/hazards';
 import './layers/agriculture';
 import './layers/vegetation';
 import './layers/trails';
+import './layers/osmTracks';
+import './layers/wiForestRoads';
 import './layers/community';
 import { registerLayers, type IdentifyResult } from './layerRegistry';
 import { PUBLIC_LANDS, publicLandExportUrl } from './publicLands';

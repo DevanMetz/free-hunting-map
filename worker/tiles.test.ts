@@ -163,6 +163,14 @@ it.each(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar
   expect(raw.status).toBe(206); expect(new Uint8Array(await raw.arrayBuffer())).toEqual(bytes.slice(0, 127));
   expect((await call('/tiles/trails/v1/1/0/0.mvt', binding)).headers.get('Content-Type')).toBe('application/vnd.mapbox-vector-tile');
 });
+it.each([['tiger-trails', 'tiger'], ['usfs-closed-roads', 'usfs'], ['osm-tracks', 'osm'], ['wi-forest-roads', 'wiforest']])('serves %s vector tiles and TileJSON', async (name, layer) => {
+  const binding = await upload(fixture(true, false), name);
+  const tile = await call(`/tiles/${name}/v1/1/0/0.mvt`, binding);
+  expect(tile.status).toBe(200);
+  expect(tile.headers.get('Content-Type')).toBe('application/vnd.mapbox-vector-tile');
+  expect((await call(`/tiles/${name}/v1/1/0/0.webp`, binding)).status).toBe(404);
+  expect(await (await call(`/tiles/${name}/v1.json`, binding)).json()).toMatchObject({ minzoom: 8, maxzoom: 14, vector_layers: [{ id: layer }], tiles: [`${origin}/tiles/${name}/v1/{z}/{x}/{y}.mvt`] });
+});
 it('rejects unknown archives and wrong extensions', async () => {
   for (const path of ['/tiles/unknown/v1.json', '/tiles/unknown/v1.pmtiles', '/tiles/unknown/v1/1/0/0.webp', '/tiles/trails/v1/1/0/0.webp']) {
     expect((await call(path)).status).toBe(404);

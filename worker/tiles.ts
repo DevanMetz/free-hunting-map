@@ -1,9 +1,16 @@
 import { PMTiles } from './pmtiles';
 import { openTileArchive } from './tileArchive';
 
-const ARCHIVES: Record<string, { ext: string; contentType: string }> = {
-  trails: { ext: 'mvt', contentType: 'application/vnd.mapbox-vector-tile' },
-  ...Object.fromEntries(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'].map(name => [name, { ext: 'webp', contentType: 'image/webp' }])),
+type Archive = { ext: 'mvt' | 'webp'; contentType: string; title: string; attribution: string; minzoom: number; maxzoom: number; layer?: string };
+const vector = (title: string, attribution: string, layer: string, minzoom = 8, maxzoom = 14): Archive => ({ ext: 'mvt', contentType: 'application/vnd.mapbox-vector-tile', title, attribution, minzoom, maxzoom, layer });
+const raster = (title: string, attribution: string, minzoom = 8, maxzoom = 16): Archive => ({ ext: 'webp', contentType: 'image/webp', title, attribution, minzoom, maxzoom });
+const ARCHIVES: Record<string, Archive> = {
+  trails: vector('Public trails', 'USFS, BLM, NPS, USGS trails (public domain)', 'trails', 6, 14),
+  'tiger-trails': vector('Census 4WD roads', 'U.S. Census Bureau TIGER/Line (public domain)', 'tiger'),
+  'usfs-closed-roads': vector('Closed forest roads', 'USDA Forest Service (public domain)', 'usfs'),
+  'osm-tracks': vector('OSM tracks', '© OpenStreetMap contributors (ODbL)', 'osm'),
+  'wi-forest-roads': vector('County forest roads', 'Wisconsin county forests', 'wiforest'),
+  ...Object.fromEntries(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'].map(name => [name, raster(name, 'USGS 3DEP lidar')])),
 };
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const readers = new WeakMap<R2Bucket, Map<string, Promise<PMTiles | null>>>();
@@ -16,7 +23,7 @@ async function reader(bucket: R2Bucket, name: string, version: string): Promise<
   if (!pending) {
     pending = openTileArchive(bucket, version, name).then(archive => {
       if (!archive) versions.delete(key); // Uploads may still be in progress.
-      return archive ? new PMTiles(archive, name === 'trails' ? 1 : 4) : null;
+      return archive ? new PMTiles(archive, ARCHIVES[name]!.ext === 'mvt' ? 1 : 4) : null;
     }).catch(error => { versions.delete(key); throw error; });
     versions.set(key, pending);
   }
@@ -63,7 +70,7 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
   }
   try {
     const pm = bucket ? await reader(bucket, name, version) : null;
-    if (!pm) return new Response(name === 'trails' ? 'Trails unavailable' : 'Terrain unavailable', { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
+    if (!pm) return new Response(archive.ext === 'mvt' ? 'Trails unavailable' : 'Terrain unavailable', { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
     const { manifest } = pm.archive;
     const etag = `"${manifest.sha256}${tile ? `-${z}-${x}-${y}` : tilejson ? '-json' : ''}"`;
     const headers = new Headers({ 'Cache-Control': IMMUTABLE, ETag: etag });
@@ -85,7 +92,7 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     }
     if (tilejson) {
       headers.set('Content-Type', 'application/json');
-      return new Response(request.method === 'HEAD' ? null : JSON.stringify(name === 'trails' ? { tilejson: '3.0.0', name: 'Public trails', tiles: [`${url.origin}/tiles/trails/${version}/{z}/{x}/{y}.mvt`], minzoom: 6, maxzoom: 14, bounds: manifest.bounds, attribution: 'USFS, BLM, NPS, USGS trails (public domain)', vector_layers: [{ id: 'trails', fields: { type: 'String', src: 'String', agency: 'String' } }] } : { tilejson: '3.0.0', name, format: archive.ext, tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.${archive.ext}`], minzoom: 8, maxzoom: 16, bounds: manifest.bounds, attribution: 'USGS 3DEP lidar' }), { headers });
+      return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: archive.title, ...(archive.ext === 'webp' ? { format: 'webp' } : {}), tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.${archive.ext}`], minzoom: archive.minzoom, maxzoom: archive.maxzoom, bounds: manifest.bounds, attribution: archive.attribution, ...(archive.layer ? { vector_layers: [{ id: archive.layer, fields: name === 'trails' ? { type: 'String', src: 'String', agency: 'String' } : {} }] } : {}) }), { headers });
     }
     const bytes = await pm.tile(z, x, y);
     headers.set('Content-Type', archive.contentType);
@@ -97,6 +104,6 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     return request.method === 'HEAD' ? new Response(null, { status: response.status, headers }) : response;
   } catch (error) {
     console.error('Tile request failed', error);
-    return new Response(name === 'trails' ? 'Trails unavailable' : 'Terrain unavailable', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' } });
+    return new Response(archive.ext === 'mvt' ? 'Trails unavailable' : 'Terrain unavailable', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' } });
   }
 }

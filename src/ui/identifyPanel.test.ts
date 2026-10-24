@@ -31,3 +31,16 @@ it('renders trail information as accessible plain text with only populated rows'
   expect([...root.querySelectorAll('dd')].map(row => row.textContent)).toEqual(['Bike trail', 'Hike, Bike', 'BLM', 'BLM Ground Transportation · 2026-10-24']);
   root.querySelector<HTMLButtonElement>('[aria-label="Close"]')!.click(); expect(root.hidden).toBe(true);
 });
+
+
+it('renders HTTPS source links and rejects unsafe protocols', () => {
+  const root = document.createElement('section');
+  openIdentifyPanel(new Sheet(root), 'osm-tracks', { title: 'OSM track', rows: [], links: [
+    { label: 'OpenStreetMap', url: 'https://www.openstreetmap.org/way/123' },
+    { label: 'Unsafe', url: 'javascript:alert(1)' },
+  ] });
+  const links = root.querySelectorAll('a');
+  expect(links).toHaveLength(1);
+  expect(links[0]?.href).toBe('https://www.openstreetmap.org/way/123');
+  expect(links[0]?.rel).toBe('noopener noreferrer');
+});

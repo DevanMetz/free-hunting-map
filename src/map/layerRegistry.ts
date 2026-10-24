@@ -19,7 +19,13 @@ export interface LayerPreferences {
   collapsed: Record<string, boolean>;
   remembered: Record<string, string[]>;
 }
-export interface IdentifyResult { communityHikeId?: string; communityLineId?: string; title?: string; rows: [string, string][] }
+export interface IdentifyResult {
+  communityHikeId?: string;
+  communityLineId?: string;
+  title?: string;
+  rows: [string, string][];
+  links?: { label: string; url: string }[];
+}
 export interface LayerContext {
   basemap: BasemapId;
   beforeId?: string;

@@ -12,6 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PART_SIZE = 256 * 1024 * 1024
 NAMES = {'lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'}
+# Vector (MVT) archives; any topo-<era> name is a WebP raster.
+VECTOR = {'tiger-trails', 'usfs-closed-roads', 'osm-tracks', 'wi-forest-roads'}
 
 
 def wrangler(*args, check=True):
@@ -20,10 +22,10 @@ def wrangler(*args, check=True):
 
 
 def main(name, version, archive):
-    assert name in NAMES and re.fullmatch(r'v[1-9]\d{0,3}', version), 'bad name/version'
+    assert (name in NAMES or name in VECTOR or re.fullmatch(r'topo-[a-z0-9]+', name)) and re.fullmatch(r'v[1-9]\d{0,3}', version), 'bad name/version'
     archive = Path(archive)
     head = archive.open('rb').read(127)
-    assert head[:7] == b'PMTiles' and head[7] == 3 and head[99] == 4, 'expected PMTiles v3 WebP archive'
+    assert head[:7] == b'PMTiles' and head[7] == 3 and head[99] == (1 if name in VECTOR else 4), 'expected PMTiles v3 archive of the right tile type'
     bounds = [v / 1e7 for v in struct.unpack_from('<4i', head, 102)]
     prefix = f'fhm-tiles/{name}/{version}/'
     with tempfile.TemporaryDirectory() as tmp:

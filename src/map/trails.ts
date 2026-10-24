@@ -44,8 +44,8 @@ export function trailLayers(on: boolean, basemap: BasemapId): LineLayerSpecifica
 }
 
 /** Rendered-line query with a 32px target, after tools and saved-item hits. */
-export function trailAt(map: Pick<MLMap, 'getLayer' | 'queryRenderedFeatures' | 'project'>, point: { x: number; y: number }): Record<string, unknown> | undefined {
-  const layers = TRAIL_HIT_LAYERS.filter(id => map.getLayer(id));
+export function trailAt(map: Pick<MLMap, 'getLayer' | 'queryRenderedFeatures' | 'project'>, point: { x: number; y: number }, hitLayers: readonly string[] = TRAIL_HIT_LAYERS): Record<string, unknown> | undefined {
+  const layers = hitLayers.filter(id => map.getLayer(id));
   if (!layers.length) return;
   const { x, y } = point;
   const hits = map.queryRenderedFeatures([[x - 16, y - 16], [x + 16, y + 16]] as [PointLike, PointLike], { layers });

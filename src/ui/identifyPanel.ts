@@ -9,6 +9,9 @@ import { h } from './dom';
 export function openIdentifyPanel(sheet: Sheet, key: string, result: IdentifyResult): void {
   const content=h('div', {}, h('dl', { class: 'identify-details' },
     ...result.rows.flatMap(([label, value]) => [h('dt', {}, label), h('dd', {}, value)])));
+  for (const link of result.links ?? []) if (/^https:\/\//.test(link.url)) {
+    content.append(h('a', { href: link.url, target: '_blank', rel: 'noopener noreferrer' }, link.label));
+  }
   const id=result.communityLineId, votes=communityVotes;
   if(id && votes){
     const current=votes.get(id);
