@@ -5,6 +5,7 @@ export type XY = [number, number];
 export interface Candidate {
   type: "Feature";
   geometry: { type: "LineString"; coordinates: number[][] };
+  rawCoordinates?: number[][];
   properties: {
     rank: number;
     score: number;
@@ -17,6 +18,7 @@ export interface Candidates {
   type: "FeatureCollection";
   features: Candidate[];
 }
+import { DETECTION_THRESHOLD } from './model';
 const DIR: XY[] = [
   [-1, -1],
   [-1, 0],
@@ -201,7 +203,7 @@ export function extract(
     q = Float32Array.from(p, (v, i) =>
       Math.sqrt(Math.max(0, Math.min(1, v)) * Math.max(0, Math.min(1, o[i]!))),
     );
-  let m = Uint8Array.from(q, (v) => (v > 0.1 ? 1 : 0));
+  let m = Uint8Array.from(q, (v) => (v > DETECTION_THRESHOLD ? 1 : 0));
   // Hysteresis uses 4-connectivity, matching scipy.ndimage.label's default.
   components(m, w, h, false, (ids) => {
     if (!ids.some((i) => q[i]! > 0.3)) for (const i of ids) m[i] = 0;
@@ -270,6 +272,7 @@ export function extract(
     const score = (sum / n) * Math.log(length);
     features.push({
       type: "Feature",
+      rawCoordinates: path.map(([r, c]) => toLngLat([bb[0] + c + 0.5, bb[3] - r - 0.5])),
       geometry: {
         type: "LineString",
         coordinates: pts.map(([x, y]) =>

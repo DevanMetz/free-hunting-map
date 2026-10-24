@@ -442,3 +442,10 @@ input[type='color'] { min-width: 44px; width: 44px; height: 44px; padding: 3px; 
 .item-identity .field { min-width: 0; text-overflow: ellipsis; }
 .item-details > summary { list-style: none; }
 .item-details > summary::-webkit-details-marker { display: none; }
+
+.community-vote { display: grid; gap: 10px; margin-top: 16px; }
+.community-vote-buttons { display: flex; gap: 8px; }
+.community-vote-buttons button { flex: 1; min-height: 44px; }
+.community-vote-buttons button[aria-pressed="true"] { background: var(--accent, #007f8b); color: #111; }
+.community-vote select { width: 100%; min-width: 0; min-height: 44px; }
+.community-vote select { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }

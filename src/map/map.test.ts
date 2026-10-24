@@ -27,7 +27,7 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
       const layer = layers.find(l => l.id === id)!; layers = layers.filter(l => l.id !== id); map.addLayer(layer, before);
     },
     hasImage: () => true, getLayer: (id: string) => layers.find(l => l.id === id),
-    setLayoutProperty: vi.fn(), setPaintProperty: vi.fn(),
+    setLayoutProperty: vi.fn(), setPaintProperty: vi.fn(), setFilter: vi.fn(),
   };
   const hunt = Object.assign(Object.create(HuntMap.prototype), {
     map, state, categories: [], refreshVersion: 0, styleVersion: 0, styleReady: true, installed: new Set(), parcelLoader: { setEnabled: vi.fn() }, items: [], sketch: { line: [], color: '#ffd54f' },

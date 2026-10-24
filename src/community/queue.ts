@@ -1,16 +1,17 @@
+import { DETECTION_THRESHOLD, MODEL_VERSION } from '../lidar/model';
 import type { Repo } from '../storage/repo';
 import type { Candidates } from '../lidar/postprocess';
 import { encode } from './codec';
 import type { BBox, Point } from './geometry';
 import { useFeature } from '../usage';
 
-export async function queueScan(repo: Repo, box: BBox, candidates: Candidates, decision: Promise<boolean>) {
+export async function queueScan(repo: Repo, box: BBox, candidates: Candidates, decision: Promise<boolean>, sources: string[] = []) {
   if (!await decision) return;
   const area = box.map((v, i) => (i < 2 ? Math.floor(v * 100) : Math.ceil(v * 100)) / 100) as BBox;
   await repo.queueCommunity(encode({
-    model: 'v4', day: new Date().toISOString().slice(0, 10), area,
+    model: MODEL_VERSION, threshold: DETECTION_THRESHOLD, sources, day: new Date().toISOString().slice(0, 10), area,
     lines: candidates.features.map(f => ({
-      coordinates: f.geometry.coordinates as Point[], confidence: Math.max(0, Math.min(1, f.properties.calibrated)),
+      coordinates: (f.rawCoordinates ?? f.geometry.coordinates) as Point[], confidence: Math.max(0, Math.min(1, f.properties.calibrated)),
     })),
   }));
 }

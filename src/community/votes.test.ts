@@ -1,0 +1,30 @@
+import 'fake-indexeddb/auto';
+import { it,expect,vi } from 'vitest';
+import { Repo } from '../storage/repo';
+import { CommunityVotes } from './votes';
+vi.mock('../usage',()=>({useFeature:vi.fn()}));
+it('persists one random device token, excludes it from sync and preserves immediate local hiding offline',async()=>{
+ const name=crypto.randomUUID(),repo=await Repo.open(name);
+ const tokens=await Promise.all([repo.communityVoteToken(),repo.communityVoteToken()]);
+ expect(tokens[0]).toMatch(/^[a-f0-9]{64}$/);expect(tokens[0]).toBe(tokens[1]);
+ const reopened=await Repo.open(name);expect(await reopened.communityVoteToken()).toBe(tokens[0]);
+ const fetcher=vi.fn<typeof fetch>().mockRejectedValue(new Error('offline'));
+ const votes=new CommunityVotes(repo,fetcher);await votes.load();await votes.set({id:'trail',vote:'not',type:null});
+ expect(votes.hiddenIds()).toEqual(['trail']);
+ const restored=new CommunityVotes(reopened,fetcher);await restored.load();expect(restored.hiddenIds()).toEqual(['trail']);expect(restored.get('trail').vote).toBe('not');
+ await restored.set({id:'trail',vote:null,type:null});expect(restored.hiddenIds()).toEqual([]);
+ expect(JSON.stringify(await repo.pending())).not.toContain(tokens[0]);
+});
+it('retries durable votes and preserves changes made while a send is in flight',async()=>{
+ const repo=await Repo.open(crypto.randomUUID());
+ let finish!:(r:Response)=>void;
+ const fetcher=vi.fn<typeof fetch>().mockImplementationOnce(()=>new Promise(r=>{finish=r;})).mockResolvedValue(new Response(null,{status:200}));
+ const votes=new CommunityVotes(repo,fetcher);await votes.load();
+ await votes.set({id:'trail',vote:'real',type:null});await vi.waitFor(()=>expect(fetcher).toHaveBeenCalledTimes(1));
+ await votes.set({id:'trail',vote:'not',type:'skid trail'});finish(new Response(null,{status:200}));
+ await vi.waitFor(async()=>expect((await repo.getMeta<Record<string,{pending:boolean}>>('community.votes'))!.trail!.pending).toBe(true));
+ await new Promise(r=>setTimeout(r,5));await votes.flush();
+ expect(JSON.parse(String(fetcher.mock.calls.at(-1)![1]!.body))).toMatchObject({vote:'not',type:'skid trail'});
+ expect((await repo.getMeta<Record<string,{pending:boolean}>>('community.votes'))!.trail!.pending).toBe(false);
+ expect(fetcher.mock.calls[0]![1]).toMatchObject({credentials:'omit'});
+});

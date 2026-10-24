@@ -19,7 +19,7 @@ export interface LayerPreferences {
   collapsed: Record<string, boolean>;
   remembered: Record<string, string[]>;
 }
-export interface IdentifyResult { title?: string; rows: [string, string][] }
+export interface IdentifyResult { communityLineId?: string; title?: string; rows: [string, string][] }
 export interface LayerContext {
   basemap: BasemapId;
   beforeId?: string;

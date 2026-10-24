@@ -1,4 +1,4 @@
-export const FEATURES = ['community_trail_upload','data_layer','layer_toggle','basemap_change','marker_add','track_record','offline_download','trail_scan','takeout_import','gpx_import','geojson_import','gpx_export','geojson_export','qr_share','search','category_create','category_move','category_hide','sign_in','sync','public_trails'] as const;
+export const FEATURES = ['trail_vote','community_trail_upload','data_layer','layer_toggle','basemap_change','marker_add','track_record','offline_download','trail_scan','takeout_import','gpx_import','geojson_import','gpx_export','geojson_export','qr_share','search','category_create','category_move','category_hide','sign_in','sync','public_trails'] as const;
 export type Feature = typeof FEATURES[number];
 export function periods(day: string) {
   const date = new Date(`${day}T00:00:00Z`);

@@ -12,6 +12,7 @@ export const PROJECTS = ["WI_Clark_2018", "WI_12County_9_B22"] as const;
 export const EPT_ROOT = LIDAR_EPT_ROOT;
 export const DEM_ROOT = LIDAR_DEM_ROOT;
 export interface Stats {
+  sources?: string[];
   bytes: number;
   downloadMs: number;
   decodeMs: number;
@@ -146,6 +147,7 @@ export async function groundTile(
     )
       break;
     const keys = await nodes(project, bb, stats);
+    if (keys.length) { stats.sources ??= []; if (!stats.sources.includes(project)) stats.sources.push(project); }
     const pending = new Map<number, Promise<ArrayBuffer>>();
     const enqueue = (j: number): void => {
       if (j < keys.length)
@@ -203,6 +205,8 @@ export async function groundTile(
     f: "image",
     interpolation: "RSP_BilinearInterpolation",
   });
+  stats.sources ??= [];
+  if (!stats.sources.includes('USGS_3DEP_DEM')) stats.sources.push('USGS_3DEP_DEM');
   const tiff = await fromArrayBuffer(await get(`${DEM_ROOT}?${params}`, stats)),
     image = await tiff.getImage();
   const d3 = (await image.readRasters({ interleave: true })) as Float32Array;

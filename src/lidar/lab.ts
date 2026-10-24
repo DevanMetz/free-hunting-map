@@ -273,7 +273,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
       }
       if (e.data.type === "result") {
         const sharing = app.repo.communitySharing();
-        void queueScan(app.repo, e.data.box, e.data.candidates, sharing).catch(() => {});
+        void queueScan(app.repo, e.data.box, e.data.candidates, sharing, e.data.stats.sources).catch(() => {});
         try {
           await app.repo.saveLidarRun({
             box: e.data.box,

@@ -285,6 +285,17 @@ export class Repo extends EventTarget {
     await tx.done;
   }
 
+  /** Anonymous vote credential is device-local and never enters sync records. */
+  async communityVoteToken(): Promise<string> {
+    const tx = this.db.transaction('meta', 'readwrite');
+    let token = await tx.store.get('community.voteToken') as string | undefined;
+    if (!token) {
+      token = Array.from(crypto.getRandomValues(new Uint8Array(32)), n => n.toString(16).padStart(2, '0')).join('');
+      await tx.store.put(token, 'community.voteToken');
+    }
+    await tx.done;
+    return token;
+  }
   async communitySharing(): Promise<boolean> { return await this.getMeta('community.share') !== false; }
 
   async setCommunitySharing(on: boolean): Promise<void> {
@@ -298,7 +309,7 @@ export class Repo extends EventTarget {
   /** The completion-time decision and queue insert are atomic and independent of accounts. */
   async queueCommunity(scan: WireScan): Promise<void> {
     const tx = this.db.transaction(['meta', 'communityQueue'], 'readwrite');
-    if (await tx.objectStore('meta').get('community.share') !== false && scan.lines.length) {
+    if (await tx.objectStore('meta').get('community.share') !== false) {
       await tx.objectStore('communityQueue').put({ id: uuid(), sharing: true, scan });
     }
     await tx.done;
