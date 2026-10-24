@@ -34,16 +34,17 @@ describe('Google Takeout', () => {
     const result = parseTakeoutText('Field trips.csv', csv)!;
     expect(result.places).toHaveLength(9);
     expect(result.skipped).toBe(3);
-    expect(result.places[0]!.note).toContain('Field trips');
+    expect(result.places[0]!.note).not.toContain('Field trips');
+    expect(result.places[0]!.categoryName).toBe('Field trips');
   });
   it('reads saved JSON geometry, location coordinates, legacy URLs and labels', () => {
     const saved = parseTakeoutText('Saved Places.json', fixture('Saved Places.json').toString())!;
     expect(saved.places.map((p) => p.coord)).toEqual([[-100,40],[-101,41],[-102,42]]);
-    expect(saved.places[0]!.note).toBe('Morning\nPrairie Road\nSaved places');
+    expect(saved.places[0]!.note).toBe('Morning\nPrairie Road');
     expect(saved.places[2]!.name).toBe('Lake Road');
     expect(saved.skipped).toBe(1);
     const labeled = parseTakeoutText('Labeled places.json', fixture('Labeled places.json').toString())!;
-    expect(labeled.places[0]!.note).toBe('Forest Road\nLabeled');
+    expect(labeled.places[0]!.note).toBe('Forest Road');
     expect(parseTakeoutText('export.json', JSON.stringify(toGeoJSON([])))).toBeNull();
   });
   it('filters unrelated ZIP entries and combines products', () => {
@@ -64,7 +65,8 @@ describe('Google Takeout', () => {
     const items = await repo.list();
     expect(items).toHaveLength(13);
     expect(items.find((i) => i.name === 'Place 9')).toHaveProperty('sourceUrl', 'https://www.google.com/maps/place/Encoded/data=!3d49!4d-99');
-    expect(await repo.pending()).toHaveLength(13);
+    expect(await repo.pending()).toHaveLength(13 + (await repo.categories()).length);
+    expect((await repo.categories()).map(c => c.name)).toEqual(expect.arrayContaining(['Field trips', 'Labeled', 'Saved places']));
     expect(items.every((i) => i.updatedAt > 0 && i.deviceId === repo.deviceId)).toBe(true);
     const item = items.find((i) => i.kind === 'waypoint' && i.sourceUrl)!;
     expect(fromGeoJSON(toGeoJSON([item]))).toEqual([item]);

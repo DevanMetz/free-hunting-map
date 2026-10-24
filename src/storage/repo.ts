@@ -1,10 +1,11 @@
 import type { IDBPDatabase } from 'idb';
-import type { Item } from '../types';
+import type { Category, Item } from '../types';
 import { HybridClock } from '../sync/hlc';
 import { canonicalJson, mergeItem } from '../sync/merge';
 import { sanitizeRecord, portablePreferences, type SyncRecord } from '../sync/records';
 import { sanitizeItem } from '../sync/validate';
-import { uuid } from '../sync/ids';
+import { legacyTakeoutCategory } from './takeoutMigration';
+import { contentId, uuid } from '../sync/ids';
 import { openHuntDB, type HuntDB, type OutboxEntry, type LidarRun } from './db';
 
 export interface ImportResult {
@@ -37,7 +38,66 @@ export class Repo extends EventTarget {
     }
     let maxSeen = 0;
     for (const item of [...await db.getAll('items'), ...await db.getAll('records')]) maxSeen = Math.max(maxSeen, item.updatedAt);
-    return new Repo(db, deviceId, new HybridClock(Date.now, maxSeen));
+    const repo = new Repo(db, deviceId, new HybridClock(Date.now, maxSeen));
+    await repo.migrateTakeoutCategories();
+    return repo;
+  }
+
+  async categories(): Promise<Category[]> {
+    return (await this.db.getAll('records')).filter((r): r is Category => r.kind === 'category' && !r.deleted)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  }
+
+  async createCategory(name: string, fields: Partial<Pick<Category, 'color' | 'icon' | 'sort'>> = {}): Promise<Category> {
+    const now = this.clock.now();
+    const record = sanitizeRecord({ ...fields, kind: 'category', id: uuid(), name, hidden: false,
+      createdAt: now, updatedAt: now, deviceId: this.deviceId, deleted: false });
+    if (!record || record.kind !== 'category') throw new Error('Category name required');
+    await this.writeRecord(record);
+    return record;
+  }
+
+  async findOrCreateCategory(name: string): Promise<Category> {
+    const clean = name.trim().slice(0, 120);
+    const existing = (await this.categories()).find(c => c.name.toLowerCase() === clean.toLowerCase());
+    if (existing) return existing;
+    // Stable IDs keep simultaneous imports of the same list together across devices.
+    const id = contentId(JSON.stringify(['category', clean.toLowerCase()]));
+    const previous = await this.db.get('records', id);
+    const now = this.clock.now();
+    const record = sanitizeRecord({ kind: 'category', id, name: clean, hidden: false,
+      createdAt: previous?.createdAt ?? now, updatedAt: now, deviceId: this.deviceId, deleted: false });
+    if (!record || record.kind !== 'category') throw new Error('Category name required');
+    await this.writeRecord(record);
+    return record;
+  }
+
+  async updateCategory(category: Category, patch: Partial<Pick<Category, 'name' | 'color' | 'icon' | 'hidden' | 'sort'>>): Promise<Category> {
+    const current = await this.db.get('records', category.id);
+    if (!current || current.kind !== 'category' || current.deleted) throw new Error('Category no longer exists');
+    const next = sanitizeRecord({ ...current, ...patch, updatedAt: this.clock.now(), deviceId: this.deviceId });
+    if (!next || next.kind !== 'category') throw new Error('Category name required');
+    await this.writeRecord(next);
+    return next;
+  }
+
+  async removeCategory(id: string, deleteItems = false): Promise<void> {
+    const category = await this.db.get('records', id);
+    if (!category || category.kind !== 'category' || category.deleted) return;
+    if (deleteItems) for (const item of await this.list()) if (item.categoryId === id) await this.remove(item.id);
+    await this.writeRecord({ ...category, deleted: true, updatedAt: this.clock.now(), deviceId: this.deviceId });
+  }
+
+  async migrateTakeoutCategories(): Promise<void> {
+    if (await this.getMeta('migration:takeout-categories:v1')) return;
+    const names = (await this.db.getAll('imports')).map(log => /(?:^|[/:])([^/]+)\.csv$/i.exec(log.source)?.[1]).filter((n): n is string => !!n);
+    for (const item of await this.list()) {
+      const legacy = legacyTakeoutCategory(item, names);
+      if (!legacy) continue;
+      const category = await this.findOrCreateCategory(legacy.name);
+      await this.update(item, { categoryId: category.id, note: legacy.note });
+    }
+    await this.setMeta('migration:takeout-categories:v1', true);
   }
 
   async saveLidarRun(run: Omit<LidarRun, 'id' | 'createdAt'>): Promise<LidarRun> {
@@ -106,7 +166,7 @@ export class Repo extends EventTarget {
           if (winner.kind === 'lidar-run') {
             if (winner.deleted) await tx.objectStore('lidarRuns').delete(winner.id);
             else await tx.objectStore('lidarRuns').put(winner);
-          } else if (!winner.deleted) {
+          } else if (winner.kind === 'settings' && !winner.deleted) {
             const settings = await tx.objectStore('meta').get('settings') as Record<string, unknown> | undefined;
             await tx.objectStore('meta').put({ ...settings, ...winner.preferences }, 'settings');
             preferencesChanged = true;
@@ -161,11 +221,21 @@ export class Repo extends EventTarget {
 
   /** Merge items from another device/file. Safe to repeat. */
   async importItems(items: Item[], source: string): Promise<ImportResult> {
+    const resolved: Item[] = [];
+    for (const raw of items) {
+      const item = sanitizeItem(raw);
+      if (!item) continue;
+      if (item.categoryName) {
+        const category = await this.findOrCreateCategory(item.categoryName);
+        const { categoryName: _name, ...rest } = item;
+        resolved.push({ ...rest, categoryId: category.id } as Item);
+      } else resolved.push(item);
+    }
     const tx = this.db.transaction(['items', 'outbox', 'imports'], 'readwrite');
     const itemsStore = tx.objectStore('items');
     const outbox = tx.objectStore('outbox');
     let changed = 0;
-    for (const raw of items) {
+    for (const raw of resolved) {
       const incoming = sanitizeItem(raw);
       if (!incoming) continue;
       this.clock.observe(incoming.updatedAt);

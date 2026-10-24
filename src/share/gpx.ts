@@ -1,3 +1,4 @@
+import { shareDetails, parseDetails } from './details';
 import type { Item, LngLat } from '../types';
 import { contentId } from '../sync/ids';
 import { sanitizeItem } from '../sync/validate';
@@ -17,6 +18,7 @@ export function toGpx(items: Item[]): string {
       `<ohm:deleted>${item.deleted}</ohm:deleted>` +
       (item.kind === 'track' ? `<ohm:recorded>${item.recorded}</ohm:recorded>` : '') +
       (item.kind === 'waypoint' && item.sourceUrl ? `<ohm:sourceUrl>${esc(item.sourceUrl)}</ohm:sourceUrl>` : '') +
+      (Object.keys(shareDetails(item)).length ? `<ohm:details>${esc(JSON.stringify(shareDetails(item)))}</ohm:details>` : '') +
       `</extensions>`;
     const text = `<name>${esc(item.name)}</name>${item.note ? `<desc>${esc(item.note)}</desc>` : ''}`;
     if (item.kind === 'waypoint') {
@@ -64,6 +66,7 @@ export function fromGpx(xml: string): Item[] {
 }
 
 function withMeta(el: Element, fields: Record<string, unknown>): Item | null {
+  fields = { ...fields, ...parseDetails(ohm(el, 'details')) };
   const id = ohm(el, 'id');
   if (id) {
     return sanitizeItem({

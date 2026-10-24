@@ -4,7 +4,7 @@ import { lngLat } from '../../sync/validate';
 import { coordinatesFromUrl } from './coordinates';
 import { parseCsv } from './csv';
 
-export interface Place { name: string; note: string; coord: LngLat; sourceUrl?: string }
+export interface Place { name: string; note: string; coord: LngLat; sourceUrl?: string; categoryName?: string }
 export interface TakeoutResult { places: Place[]; skipped: number }
 type ObjectData = Record<string, unknown>;
 const object = (v: unknown): ObjectData => v && typeof v === 'object' ? v as ObjectData : {};
@@ -32,7 +32,7 @@ export function parseTakeoutText(name: string, source: string): TakeoutResult | 
       try { sourceUrl = decodeURIComponent(sourceUrl); } catch { break; }
     }
     result.places.push({ coord, name: text(title) || text(address) || 'Saved place',
-      note: join([...notes, address, list]), ...(sourceUrl ? { sourceUrl } : {}) });
+      note: join([...notes, address]), categoryName: list, ...(sourceUrl ? { sourceUrl } : {}) });
   };
   if (/\.csv$/i.test(name)) {
     const [header, ...rows] = parseCsv(source);

@@ -35,13 +35,14 @@ export interface HuntDB extends DBSchema {
 
 // Stable across rebrands so existing data remains accessible on this origin.
 export const DB_NAME = 'open-hunt-map';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 export function openHuntDB(name = DB_NAME): Promise<IDBPDatabase<HuntDB>> {
   let database: IDBPDatabase<HuntDB> | undefined;
   return openDB<HuntDB>(name, DB_VERSION, {
     blocking() { database?.close(); },
     upgrade(db, oldVersion) {
+      // v4 categories reuse the generic records store; all v3 stores remain intact.
       if (oldVersion < 3) db.createObjectStore('records', { keyPath: 'id' });
       if (oldVersion < 2) db.createObjectStore('lidarRuns', { keyPath: 'id' });
       if (oldVersion < 1) {

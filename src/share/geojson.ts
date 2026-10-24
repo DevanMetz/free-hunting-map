@@ -1,3 +1,4 @@
+import { shareDetails } from './details';
 import type { Item, LngLat } from '../types';
 import { contentId } from '../sync/ids';
 import { lngLat, sanitizeItem } from '../sync/validate';
@@ -16,7 +17,7 @@ export function toGeoJSON(items: Item[]): { type: 'FeatureCollection'; features:
     type: 'FeatureCollection',
     features: items.map((item): Feature => {
       const { kind, id, createdAt, updatedAt, deviceId, deleted, name, note } = item;
-      const props: Record<string, unknown> = { ohm: 1, kind, id, name, note, createdAt, updatedAt, deviceId, deleted };
+      const props: Record<string, unknown> = { ...shareDetails(item), ohm: 1, kind, id, name, note, createdAt, updatedAt, deviceId, deleted };
       if (item.kind === 'waypoint') {
         return { type: 'Feature', geometry: { type: 'Point', coordinates: item.coord }, properties: { ...props, icon: item.icon, ...(item.sourceUrl ? { sourceUrl: item.sourceUrl } : {}) } };
       }
@@ -84,6 +85,10 @@ function foreign(
     name,
     note,
     icon: f.props.icon,
+    categoryName: f.props.categoryName ?? f.props.category,
+    color: f.props.color,
+    fov: f.props.fov ?? (typeof f.props.fov_bearing === 'number' ? { bearing: f.props.fov_bearing, angle: f.props.fov_angle, range: f.props.fov_range } : undefined),
+    camera: f.props.camera, setAt: f.props.setAt, checkedAt: f.props.checkedAt,
     coord: f.kind === 'waypoint' ? f.coord : undefined,
     coords: f.kind === 'track' ? f.coords : undefined,
     recorded: false,

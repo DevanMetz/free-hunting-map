@@ -152,3 +152,17 @@ it('records anonymous usage, validates limits and protects admin reports',async(
  for(let i=0;i<30;i++) await call('/api/ping',ping);
  expect((await call('/api/ping',ping)).status).toBe(429);
 });
+
+
+it('accepts categories and trail cameras through shared validation and syncs tombstones', async () => {
+ const login=await call('/api/auth/google',{credential:'dev:organize'}), cookie=login.headers.get('set-cookie')!.split(';')[0]!;
+ const category={...item('category-north'),kind:'category',name:'North',color:'#aabbcc',hidden:true};
+ const cam={...item('camera-north'),icon:'trailcam',categoryId:category.id,hidden:true,fov:{bearing:90,angle:45,range:25}};
+ const response=await call('/api/sync',{cursor:0,changes:[category,cam]},cookie);
+ expect(response.status).toBe(200);
+ expect(await response.json()).toMatchObject({changes:expect.arrayContaining([expect.objectContaining({kind:'category',hidden:true}),expect.objectContaining({icon:'trailcam',fov:cam.fov})])});
+ const deleted={...category,updatedAt:2,deleted:true};
+ await call('/api/sync',{cursor:0,changes:[deleted]},cookie);
+ const result=await (await call('/api/sync',{cursor:0,changes:[category]},cookie)).json() as {changes:unknown[]};
+ expect(result.changes).toContainEqual(expect.objectContaining({id:category.id,kind:'category',deleted:true,updatedAt:2}));
+});

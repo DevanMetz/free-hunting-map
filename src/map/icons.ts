@@ -2,6 +2,7 @@ import type { WaypointIcon } from '../types';
 
 /** Waypoint glyphs: 24x24 SVG path data drawn white on a colored disc. */
 export const ICON_STYLE: Record<WaypointIcon, { color: string; path: string; title: string }> = {
+  trailcam: { color: '#7c9663', title: 'Trail cam', path: 'M6 3h12v18H6zM9 5h6v3H9zM12 10a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 12a2 2 0 1 1 0 4 2 2 0 0 1 0-4z' },
   pin: { color: '#e87826', title: 'Pin', path: 'M12 7a5 5 0 1 0 0 10a5 5 0 1 0 0-10z' },
   stand: {
     color: '#8d6e3f',
@@ -22,8 +23,9 @@ export const ICON_STYLE: Record<WaypointIcon, { color: string; path: string; tit
   },
 };
 
-export function iconSvg(icon: WaypointIcon, size = 40): string {
-  const { color, path } = ICON_STYLE[icon];
+export function iconSvg(icon: WaypointIcon, size = 40, overrideColor?: string): string {
+  const { color: defaultColor, path } = ICON_STYLE[icon];
+  const color = overrideColor ?? defaultColor;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="-2 -2 28 28">` +
     `<circle cx="12" cy="12" r="12.5" fill="${color}" stroke="#fff" stroke-width="2"/>` +
@@ -32,11 +34,11 @@ export function iconSvg(icon: WaypointIcon, size = 40): string {
 }
 
 /** Rasterize an icon for map.addImage. */
-export function loadIconImage(icon: WaypointIcon, size = 40): Promise<HTMLImageElement> {
+export function loadIconImage(icon: WaypointIcon, size = 40, color?: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image(size, size);
     img.onload = () => resolve(img);
     img.onerror = reject;
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(icon, size))}`;
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg(icon, size, color))}`;
   });
 }

@@ -1,6 +1,6 @@
 /** Domain model shared by storage, sync, share and UI. */
 
-export const WAYPOINT_ICONS = ['pin', 'stand', 'blood', 'rub', 'camp', 'truck'] as const;
+export const WAYPOINT_ICONS = ['pin', 'stand', 'blood', 'rub', 'camp', 'truck', 'trailcam'] as const;
 export type WaypointIcon = (typeof WAYPOINT_ICONS)[number];
 
 /** [longitude, latitude] — GeoJSON order everywhere. */
@@ -20,16 +20,40 @@ export interface ItemMeta {
   deleted: boolean;
 }
 
-export interface Waypoint extends ItemMeta {
+export interface Category extends ItemMeta {
+  kind: 'category';
+  name: string;
+  color?: string;
+  icon?: WaypointIcon;
+  hidden: boolean;
+  sort?: number;
+}
+
+export interface ItemOrganization {
+  categoryId?: string;
+  /** Portable category name used by file/QR imports; Repo resolves it to a local ID. */
+  categoryName?: string;
+  hidden?: boolean;
+  color?: string;
+  iconOverride?: boolean;
+}
+
+export interface FieldOfView { bearing: number; angle: number; range: number }
+
+export interface Waypoint extends ItemMeta, ItemOrganization {
   kind: 'waypoint';
   name: string;
   note: string;
   icon: WaypointIcon;
   coord: LngLat;
   sourceUrl?: string;
+  fov?: FieldOfView;
+  camera?: string;
+  setAt?: number;
+  checkedAt?: number;
 }
 
-export interface Track extends ItemMeta {
+export interface Track extends ItemMeta, ItemOrganization {
   kind: 'track';
   name: string;
   note: string;

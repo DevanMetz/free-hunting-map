@@ -1,14 +1,14 @@
-import type { Item, ItemMeta } from '../types';
+import type { Category, Item, ItemMeta } from '../types';
 import type { LidarRun } from '../storage/db';
-import { sanitizeItem, lngLat } from './validate';
+import { sanitizeItem, lngLat, color, isWaypointIcon } from './validate';
 
 export interface PreferenceRecord extends ItemMeta {
   kind: 'settings';
   preferences: Record<string, unknown>;
 }
 export interface LidarRecord extends ItemMeta, LidarRun { kind: 'lidar-run' }
-export type SyncRecord = Item | PreferenceRecord | LidarRecord;
-const booleans = ['hillshade', 'parcels', 'water', 'deerUnits', 'labels'];
+export type SyncRecord = Item | Category | PreferenceRecord | LidarRecord;
+const booleans = ['hillshade', 'parcels', 'water', 'deerUnits', 'labels', 'showPins', 'showTrails', 'showRecordings'];
 const lands = ['usfs', 'blm', 'nps', 'fws', 'stateWildlife', 'statePark', 'stateTrust', 'dod', 'other'];
 
 /** Only portable map preferences; viewport, cached data and device state stay local. */
@@ -45,6 +45,13 @@ export function sanitizeRecord(raw: unknown): SyncRecord | null {
   if (!probe) return null;
   const { id, createdAt, updatedAt, deviceId, deleted } = probe;
   const meta = { id, createdAt, updatedAt, deviceId, deleted };
+  if (r.kind === 'category') {
+    if (typeof r.name !== 'string' || !r.name.trim()) return null;
+    return { ...meta, kind: 'category', name: r.name.trim().slice(0, 120), hidden: r.hidden === true,
+      ...(color(r.color) ? { color: color(r.color) } : {}),
+      ...(isWaypointIcon(r.icon) ? { icon: r.icon } : {}),
+      ...(typeof r.sort === 'number' && Number.isFinite(r.sort) ? { sort: r.sort } : {}) };
+  }
   if (r.kind === 'settings' && id === 'settings:map') return { ...meta, kind: 'settings', preferences: portablePreferences(r.preferences) };
   if (r.kind !== 'lidar-run' || !Array.isArray(r.box) || r.box.length !== 4 || !r.box.every(v => typeof v === 'number' && Number.isFinite(v))) return null;
   const [west, south, east, north] = r.box as number[];
