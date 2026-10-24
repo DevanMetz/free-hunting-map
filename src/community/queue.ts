@@ -17,6 +17,7 @@ export async function queueScan(repo: Repo, box: BBox, candidates: Candidates, d
 }
 export class CommunityUploads {
   private running = false;
+  private warned = false;
   constructor(private repo: Repo, private fetcher: typeof fetch = fetch, private online = () => navigator.onLine) {}
   async flush() {
     if (this.running || !this.online()) return;
@@ -28,10 +29,13 @@ export class CommunityUploads {
         if (!(await this.repo.pendingCommunity()).some(e => e.id === entry.id)) continue;
         let response: Response;
         try {
-          response = await this.fetcher('/api/community/scans', {
+          response = await this.fetcher.call(globalThis, '/api/community/scans', {
             method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry.scan),
           });
-        } catch { return; }
+        } catch (error) {
+          if (!this.warned) { this.warned = true; console.warn('Community scan upload failed; will retry.', error); }
+          return;
+        }
         if (response.ok || response.status === 409) {
           await this.repo.ackCommunity(entry.id);
           useFeature('community_trail_upload', 'ok');

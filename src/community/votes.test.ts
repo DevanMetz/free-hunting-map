@@ -28,3 +28,21 @@ it('retries durable votes and preserves changes made while a send is in flight',
  expect((await repo.getMeta<Record<string,{pending:boolean}>>('community.votes'))!.trail!.pending).toBe(false);
  expect(fetcher.mock.calls[0]![1]).toMatchObject({credentials:'omit'});
 });
+
+it.each(['default', 'injected'])('sends with a native-compatible fetch receiver (%s)', async mode => {
+ const repo = await Repo.open(crypto.randomUUID());
+ const fetcher = vi.fn(function(this: unknown) {
+  if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+  return Promise.resolve(new Response(null, {status: 201}));
+ });
+ const original = globalThis.fetch;
+ try {
+  globalThis.fetch = fetcher;
+  await repo.setMeta('community.votes', {trail: {id:'trail', vote:'real', type:null, revision:'test', pending:true}});
+  const votes = new CommunityVotes(repo, mode === 'default' ? undefined : fetcher);
+  await votes.load();
+  await votes.flush();
+  expect((await repo.getMeta<Record<string,{pending:boolean}>>('community.votes'))!.trail!.pending).toBe(false);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+ } finally { globalThis.fetch = original; }
+});

@@ -32,3 +32,20 @@ it('retains durable entries offline and sends only after reconnect', async()=>{
  expect((await reopened.pendingCommunity())[0]).toMatchObject({sharing:true});
  online=true;await uploader.flush();expect(await repo.pendingCommunity()).toHaveLength(0);
 });
+
+it.each(['default', 'injected'])('sends with a native-compatible fetch receiver (%s)', async mode => {
+ const repo = await Repo.open(crypto.randomUUID());
+ const fetcher = vi.fn(function(this: unknown) {
+  if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+  return Promise.resolve(new Response(null, {status: 201}));
+ });
+ const original = globalThis.fetch;
+ try {
+  globalThis.fetch = fetcher;
+  await repo.queueCommunity(encode(scan));
+  const uploader = new CommunityUploads(repo, mode === 'default' ? undefined : fetcher, () => true);
+  await uploader.flush();
+  expect(await repo.pendingCommunity()).toHaveLength(0);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+ } finally { globalThis.fetch = original; }
+});

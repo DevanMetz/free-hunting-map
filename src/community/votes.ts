@@ -5,6 +5,7 @@ interface LocalVote extends Vote { revision: string; pending: boolean }
 export class CommunityVotes extends EventTarget {
   private votes: Record<string,LocalVote> = {};
   private running = false;
+  private warned = false;
   private writes: Promise<unknown> = Promise.resolve();
   constructor(private repo:Repo,private fetcher:typeof fetch=fetch){super();}
   async load(){this.votes=await this.repo.getMeta<Record<string,LocalVote>>('community.votes')??{};this.dispatchEvent(new Event('change'));}
@@ -26,7 +27,7 @@ export class CommunityVotes extends EventTarget {
       const token=await this.repo.communityVoteToken();
       for(const entry of Object.values(this.votes).filter(v=>v.pending)){
         let response:Response;
-        try{response=await this.fetcher('/api/community/vote',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:entry.id,vote:entry.vote,type:entry.type,token})});}catch{return;}
+        try{response=await this.fetcher.call(globalThis, '/api/community/vote',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:entry.id,vote:entry.vote,type:entry.type,token})});}catch(error){if(!this.warned){this.warned=true;console.warn('Community vote upload failed; will retry.',error);}return;}
         useFeature('trail_vote',response.ok?'ok':'fail');
         if(!response.ok && response.status!==404)return;
         // Serialize acknowledgments with edits; an in-flight vote never clears a newer edit.
