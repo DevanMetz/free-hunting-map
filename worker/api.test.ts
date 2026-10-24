@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { Repo } from '../src/storage/repo';
 import { CloudSync } from '../src/sync/cloud';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { readFileSync } from 'node:fs';
 import worker, { type Env } from './index';
@@ -130,6 +130,9 @@ it('deletes all account data and sessions without affecting other users', async 
 });
 
 it('records anonymous usage, validates limits and protects admin reports',async()=>{
+ // A real D1 round trip can straddle a minute; hold the rate-limit window steady.
+ const clock = vi.spyOn(Date, 'now').mockReturnValue(Math.floor(Date.now()/60_000)*60_000+10_000);
+ try {
  const day=new Date().toISOString().slice(0,10), ping={id:'anonymous-test-1234',day,installed:true,returning:false,newWeek:true,newMonth:true};
  const countryRequest=new Request(origin+'/api/ping',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(ping)});
  Object.defineProperty(countryRequest,'cf',{value:{country:'US'}});
@@ -151,6 +154,7 @@ it('records anonymous usage, validates limits and protects admin reports',async(
  const report=await call('/api/admin/usage',undefined,session);expect(report.status).toBe(200);expect(await report.json()).toMatchObject({dau:1,wau:1,mau:1});
  for(let i=0;i<30;i++) await call('/api/ping',ping);
  expect((await call('/api/ping',ping)).status).toBe(429);
+ } finally { clock.mockRestore(); }
 });
 
 
