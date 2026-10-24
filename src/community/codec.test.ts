@@ -14,6 +14,13 @@ describe('anonymous scan wire boundary',()=>{
  });
  it('caps line and vertex counts and rejects noninteger deltas',()=>{
   const valid=encode(scan()),l=valid.lines[0]!;
-  for(const lines of [[],Array(201).fill(l),[{...l,d:Array(4002).fill(0)}],Array(11).fill({...l,d:Array(4000).fill(0)}),[{...l,d:[-90000000,40000000,.5,0]}]])expect(()=>decode({...valid,lines})).toThrow();
+  const dense = {...l,d:[-90000000,40000000,...Array.from({length:1999},(_,i)=>[i%2?1:-1,0]).flat()]};
+  expect(decode({...valid,lines:Array(10).fill(dense)}).lines).toHaveLength(10);
+  for(const lines of [[],Array(201).fill(l),[{...l,d:Array(4002).fill(0)}],Array(11).fill(dense),[{...l,d:[-90000000,40000000,.5,0]}]])expect(()=>decode({...valid,lines})).toThrow();
  });
+});
+
+it.each([[-150,60],[-155,20],[-90,40],[175,53]])('accepts supported US boxes at %s,%s',(lng,lat)=>{
+  const value=scan();value.area=[lng-.01,lat-.01,lng+.01,lat+.01];value.lines[0]!.coordinates=[[lng,lat],[lng+.001,lat]];
+  expect(decode(encode(value))).toEqual(value);
 });

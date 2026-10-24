@@ -22,3 +22,13 @@ it('delivers queued uploads anonymously, acknowledges duplicates, drops rejectio
  for(const status of [429,503]){await repo.queueCommunity(encode(scan));fetcher.mockResolvedValueOnce(new Response(null,{status}));await uploader.flush();expect((await repo.pendingCommunity()).length).toBeGreaterThan(0);await repo.setCommunitySharing(false);await repo.setCommunitySharing(true);}
  await repo.queueCommunity(encode(scan));fetcher.mockRejectedValueOnce(new Error('offline'));await uploader.flush();expect(await repo.pendingCommunity()).toHaveLength(1);
 });
+
+it('retains durable entries offline and sends only after reconnect', async()=>{
+ const name=crypto.randomUUID(),repo=await Repo.open(name);
+ await repo.queueCommunity(encode(scan));
+ const reopened=await Repo.open(name),fetcher=vi.fn<typeof fetch>().mockResolvedValue(new Response(null,{status:201}));
+ let online=false;const uploader=new CommunityUploads(reopened,fetcher,()=>online);
+ await uploader.flush();expect(fetcher).not.toHaveBeenCalled();expect(await reopened.pendingCommunity()).toHaveLength(1);
+ expect((await reopened.pendingCommunity())[0]).toMatchObject({sharing:true});
+ online=true;await uploader.flush();expect(await repo.pendingCommunity()).toHaveLength(0);
+});

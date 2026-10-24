@@ -40,7 +40,7 @@ export default defineConfig({
         if (['http://localhost:5180', 'http://127.0.0.1:5180'].includes(incoming.headers.origin ?? '')) outgoing.setHeader('Origin', 'http://localhost:8787');
       });
     },
-  } } },
+  }, '/tiles': { target: 'http://localhost:8787', changeOrigin: true } } },
   build: { chunkSizeWarningLimit: 1600 },
   plugins: [
     {

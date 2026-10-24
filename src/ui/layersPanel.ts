@@ -163,8 +163,8 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   };
   renderEntries();
   const unsubscribe = layerRegistry.subscribe(renderEntries);
-  const sharing = h('input', { type: 'checkbox', role: 'switch', checked: true, 'aria-label': 'Share scan results', onchange: () => { void ctx.repo.setCommunitySharing(sharing.checked); } });
-  void ctx.repo.communitySharing().then(on => { sharing.checked = on; });
+  const sharing = h('input', { type: 'checkbox', role: 'switch', checked: true, disabled: true, 'aria-label': 'Share scan results', onchange: () => { void ctx.repo.setCommunitySharing(sharing.checked); } });
+  void ctx.repo.communitySharing().then(on => { sharing.checked = on; sharing.disabled = false; }).catch(() => {});
   const root = h('div', { class: 'layers-panel' }, basemaps, labelControls, activeBar, activeList, categories,
     h('footer', { class: 'layers-footer' },
       h('label', { class: 'layer-toggle' }, sharing, 'Share scan results'),
