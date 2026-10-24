@@ -37,7 +37,7 @@ Geolocation and camera need a secure context: `localhost` works; on a phone, ser
 | Concern | How |
 |---|---|
 | App loads offline | Workbox precaches all built assets (incl. the MapLibre worker). |
-| Map tiles offline | Runtime `CacheFirst` per source with `maxEntries` caps (4000 topo, 4000 imagery, 3000 PAD-US, 3000 hillshade, 4000 OpenFreeMap, 4000 parcel queries, 3000 each NHD/NWI; deer units live only) and 90-day expiry. Only areas/zooms you have viewed are available. |
+| Map tiles offline | Runtime `CacheFirst` per source with `maxEntries` caps (4000 topo, 4000 imagery, 3000 PAD-US, 3000 hillshade, 4000 OpenFreeMap, 4000 parcel queries, 3000 each NHD/NWI; additional registry routes share 6000 entries) and 90-day expiry. Only areas/zooms you have viewed are available. |
 | Data | IndexedDB via `idb` (never localStorage). Stores: `items`, `outbox`, `imports`, `meta`. The app requests persistent storage. |
 | Identity | Each device gets a random `deviceId` (stored in IndexedDB). Each item has a UUID `id`, `createdAt`, `updatedAt`, `deviceId` and a `deleted` tombstone. |
 | Clock | `updatedAt` is a hybrid logical clock folded into epoch ms: strictly increasing per device and always ahead of anything imported, so a local edit after an import wins even with clock skew. |
@@ -65,11 +65,12 @@ All endpoints below were verified on 2026-10-22 to return tiles/images or parcel
 | Streets | `https://tiles.openfreemap.org/styles/liberty` | [OpenFreeMap](https://openfreemap.org) (free, no key). Data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL), © OpenMapTiles. Attribution comes from the TileJSON. |
 | Labels | `https://tiles.openfreemap.org/planet` (TileJSON → vector tiles), glyphs `https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf` | [OpenFreeMap](https://openfreemap.org) vector tiles (OpenMapTiles schema, © OpenMapTiles), free, no key. Data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL). Labels overlay on Topo/Satellite. |
 | Trail finder | `https://s3-us-west-2.amazonaws.com/usgs-lidar-public/WI_Clark_2018/ept.json` and `WI_12County_9_B22/ept.json`; hierarchy JSON and LAZ nodes; 3DEP elevation `exportImage` with F32 TIFF, NAD83 UTM 15N | USGS public-domain 3DEP lidar/elevation. Verified 2026-10-24: JSON, LAZ and TIFF return 200; metadata and TIFF allow browser origins (`Access-Control-Allow-Origin: *`); browser LAZ decode verified. |
+| Slope / Aspect | `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage` with URL-encoded `Slope Map` / `Aspect Map` rendering rules | USGS 3DEP, public domain. Verified 2026-10-24: service `rasterFunctionInfos` lists both colored functions; exports return 200 `image/png` with CORS `*`. Legends sampled against paired degree exports; slope z10+, aspect z11+. |
 | Hillshade | `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage` with the Hillshade Gray raster function | USGS 3DEP elevation data, public domain. Lidar-derived terrain shading; resolution depends on available elevation coverage. |
 | Public lands | `https://edits.nationalmap.gov/arcgis/rest/services/PAD-US/PAD_US_4_1/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&f=image` | USGS Gap Analysis Project, *Protected Areas Database of the United States (PAD-US) 4.1*, U.S. Geological Survey data release, https://doi.org/10.5066/P96WBCHS. USGS data are public domain. Layer 0 = PAD-US 4.1 Fee, filtered and colored by manager using dynamicLayers; `/MapServer/0/query` identifies enabled public land. |
 | Parcels | Wisconsin Statewide Parcels DB FeatureServer/0/query (`services3.arcgis.com/n6uYoouQZW75n5WI`) | Wisconsin Statewide Parcels V12 (SCO), public domain. Visible at z13+; viewed tiles cached. Default off. |
-| Water | USGS `USGSHydroCached/MapServer/tile` and USFWS `Wetlands/MapServer/export` (`fwspublicservices.wim.usgs.gov`) | USGS NHD / USFWS NWI, public domain federal data; attribution shown. NWI at z11+. Default off; cached. |
-| Deer units | WI DNR `WM_CWD/WM_DMU_MSU_DMZ_Ext/MapServer/export` and `/2/query` (`dnrmaps.wi.gov`) | Wisconsin DNR service; agency terms apply. Live only, never cached; default off, z6+. |
+| Streams & lakes / Wetlands | USGS `USGSHydroCached/MapServer/tile` and USFWS `Wetlands/MapServer/export` (`fwspublicservices.wim.usgs.gov`) | USGS NHD / USFWS NWI, public domain federal data; attribution shown. NWI at z11+. Default off; cached. |
+| Deer units | WI DNR `WM_CWD/WM_DMU_MSU_DMZ_Ext/MapServer/export` and `/2/query` (`dnrmaps.wi.gov`) | Wisconsin DNR service; agency terms apply. Viewed imagery cached; tap identification stays live. Default off, z6+. |
 | Weather | `https://api.open-meteo.com/v1/forecast` | [Open-Meteo](https://open-meteo.com): free, no key, for non-commercial use; data CC BY 4.0 (attributed in the conditions panel). |
 | Sun & moon | — | Computed locally with [`suncalc`](https://github.com/mourner/suncalc) (BSD-2-Clause). |
 
@@ -149,3 +150,39 @@ Policy pages: `/privacy` and `/terms` are standalone static HTML, linked from La
 Validation: `npm test` includes Worker token/handler tests and a two-device API sync test using real Miniflare D1 plus IndexedDB. `npm run test:worker` runs only Worker tests. A browser Google login still needs the owner's configured OAuth client and an interactive account.
 
 Google Identity Services ([setup](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid), [verification](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token)) loads `https://accounts.google.com/gsi/client` on demand; the Worker retrieves keys from `https://www.googleapis.com/oauth2/v3/certs`. Authentication is optional and uses Google's service terms; it adds no map data source or map-data license.
+
+### Registering data layers
+
+`src/map/layerRegistry.ts` exports `registerLayer(def)`, `registerLayers(defs)` and
+`layerRegistry`. Definitions appear in category order, then registration order;
+empty categories are omitted. Stable IDs are the persistence and interchange keys.
+Register definitions in `src/map/builtinLayers.ts`, or import a registration module
+there so both the client and `vite.config.ts` see it. That registration graph must
+have no DOM or MapLibre runtime dependencies (type imports are fine).
+
+```ts
+registerLayer({
+  id: 'slope', category: 'terrain', name: 'Slope', defaultOpacity: 0.65,
+  minzoom: 10, attribution: HILLSHADE_ATTR,
+  source: { kind: 'raster', tiles: [SLOPE_EXPORT], tileSize: 256, maxzoom: 17 },
+  cacheRoute: CACHE_ROUTES.hillshade,
+  legend: [{ color: '#ffff00', label: '10°' }],
+});
+```
+
+New verified endpoints belong in `src/map/sources.ts` and the Data sources table.
+A declarative raster is installed on first activation and restored on style swaps.
+For custom sources use `install(map, ctx)`, `setVisible(map, on, ctx)` and
+`setOpacity(map, opacity, ctx)`; declare `layerIds` in drawing order. `ctx.beforeId`
+keeps data below labels and user items. Hooks must tolerate repeated calls. The
+optional `identify(lng, lat, signal, map, point)` returns `{ title?, rows }` (each row
+is `[label, value]`) or `null`. Fetches must honor the abort signal. Registry changes
+also update an open Layers panel without replacing existing controls.
+
+A definition's `cacheRoute` is a URL regex consumed at build time by Workbox.
+Existing cache names stay stable; additional registered routes share
+`tiles-data-layers` (6000 entries, 90 days). Downloads remain view-based; there is
+no offline-area tile downloader. `layers`, `collapsed` and `remembered` preferences
+persist in Repo and cloud sync, including unknown IDs for modules registered later.
+Basemap thumbnails are bundled tiny crops of USGS tiles and OpenFreeMap Liberty;
+source attributions and licenses are the same as their basemaps.

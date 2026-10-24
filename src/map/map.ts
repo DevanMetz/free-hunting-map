@@ -68,7 +68,7 @@ export class HuntMap {
     });
     this.map.addControl(this.geolocate, 'top-left');
     this.map.addControl(new ScaleControl({ unit: 'imperial' }), 'bottom-left');
-    this.map.on('style.load', () => { this.styleReady = true; this.installed.clear(); void this.installOverlays(); });
+    this.map.on('style.load', () => { this.styleReady = true; this.styleVersion++; this.installed.clear(); void this.installOverlays(); });
     const unsubscribe = layerRegistry.subscribe(() => this.syncLayers());
     this.map.on('remove', unsubscribe);
   }
@@ -87,6 +87,7 @@ export class HuntMap {
 
   private installed = new Set<string>();
   private styleReady = false;
+  private styleVersion = 0;
 
   setLayer(id: string, on: boolean): void {
     const def = layerRegistry.get(id);
@@ -99,7 +100,12 @@ export class HuntMap {
     const def = layerRegistry.get(id);
     if (!def || !Number.isFinite(opacity)) return;
     this.state.layers[id] = { ...layerSetting(this.state, def), opacity: Math.max(0, Math.min(1, opacity)) };
-    this.syncLayers();
+    if (this.styleReady && this.installed.has(id)) this.applyOpacity(def, this.state.layers[id]!.opacity);
+  }
+
+  private applyOpacity(def: LayerDef, opacity: number): void {
+    if (def.source) this.map.setPaintProperty(def.id, 'raster-opacity', opacity);
+    else def.setOpacity?.(this.map, opacity, this.layerContext());
   }
 
   setCategoryCollapsed(id: string, collapsed: boolean): void { this.state.collapsed[id] = collapsed; }
@@ -113,7 +119,8 @@ export class HuntMap {
     if (!this.styleReady) return;
     const m = this.map;
     // Insert before basemap labels/roads and before application overlays.
-    const before = m.getStyle()?.layers?.find(layer => !this.dataLayerIds().has(layer.id) &&
+    const dataIds = this.dataLayerIds();
+    const before = m.getStyle()?.layers?.find(layer => !dataIds.has(layer.id) &&
       (layer.type === 'line' || layer.type === 'symbol' || layer.id.startsWith('ohm-')))?.id;
     for (const def of layerRegistry.layers()) {
       if (def.action) continue;
@@ -176,6 +183,7 @@ export class HuntMap {
 
   private async installOverlays(): Promise<void> {
     const m = this.map;
+    const generation = this.styleVersion;
     this.syncLayers();
     // Streets (OpenFreeMap Liberty) has its own labels. Added before our tracks/waypoints so those draw on top.
     const { basemap } = this.state;
@@ -224,9 +232,10 @@ export class HuntMap {
         const name = `ohm-${icon}`;
         if (m.hasImage(name)) return;
         const img = await loadIconImage(icon, 40);
-        if (!m.hasImage(name)) m.addImage(name, img, { pixelRatio: 2 });
+        if (generation === this.styleVersion && this.styleReady && !m.hasImage(name)) m.addImage(name, img, { pixelRatio: 2 });
       }),
     );
+    if (generation !== this.styleVersion || !this.styleReady) return;
     if (!m.getSource(SRC_ITEMS_PT)) {
       m.addSource(SRC_ITEMS_PT, { type: 'geojson', data: emptyFC() });
       m.addLayer({
@@ -240,6 +249,7 @@ export class HuntMap {
         },
       });
     }
+    this.syncLayers();
     this.refreshItems();
     this.refreshSketch();
   }

@@ -140,9 +140,10 @@ it('records anonymous usage, validates limits and protects admin reports',async(
  expect((await call('/api/ping',{...ping,id:'bad'})).status).toBe(400);
  expect((await call('/api/ping',{...ping,pad:'x'.repeat(1024)})).status).toBe(413);
  expect((await call('/api/ping',ping,undefined,'https://evil.example')).status).toBe(403);
- const event={id:ping.id,installed:true,version:'0.1.0',events:[{f:'marker_add',day,fw:true,fm:true},{f:'unknown'}]};
+ const event={id:ping.id,installed:true,version:'0.1.0',events:[{f:'marker_add',day,fw:true,fm:true},{f:'data_layer',day,fw:true,fm:true},{f:'unknown'}]};
  expect((await call('/api/events',event)).status).toBe(204);await call('/api/events',event);
  expect(await env.DB.prepare('SELECT count,country FROM feature_uses').first()).toMatchObject({count:2,country:'XX'});
+ expect(await env.DB.prepare("SELECT count FROM feature_uses WHERE feature='data_layer'").first()).toMatchObject({count:2});
  expect((await call('/api/admin/usage')).status).toBe(401);
  const login=await call('/api/auth/google',{credential:'dev:admin-usage'}), session=login.headers.get('set-cookie')!.split(';')[0]!;
  expect((await call('/api/admin/usage',undefined,session)).status).toBe(403);

@@ -46,5 +46,7 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
   reset(); (hunt as unknown as { installed: Set<string> }).installed.clear(); await hunt.installOverlays(); check();
   expect(map.setPaintProperty).toHaveBeenCalledWith('slope', 'raster-opacity', 0.32);
   hunt.setLayer('slope', false); expect(map.setLayoutProperty).toHaveBeenCalledWith('slope', 'visibility', 'none');
+  reset(); hunt.installed.clear(); await hunt.installOverlays(); expect(sources.has('slope')).toBe(false);
+  hunt.setLayer('my-items', false); expect(map.setLayoutProperty).toHaveBeenCalledWith('ohm-waypoints', 'visibility', 'none');
   const copy = hunt.mapState; copy.layers.slope!.on = true; expect(hunt.mapState.layers.slope!.on).toBe(false);
 });

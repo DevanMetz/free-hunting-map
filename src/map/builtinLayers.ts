@@ -4,6 +4,7 @@ import { identifyDeer, identifyPublicLand, parcelContent } from './inspect';
 import { CACHE_ROUTES } from './cacheRoutes';
 import { DEER_EXPORT, DEER_ATTR, NHD_TILES, NHD_ATTR, NWI_EXPORT, NWI_ATTR, PARCELS_ATTR, HILLSHADE_ATTR, HILLSHADE_EXPORT, PADUS_ATTR, SLOPE_EXPORT, ASPECT_EXPORT } from './sources';
 
+// Terrain legend swatches verified against paired Map PNG / Degrees F32 exports (2026-10-24).
 const result = (lines: string[]): IdentifyResult | null => lines.length ? { title: lines[0], rows: lines.slice(1).map(line => ['', line]) } : null;
 registerLayers([
   ...PUBLIC_LANDS.map(c => ({
@@ -45,8 +46,24 @@ registerLayers([
   { id: 'hillshade', category: 'terrain', name: 'Hillshade', defaultOpacity: 0.55, minzoom: 11,
     attribution: HILLSHADE_ATTR, source: { kind: 'raster', tiles: [HILLSHADE_EXPORT], minzoom: 11, maxzoom: 17 }, cacheRoute: CACHE_ROUTES.hillshade },
   { id: 'slope', category: 'terrain', name: 'Slope', defaultOpacity: 0.65, minzoom: 10,
+    legend: [{ color: '#d1d1d1', label: '0°' }, { color: '#fffac2', label: '5°' }, { color: '#ffff00', label: '10°' },
+      { color: '#ffbe00', label: '15°' }, { color: '#fda133', label: '20°' }, { color: '#fe7200', label: '30°' }, { color: '#a24a1b', label: '45°+' }],
     attribution: HILLSHADE_ATTR, source: { kind: 'raster', tiles: [SLOPE_EXPORT], maxzoom: 17 }, cacheRoute: CACHE_ROUTES.hillshade },
   { id: 'aspect', category: 'terrain', name: 'Aspect', defaultOpacity: 0.65, minzoom: 11,
+    legend: [{ color: 'linear-gradient(90deg,#84d800 50%,#a0d21e 50%)', label: 'N' }, { color: '#00aa41', label: 'NE' },
+      { color: '#0068be', label: 'E' }, { color: '#6900a0', label: 'SE' }, { color: '#c8009c', label: 'S' },
+      { color: '#ff5064', label: 'SW' }, { color: '#ffaa46', label: 'W' }, { color: '#fafa00', label: 'NW' }],
     attribution: HILLSHADE_ATTR, source: { kind: 'raster', tiles: [ASPECT_EXPORT], maxzoom: 17 }, cacheRoute: CACHE_ROUTES.hillshade },
+  { id: 'my-items', category: 'mydata', name: 'Saved items', defaultOpacity: 1, defaultOn: true, attribution: '',
+    install() {},
+    setVisible(map, on) {
+      for (const id of ['ohm-tracks-casing', 'ohm-tracks', 'ohm-waypoints']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+    },
+    setOpacity(map, opacity) {
+      if (map.getLayer('ohm-tracks')) map.setPaintProperty('ohm-tracks', 'line-opacity', opacity);
+      if (map.getLayer('ohm-tracks-casing')) map.setPaintProperty('ohm-tracks-casing', 'line-opacity', opacity * 0.45);
+      if (map.getLayer('ohm-waypoints')) map.setPaintProperty('ohm-waypoints', 'icon-opacity', opacity);
+    },
+  },
   { id: 'trail-finder', category: 'trailfinder', name: 'Find trails', defaultOpacity: 1, attribution: HILLSHADE_ATTR, action: 'trailfinder' },
 ]);

@@ -17,8 +17,11 @@ for (const mobile of [false, true]) {
       });
     });
     await page.reload();
-    if (mobile) await page.getByRole('button', { name: 'Layers', exact: true }).click();
-    await page.getByRole('button', { name: 'Trail finder', exact: true }).click();
+    if (mobile) {
+      await page.getByRole('button', { name: 'Layers', exact: true }).click();
+      await page.getByRole('button', { name: 'Trail Finder layers', exact: true }).click();
+      await page.getByRole('button', { name: 'Find trails', exact: true }).click();
+    } else await page.getByRole('button', { name: 'Trail finder', exact: true }).click();
     await page.getByRole('button', { name: 'Draw box', exact: true }).click();
     const cdp = await context.newCDPSession(page);
     const touch = async (type: string, x: number, y: number) => { await cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] }); };
