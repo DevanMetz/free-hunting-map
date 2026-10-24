@@ -51,9 +51,20 @@ laz-perf is Apache-2.0; copc is MIT; proj4 is MIT; geotiff is MIT.
 | Contours (`terrain-contours`) | USGS The National Map | Federal public domain; [USGS copyright policy](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits) | Source contours MapServer transparent PNG32 exports with scale-dependent intervals, live identify with source elevation units; viewed imagery cached. |
 | Elevation tint (`terrain-elevation`) | USGS 3DEP | Federal public domain; [3DEP](https://www.usgs.gov/3d-elevation-program), [USGS copyright policy](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits) | Source elevation ImageServer PNG32 export using fixed meter bands in Remap/Colormap; transparent nodata, default 35% opacity; raw elevation identify; viewed imagery cached. |
 | Crops (2025) | USDA NASS | [Public domain, free to redistribute](https://data.nass.usda.gov/Research_and_Science/Cropland/metadata/metadata_Cropland-Data-Layer-2024.htm) | Source `pdi.scinet.usda.gov` CDL_WM ImageServer PNG32, 2025 mosaic + time, croptypes renderer; identify + full crop attribute table; viewed imagery cached. |
+| Wildfire hazard potential | USDA Forest Service RMRS | [USDA public-domain policy](https://www.usda.gov/about-usda/policies-and-links) | IIPP WildfireHazardPotentialClassified ImageServer PNG32, 2023 model, water/nonburnable transparent; pixel identify + raster attribute table. |
+| Current wildfires | NIFC / WFIGS interagency federal public data | [Source terms and provenance](https://www.arcgis.com/sharing/rest/content/items/d1c32af3212341869b3c810f1a215824?f=pjson) | Public FeatureServer viewport GeoJSON, wildfire incidents only, transparent polygons; NetworkFirst (one day maximum), five-minute refresh; local feature identify including source update date. |
+| Historic fire perimeters | NIFC interagency federal public data | [Source terms and provenance](https://www.arcgis.com/sharing/rest/content/items/e02b85c0ea784ce7bd8add7ae3d293d0?f=pjson) | All_Years_View FeatureServer viewport GeoJSON through 2025; decade-colored transparent polygons, viewed geometry cached; local name/year/acres identify. |
 
 Verified 2026-10-24 using curl with `Origin: https://freehuntingmap.com`: these exports return `image/png`, allow the production origin, and contain visible features over Clark County, Wisconsin at their supported scales (springs additionally checked at Veazie Springs, Wisconsin). Boundary/WMS/riparian images have transparent backgrounds; ecoregion/elevation fills use reduced default opacity. Service queries return survey/access, hydrology, soils, ecological-region and elevation attributes. Zoom ranges limit display; source tiles overzoom at high zoom levels.
 
 Wisconsin DNR managed lands, county forests, State Natural Areas and MFL open lands were not added: the [GIS terms](https://dnr.wisconsin.gov/topic/forestmanagement/data) refer to the [acceptable-use policy](https://dnr.wisconsin.gov/legal/acceptableuse), which restricts material to noncommercial use and may require permission for redistribution. Other state hunting units were deferred because no clearly licensed official multi-state service was established.
 
 Optional thematic soils (`USFS_Drainage_Class`) were skipped: `exportImage` returns “This operation is not supported on a non-catalog data source,” and the tile endpoint returns Not Found (no cached tile schema). No datasets were downloaded.
+
+
+Hazards were verified with the production Origin header on 2026-10-24:
+WHP returns nonempty PNG32 with transparent background over Clark County, WI;
+NIFC current/history queries return GeoJSON with CORS `*` (empty in that WI extent,
+nonempty in Washington/northern California). NIFC source terms disclaim accuracy
+and legal-boundary use; historic data are for strategic use. Neither service's
+published terms restrict use to noncommercial applications or prohibit redistribution.

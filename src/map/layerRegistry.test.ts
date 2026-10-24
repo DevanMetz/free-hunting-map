@@ -33,3 +33,15 @@ it('excludes actions from master toggles', () => {
   const state: LayerPreferences = { layers: {}, collapsed: {}, remembered: {} };
   expect(toggleCategory([action], state)).toEqual({}); expect(categoryState([action], state)).toBe('false');
 });
+
+it('keeps live feed routes out of the default CacheFirst imagery cache', () => {
+  const registry = new LayerRegistry();
+  const live = /^https:\/\/example.com\/current\?/;
+  const imagery = /^https:\/\/example.com\/raster\?/;
+  registry.registerLayers([
+    { ...def('fire', 'hazards'), cacheRoute: live, cacheStrategy: 'NetworkFirst' },
+    { ...def('cover', 'vegetation'), cacheRoute: imagery },
+  ]);
+  expect(registry.cacheRoutes()).toEqual([imagery]);
+  expect(registry.cacheRoutes('NetworkFirst')).toEqual([live]);
+});

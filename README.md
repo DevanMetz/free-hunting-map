@@ -97,6 +97,9 @@ All endpoints below were verified on 2026-10-22 to return tiles/images or parcel
 | Contours | `https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export`, `/identify` | [USGS public domain](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits). Source chooses contour interval by scale; z11–19, transparent PNG32 cached when viewed. Tap returns elevation with source units. |
 | Elevation tint | `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage`, `/identify` | [USGS 3DEP public domain](https://www.usgs.gov/3d-elevation-program). Fixed elevation bands in meters via server Remap/Colormap, z9–19, 35% default opacity; PNG32 with transparent nodata, viewed images cached; live elevation in meters and feet. |
 | Crops (2025) | `https://pdi.scinet.usda.gov/image/rest/services/CDL_WM/ImageServer` — `mosaicRule={"where":"Year = 2025"}`, `time=1735689600000`, `croptypes` rendering | USDA NASS Cropland Data Layer, [public domain, free to redistribute](https://data.nass.usda.gov/Research_and_Science/Cropland/metadata/metadata_Cropland-Data-Layer-2024.htm). Latest catalog year verified 2026-10-24: `2025_10m_cdls`. PNG32 (background transparent), z9–18, crop + year identify from full raster attribute table; viewed imagery/attribute table cached. |
+| Wildfire hazard potential | `https://imagery.geoplatform.gov/iipp/rest/services/Fire_Aviation/USFS_EDW_RMRS_WildfireHazardPotentialClassified/ImageServer` | USDA Forest Service WHP 2023, [public domain](https://www.usda.gov/about-usda/policies-and-links). Five modeled potential classes (not current fire danger), PNG32; nonburnable/water transparent, default 50% opacity, z8–18; class identify. |
+| Current wildfires | `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query` | NIFC / WFIGS federal public data; [source terms](https://www.arcgis.com/sharing/rest/content/items/d1c32af3212341869b3c810f1a215824?f=pjson). Viewport GeoJSON, wildfire incidents only (excludes prescribed burns), z6–18, outlines with light transparent fill; identify name/acres/containment/source update date. NetworkFirst viewed-response cache (one day maximum), refresh every five minutes while on. |
+| Historic fire perimeters | `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/InterAgencyFirePerimeterHistory_All_Years_View/FeatureServer/0/query` | NIFC interagency federal public data; [source terms](https://www.arcgis.com/sharing/rest/content/items/e02b85c0ea784ce7bd8add7ae3d293d0?f=pjson). Viewport GeoJSON through 2025, z9–18, decade colors with transparent fill; identify name/year/acres; viewed responses cached. |
 | Weather | `https://api.open-meteo.com/v1/forecast` | [Open-Meteo](https://open-meteo.com): free, no key, for non-commercial use; data CC BY 4.0 (attributed in the conditions panel). |
 | Sun & moon | — | Computed locally with [`suncalc`](https://github.com/mourner/suncalc) (BSD-2-Clause). |
 
@@ -105,6 +108,26 @@ Also verified, but not wired in (fallback if PAD-US is unavailable): BLM Surface
 PAD-US is not a legal boundary or access determination. Always confirm land status and hunting regulations with the managing agency.
 
 Icons (app and waypoint glyphs) are drawn in this repo (`scripts/gen-icons.mjs`, `src/map/icons.ts`, `src/ui/icons.ts`) and are MIT-licensed with the code.
+
+
+Vegetation, Agriculture and Hazards verification (2026-10-24): PNG exports and
+raster/WMS identification checked with curl and Chromium over Clark County, WI.
+NIFC GeoJSON queries return CORS `*`; neither current nor historic perimeters are
+present in that Clark County extent. Nonempty perimeter geometry was also checked
+in Washington (current Little Giant fire) and northern California (historic fires).
+Only viewport geometry is requested, with pagination and zoom-dependent simplification;
+no national datasets are downloaded. Full raster class tables are fetched once and
+cached when needed. Compact legends use source colors; LANDFIRE's legend highlights
+Upper Midwest vegetation while identification covers the full class table.
+
+Other candidates not selected: IIPP NLCD is older than MRLC Annual NLCD 2025;
+stand size/stocking/age, crop-frequency and additional disturbance products were
+left out to keep this set focused. LCMS supplies vegetation-loss years, so a second
+GFW loss layer was not added. Timber activity polygons cover national forests only;
+national vegetation/forest layers were prioritized. NIFC historic perimeters were
+chosen over annual MTBS severity mosaics to supply fire names and years across the
+full historic record. No additional license-restricted layers were added.
+
 
 ## Deployment
 
@@ -206,6 +229,9 @@ is `[label, value]`) or `null`. Fetches must honor the abort signal. Registry ch
 also update an open Layers panel without replacing existing controls.
 
 A definition's `cacheRoute` is a URL regex consumed at build time by Workbox.
+Live feeds declare `cacheStrategy: 'NetworkFirst'` and use the separate
+`live-data-layers` cache (200 viewed responses, one day maximum); all existing
+cache routes keep their default CacheFirst behavior.
 Existing cache names stay stable; additional registered routes share
 `tiles-data-layers` (6000 entries, 90 days). Downloads remain view-based; there is
 no offline-area tile downloader. `layers`, `collapsed` and `remembered` preferences

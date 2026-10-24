@@ -87,6 +87,12 @@ export default defineConfig({
           tileCache('tiles-padus', CACHE_ROUTES.padus, 3000),
           tileCache('tiles-hillshade', CACHE_ROUTES.hillshade, 3000),
           ...layerRegistry.cacheRoutes().map(pattern => tileCache('tiles-data-layers', pattern, 6000)),
+          ...layerRegistry.cacheRoutes('NetworkFirst').map(urlPattern => ({
+            urlPattern, handler: 'NetworkFirst' as const,
+            options: { cacheName: 'live-data-layers', networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 200, maxAgeSeconds: DAY, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [200] } },
+          })),
           tileCache('tiles-openfreemap', CACHE_ROUTES.openfreemapTiles, 4000),
           {
             urlPattern: CACHE_ROUTES.openfreemapStyles,

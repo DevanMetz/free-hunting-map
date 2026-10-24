@@ -38,6 +38,8 @@ export interface LayerDef {
   legend?: { color: string; label: string }[] | string;
   attribution: string;
   cacheRoute?: RegExp;
+  /** Live feeds must request fresh data before falling back to viewed data. */
+  cacheStrategy?: 'CacheFirst' | 'NetworkFirst';
   source?: { kind: 'raster'; tiles: string[]; tileSize?: number; minzoom?: number; maxzoom?: number };
   /** Custom hooks run again on every style load. layerIds controls ordering. */
   layerIds?: string[];
@@ -68,7 +70,9 @@ export class LayerRegistry {
   categories(): (typeof LAYER_CATEGORIES[number] & { layers: LayerDef[] })[] {
     return LAYER_CATEGORIES.map(c => ({ ...c, layers: this.layers().filter(d => d.category === c.id) })).filter(c => c.layers.length);
   }
-  cacheRoutes(): RegExp[] { return [...new Set(this.layers().flatMap(d => d.cacheRoute ? [d.cacheRoute] : []))]; }
+  cacheRoutes(strategy: 'CacheFirst' | 'NetworkFirst' = 'CacheFirst'): RegExp[] {
+    return [...new Set(this.layers().flatMap(d => d.cacheRoute && (d.cacheStrategy ?? 'CacheFirst') === strategy ? [d.cacheRoute] : []))];
+  }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
 }
 export const layerRegistry = new LayerRegistry();
