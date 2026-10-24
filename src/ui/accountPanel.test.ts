@@ -6,7 +6,7 @@ import type { CloudSync } from '../sync/cloud';
 const controllers: AbortController[] = [];
 function mount(values: Record<string, unknown> = {}) {
   const sync = Object.assign(new EventTarget(), {
-    googleClientId: null, user: null, state: 'signed-out',
+    googleClientId: null as string | null, user: null, state: 'signed-out',
     signIn: vi.fn().mockResolvedValue(undefined), signOut: vi.fn().mockResolvedValue(undefined),
     retry: vi.fn().mockResolvedValue(undefined), deleteAccount: vi.fn().mockResolvedValue(undefined), ...values,
   });
@@ -43,7 +43,7 @@ it('renders the configured GIS button and forwards its credential', async () => 
   expect(sync.signIn).toHaveBeenCalledWith('google-token');
 });
 it('shows account and accessible sync controls, and releases listeners on close', () => {
-  const { sync, root } = mount({ user: { id: 'one', name: 'Devan' }, state: 'error' });
+  const { sync, root } = mount({ googleClientId: 'client-id', user: { id: 'one', name: 'Devan' }, state: 'error' });
   expect(root.textContent).toContain('Devan');
   const retry = root.querySelector<HTMLButtonElement>('[aria-label="Sync failed — retry"]')!;
   expect(retry.title).toBe('Sync failed — retry');
@@ -58,7 +58,7 @@ it('shows account and accessible sync controls, and releases listeners on close'
 });
 
 it('requires confirmation before deleting the account', async () => {
-  const { sync, root } = mount({user:{id:'one'},state:'synced'});
+  const { sync, root } = mount({googleClientId:'client-id',user:{id:'one'},state:'synced'});
   const confirm = vi.fn().mockReturnValue(false);
   window.confirm = confirm;
   const button = root.querySelector<HTMLButtonElement>('[aria-label="Delete account"]')!;
@@ -67,4 +67,16 @@ it('requires confirmation before deleting the account', async () => {
   confirm.mockReturnValue(true); button.click();
   expect(sync.deleteAccount).toHaveBeenCalledOnce();
   await Promise.resolve();
+});
+
+it('renders when configuration arrives after the initial render', async () => {
+  const renderButton = vi.fn();
+  window.google = { accounts: { id: { initialize: vi.fn(), renderButton, disableAutoSelect: vi.fn() } } };
+  const { root, sync } = mount();
+  expect(root.hidden).toBe(true);
+  sync.googleClientId = 'late-client';
+  sync.dispatchEvent(new Event('change'));
+  await Promise.resolve();
+  expect(root.hidden).toBe(false);
+  expect(renderButton).toHaveBeenCalledWith(root.querySelector('.google-sign-in'), expect.objectContaining({ type: 'icon' }));
 });

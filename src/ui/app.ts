@@ -1,3 +1,4 @@
+import { accountControl } from './accountPanel';
 import { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
@@ -122,6 +123,7 @@ export class App implements AppContext {
       add('list', 'list', 'Saved', () => this.togglePanel('list', () => openListPanel(this))),
       add('share', 'share', 'Share', () => this.togglePanel('share', () => openSharePanel(this))),
       add('conditions', 'weather', 'Conditions', () => this.togglePanel('conditions', () => openConditionsPanel(this))),
+      accountControl(this.sync),
     );
   }
 

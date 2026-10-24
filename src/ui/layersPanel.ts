@@ -1,4 +1,3 @@
-import { accountControl } from './accountPanel';
 import { PUBLIC_LANDS } from '../map/publicLands';
 import { LABEL_SCALES } from '../map/labels';
 import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
@@ -6,8 +5,6 @@ import type { AppContext } from './context';
 import { h } from './dom';
 
 export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailFinder?: () => void): void {
-  const accountLifetime = new AbortController();
-  const account = ctx.sync ? accountControl(ctx.sync, accountLifetime.signal) : null;
   let active: HTMLButtonElement | null = null;
   const popover = h('div', { class: 'land-info', role: 'tooltip', id: 'public-land-info', hidden: true });
   const close = () => {
@@ -42,7 +39,6 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
     return h(
       'div',
       { class: 'form' },
-      account,
       openTrailFinder ? h('button', { type: 'button', class: 'btn', onclick: openTrailFinder }, 'Trail finder') : null,
       h(
         'div',
@@ -153,7 +149,6 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
     );
   };
   ctx.sheet.open('layers', 'Layers', render(), () => {
-    accountLifetime.abort();
     close(); popover.remove();
     document.removeEventListener('pointerdown', outside);
     document.removeEventListener('keydown', escape);

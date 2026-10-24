@@ -3,7 +3,7 @@ import { h, iconButton, toast } from './dom';
 
 interface GoogleIdentity {
   initialize(options: { client_id: string; callback: (response: { credential: string }) => void }): void;
-  renderButton(parent: HTMLElement, options: { theme: string; size: string; text: string }): void;
+  renderButton(parent: HTMLElement, options: { type: string; theme: string; size: string; text: string }): void;
   disableAutoSelect(): void;
 }
 
@@ -35,15 +35,23 @@ const labels = {
   'signed-out': 'Sign in with Google', synced: 'Synced', syncing: 'Syncing', offline: 'Offline', error: 'Sync failed — retry',
 };
 
-/** The panel owns the abort signal so closing it releases its subscription. */
+/** A single persistent account entry point, independent of panel lifetimes. */
 export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLElement {
   const root = h('div', { class: 'account-control' });
   let revision = 0;
+  const dismiss = () => {
+    const menu = root.querySelector<HTMLElement>('.account-menu');
+    if (menu) menu.hidden = true;
+    root.querySelector('.account-toggle')?.setAttribute('aria-expanded', 'false');
+  };
+  document.addEventListener('pointerdown', event => { if (!root.contains(event.target as Node)) dismiss(); }, { signal });
+  root.addEventListener('focusout', event => { if (!root.contains(event.relatedTarget as Node | null)) dismiss(); });
   const report = (error: unknown) => toast(error instanceof Error ? error.message : 'Sync unavailable');
   const render = () => {
     const current = ++revision;
     root.replaceChildren();
-    root.hidden = !sync.googleClientId && !sync.user;
+    root.hidden = !sync.googleClientId;
+    if (root.hidden) return;
     if (sync.user) {
       const user = sync.user;
       const identity = h('div', { class: 'account-identity' });
@@ -64,7 +72,19 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
         remove.disabled = true;
         void sync.deleteAccount().then(() => window.google?.accounts.id.disableAutoSelect()).catch(report).finally(() => { remove.disabled = false; });
       });
-      root.append(identity, status, logout, remove);
+      const menu = h('div', { class: 'account-menu', hidden: true });
+      const avatar = iconButton('layers', `Account: ${user.name || user.email || 'Google account'} — ${labels[sync.state]}`, () => {
+        menu.hidden = !menu.hidden;
+        avatar.setAttribute('aria-expanded', String(!menu.hidden));
+      }, `account-toggle account-status-${sync.state}`);
+      avatar.setAttribute('aria-expanded', 'false');
+      const picture = identity.querySelector('img');
+      avatar.replaceChildren(picture ? picture.cloneNode(true) : h('span', {}, (user.name || user.email || 'G').slice(0, 1).toUpperCase()),
+        h('span', { class: 'account-dot', 'aria-hidden': 'true' }));
+      menu.append(identity, h('div', { class: 'account-actions' }, status, logout, remove), h('nav', { class: 'policy-links', 'aria-label': 'Policies' },
+        h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms')));
+      root.onkeydown = event => { if (event.key === 'Escape') { dismiss(); avatar.focus(); } };
+      root.append(avatar, menu);
       return;
     }
     if (!sync.googleClientId || !navigator.onLine) { root.hidden = true; return; }
@@ -75,7 +95,7 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
       identity.initialize({ client_id: sync.googleClientId!, callback: response => {
         void sync.signIn(response.credential).catch(report);
       } });
-      identity.renderButton(button, { theme: 'outline', size: 'large', text: 'signin_with' });
+      identity.renderButton(button, { type: 'icon', theme: 'outline', size: 'large', text: 'signin_with' });
     }).catch(error => {
       if (current !== revision || signal?.aborted) return;
       button.replaceChildren(iconButton('refresh', 'Retry Google sign-in', render));

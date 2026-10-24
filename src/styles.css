@@ -290,7 +290,17 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
 .trail-box-size { padding: 5px 8px; border: 1px solid #ffc45c; border-radius: 6px; background: #141a16; color: #ffc45c; white-space: nowrap; font: 600 12px system-ui; pointer-events: none; }
 .trail-box-size.over { border-color: #ff6262; color: #ff6262; }
 canvas[data-lidar-drawing] { touch-action: none; }
-.account-control { display: flex; align-items: center; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+.account-control { position: relative; width: 44px; min-height: 44px; display: grid; place-items: center; }
+.account-menu { position: absolute; right: 56px; top: 0; width: 260px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 4px 18px #0007; }
+.account-menu[hidden] { display: none; }
+.account-actions { display: flex; gap: 8px; }
+.account-menu .account-identity { margin-bottom: 10px; }
+.account-toggle { position: relative; }
+.account-dot { position: absolute; right: 2px; bottom: 2px; width: 9px; height: 9px; border-radius: 50%; background: currentColor; border: 2px solid var(--panel); }
+@media (max-width: 759px) {
+  .toolbar .account-control { position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 10px; background: var(--panel); border-radius: var(--radius); box-shadow: 0 4px 18px #0007; }
+  .account-menu { right: 0; top: 54px; }
+}
 .account-control[hidden] { display: none; }
 .account-identity { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .account-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
@@ -298,7 +308,8 @@ canvas[data-lidar-drawing] { touch-action: none; }
 .account-status-synced { color: var(--accent); }
 .account-status-error { color: #ff897e; }
 .account-status-offline { opacity: 0.5; }
+.account-status-syncing .account-dot { animation: pulse 1.6s infinite; }
 .account-status-syncing svg { animation: spin 1s linear infinite; }
-@media (prefers-reduced-motion: reduce) { .account-status-syncing svg { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .account-status-syncing .account-dot, .account-status-syncing svg { animation: none; } }
 .policy-links { display: flex; gap: 1rem; justify-content: center; padding: .5rem; }
 .policy-links a { color: inherit; }

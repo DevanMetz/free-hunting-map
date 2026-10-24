@@ -19,7 +19,8 @@ export class CloudSync extends EventTarget {
     clearTimeout(this.wakeTimer);
     this.wakeTimer = setTimeout(() => { void this.retry(); }, 500);
   };
-  constructor(private readonly repo: Repo, private readonly request: Fetcher = fetch,
+  // Native fetch rejects CloudSync as its receiver in browsers; call it through a wrapper.
+  constructor(private readonly repo: Repo, private readonly request: Fetcher = (input, init) => fetch(input, init),
     private readonly online: () => boolean = () => navigator.onLine) { super(); }
 
   async start(): Promise<void> {

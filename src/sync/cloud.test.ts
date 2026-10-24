@@ -91,3 +91,23 @@ test('failed or offline deletion preserves ownership and local data', async () =
  expect(await repo.getMeta('cloud.owner')).toBe('owner');
  expect(engine.state).toBe('error');
 });
+
+test('default fetch uses the global receiver and publishes newly fetched configuration', async () => {
+  const repo = await Repo.open(crypto.randomUUID());
+  const original = globalThis.fetch;
+  const receivers: unknown[] = [];
+  globalThis.fetch = function (this: unknown, input) {
+    receivers.push(this);
+    if (this instanceof CloudSync) throw new TypeError('Illegal invocation');
+    return Promise.resolve(Response.json(String(input).endsWith('config') ? { googleClientId: 'late-client' } : { user: null }));
+  };
+  try {
+    const engine = new CloudSync(repo, undefined, () => true);
+    const configurations: (string | null)[] = [];
+    engine.addEventListener('change', () => configurations.push(engine.googleClientId));
+    await engine.retry();
+    expect(engine.googleClientId).toBe('late-client');
+    expect(configurations).toContain('late-client');
+    expect(receivers).toHaveLength(2);
+  } finally { globalThis.fetch = original; }
+});
