@@ -7,15 +7,14 @@ export interface TileManifest {
   built: string;
   bounds: number[];
 }
-const PREFIX = 'trails/v1/';
 export class TileArchive {
-  constructor(readonly bucket: R2Bucket, readonly manifest: TileManifest) {}
+  constructor(readonly bucket: R2Bucket, readonly manifest: TileManifest, readonly prefix = 'trails/v1/') {}
 
   stream(offset: number, length: number): ReadableStream<Uint8Array> {
     if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || offset < 0 || length < 0 || offset + length > this.manifest.size) throw new Error('Archive range out of bounds');
     let position = offset, remaining = length;
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-    const { bucket, manifest } = this;
+    const { bucket, manifest, prefix } = this;
     return new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {
@@ -30,7 +29,7 @@ export class TileArchive {
             const part = Math.floor(position / manifest.partSize);
             const start = position % manifest.partSize;
             const count = Math.min(remaining, manifest.partSize - start);
-            const object = await bucket.get(`${PREFIX}part-${String(part).padStart(3, '0')}`, { range: { offset: start, length: count } });
+            const object = await bucket.get(`${prefix}part-${String(part).padStart(3, '0')}`, { range: { offset: start, length: count } });
             if (!object || object.size < start + count) throw new Error('Archive part missing or truncated');
             reader = object.body.getReader();
             position += count;
@@ -49,10 +48,12 @@ export class TileArchive {
   }
 }
 
-export async function openTileArchive(bucket: R2Bucket): Promise<TileArchive | null> {
-  const object = await bucket.get(`${PREFIX}manifest.json`);
+/** `version` is a validated path segment such as `v2`; each data build gets a new immutable prefix. */
+export async function openTileArchive(bucket: R2Bucket, version = 'v1'): Promise<TileArchive | null> {
+  const prefix = `trails/${version}/`;
+  const object = await bucket.get(`${prefix}manifest.json`);
   if (!object) return null;
   const m = await object.json<TileManifest>();
   if (!Number.isSafeInteger(m.size) || m.size < 127 || !Number.isSafeInteger(m.partSize) || m.partSize <= 0 || m.parts !== Math.ceil(m.size / m.partSize) || !/^[a-f0-9]{64}$/i.test(m.sha256) || !Array.isArray(m.bounds) || m.bounds.length !== 4 || !m.bounds.every(Number.isFinite)) throw new Error('Invalid tile manifest');
-  return new TileArchive(bucket, m);
+  return new TileArchive(bucket, m, prefix);
 }

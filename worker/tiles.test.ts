@@ -101,6 +101,9 @@ describe('trail archive routes with real R2 and synthetic PMTiles', () => {
     expect(head.status).toBe(200); expect(await head.text()).toBe('');
     expect((await call('/tiles/trails/v1/15/0/0.mvt', binding)).status).toBe(204);
     expect((await call('/tiles/trails/v1/27/0/0.mvt', binding)).status).toBe(400);
+    expect((await call('/tiles/trails/v2/1/0/0.mvt', binding)).status).toBe(503);
+    expect((await call('/tiles/trails/v0/1/0/0.mvt', binding)).status).toBe(404);
+    expect((await call('/tiles/trails/latest.json', binding)).status).toBe(404);
     expect((await call('/tiles/trails/v1/1/2/0.mvt', binding)).status).toBe(400);
     expect((await call('/tiles/trails/v1/1/0/0.mvt', binding, { method: 'POST' })).status).toBe(405);
     expect(await (await call('/tiles/trails/v1.json', binding)).json()).toMatchObject({ minzoom: 6, maxzoom: 14, vector_layers: [{ id: 'trails' }], bounds: [-125, 24, -66, 50] });

@@ -2,15 +2,18 @@ import { PMTiles } from './pmtiles';
 import { openTileArchive } from './tileArchive';
 
 const IMMUTABLE = 'public, max-age=31536000, immutable';
-const readers = new WeakMap<R2Bucket, Promise<PMTiles | null>>();
-async function reader(bucket: R2Bucket): Promise<PMTiles | null> {
-  let pending = readers.get(bucket);
+const readers = new WeakMap<R2Bucket, Map<string, Promise<PMTiles | null>>>();
+async function reader(bucket: R2Bucket, version: string): Promise<PMTiles | null> {
+  let byVersion = readers.get(bucket);
+  if (!byVersion) readers.set(bucket, byVersion = new Map());
+  const versions = byVersion;
+  let pending = versions.get(version);
   if (!pending) {
-    pending = openTileArchive(bucket).then(archive => {
-      if (!archive) readers.delete(bucket); // Uploads may still be in progress.
+    pending = openTileArchive(bucket, version).then(archive => {
+      if (!archive) versions.delete(version); // Uploads may still be in progress.
       return archive ? new PMTiles(archive) : null;
-    }).catch(error => { readers.delete(bucket); throw error; });
-    readers.set(bucket, pending);
+    }).catch(error => { versions.delete(version); throw error; });
+    versions.set(version, pending);
   }
   return pending;
 }
@@ -32,10 +35,12 @@ function unchanged(request: Request, etag: string): boolean {
 
 export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
   const url = new URL(request.url);
-  const tile = /^\/tiles\/trails\/v1\/(\d+)\/(\d+)\/(\d+)\.mvt$/.exec(url.pathname);
-  const raw = url.pathname === '/tiles/trails/v1.pmtiles';
-  const tilejson = url.pathname === '/tiles/trails/v1.json';
-  if (!tile && !raw && !tilejson) return new Response('Not found', { status: 404 });
+  const route = /^\/tiles\/trails\/(v[1-9]\d{0,3})(?:\/(\d+)\/(\d+)\/(\d+)\.mvt|\.pmtiles|\.json)$/.exec(url.pathname);
+  if (!route) return new Response('Not found', { status: 404 });
+  const version = route[1]!;
+  const tile = route[2] !== undefined ? route.slice(1) : null;
+  const raw = url.pathname.endsWith('.pmtiles');
+  const tilejson = url.pathname.endsWith('.json');
   if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
   const [z, x, y] = tile ? tile.slice(1).map(Number) as [number, number, number] : [0, 0, 0];
   if (tile && (!Number.isInteger(z) || z > 26 || !Number.isInteger(x) || !Number.isInteger(y) || x >= 2 ** z || y >= 2 ** z)) return new Response('Invalid tile coordinate', { status: 400 });
@@ -50,7 +55,7 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     }
   }
   try {
-    const pm = bucket ? await reader(bucket) : null;
+    const pm = bucket ? await reader(bucket, version) : null;
     if (!pm) return new Response('Trails unavailable', { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
     const { manifest } = pm.archive;
     const etag = `"${manifest.sha256}${tile ? `-${z}-${x}-${y}` : tilejson ? '-json' : ''}"`;
@@ -73,7 +78,7 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     }
     if (tilejson) {
       headers.set('Content-Type', 'application/json');
-      return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: 'Public trails', tiles: [`${url.origin}/tiles/trails/v1/{z}/{x}/{y}.mvt`], minzoom: 6, maxzoom: 14, bounds: manifest.bounds, attribution: 'USFS, BLM, NPS, USGS trails (public domain)', vector_layers: [{ id: 'trails', fields: { type: 'String', src: 'String', agency: 'String' } }] }), { headers });
+      return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: 'Public trails', tiles: [`${url.origin}/tiles/trails/${version}/{z}/{x}/{y}.mvt`], minzoom: 6, maxzoom: 14, bounds: manifest.bounds, attribution: 'USFS, BLM, NPS, USGS trails (public domain)', vector_layers: [{ id: 'trails', fields: { type: 'String', src: 'String', agency: 'String' } }] }), { headers });
     }
     const bytes = await pm.tile(z, x, y);
     headers.set('Content-Type', 'application/vnd.mapbox-vector-tile');

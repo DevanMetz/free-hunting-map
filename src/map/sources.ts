@@ -4,6 +4,7 @@
  */
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
+/** Bump the version for every new trails data build (R2 prefix trails/vN/) so edge and offline caches never mix builds. */
 export const TRAILS_TILES = '/tiles/trails/v1/{z}/{x}/{y}.mvt';
 export const TRAILS_ATTR = 'USFS, BLM, NPS, USGS trails (public domain)';
 
