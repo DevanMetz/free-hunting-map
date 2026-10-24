@@ -1,8 +1,9 @@
 import { expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, loadSettings } from './settings';
 import { PUBLIC_LANDS, publicLandDefaults } from '../map/publicLands';
-it('defaults overlays off with fresh state per load', () => {
-  const state = loadSettings(); expect(Object.entries(state.layers).filter(([id]) => id !== 'my-items').every(([, v]) => !v.on)).toBe(true);
+it('defaults community trails on and other overlays off with fresh state per load', () => {
+  const state = loadSettings(); expect(Object.entries(state.layers).filter(([id]) => !['my-items', 'community-trails'].includes(id)).every(([, v]) => !v.on)).toBe(true);
+  expect(state.layers['community-trails']!.on).toBe(true);
   state.layers.hillshade!.on = true; expect(loadSettings().layers.hillshade!.on).toBe(false);
   expect(DEFAULT_SETTINGS.layers).toEqual({});
 });

@@ -1,3 +1,4 @@
+import type { WireScan } from '../community/codec';
 import type { IDBPDatabase } from 'idb';
 import type { Category, Item } from '../types';
 import { HybridClock } from '../sync/hlc';
@@ -283,6 +284,28 @@ export class Repo extends EventTarget {
     for (const key of ['cloud.owner', 'cloud.cursor', 'cloud.logout']) await tx.store.delete(key);
     await tx.done;
   }
+
+  async communitySharing(): Promise<boolean> { return await this.getMeta('community.share') !== false; }
+
+  async setCommunitySharing(on: boolean): Promise<void> {
+    const tx = this.db.transaction(['meta', 'communityQueue'], 'readwrite');
+    await tx.objectStore('meta').put(on, 'community.share');
+    if (!on) await tx.objectStore('communityQueue').clear();
+    await tx.done;
+    this.dispatchEvent(new Event('community'));
+  }
+
+  /** The completion-time decision and queue insert are atomic and independent of accounts. */
+  async queueCommunity(scan: WireScan): Promise<void> {
+    const tx = this.db.transaction(['meta', 'communityQueue'], 'readwrite');
+    if (await tx.objectStore('meta').get('community.share') !== false && scan.lines.length) {
+      await tx.objectStore('communityQueue').put({ id: uuid(), sharing: true, scan });
+    }
+    await tx.done;
+    this.dispatchEvent(new Event('community'));
+  }
+  async pendingCommunity() { return this.db.getAll('communityQueue'); }
+  async ackCommunity(id: string) { await this.db.delete('communityQueue', id); }
 
   async getMeta<T>(key: string): Promise<T | undefined> {
     return (await this.db.get('meta', key)) as T | undefined;

@@ -16,6 +16,7 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
   };
   reset();
   const map = {
+    on: vi.fn(), getZoom: () => 10,
     getSource: (id: string) => sources.get(id),
     addSource: (id: string, source: unknown) => sources.set(id, { ...source as object, setData: vi.fn() }),
     getStyle: () => ({ layers }),

@@ -19,8 +19,8 @@ function setup() {
     setCategoryCollapsed(id: string, collapsed: boolean) { state.collapsed[id] = collapsed; },
     setCategoryRemembered(id: string, ids: string[]) { state.remembered[id] = ids; },
   };
-  const ctx = { sheet, map } as unknown as AppContext;
-  openLayersPanel(ctx, persist, vi.fn()); return { root, sheet, state, persist };
+  const ctx = { sheet, map, repo: { communitySharing: vi.fn().mockResolvedValue(true), setCommunitySharing: vi.fn().mockResolvedValue(undefined) } } as unknown as AppContext;
+  openLayersPanel(ctx, persist, vi.fn()); return { root, sheet, state, persist, ctx };
 }
 it('updates rows in place, lazily reveals controls, and remembers mixed category choices', () => {
   const { root, state, sheet } = setup();
@@ -73,4 +73,13 @@ it('toggles Public trails through its category, persists and displays its legend
   root.querySelector<HTMLButtonElement>('[aria-label="Toggle Trails"]')!.click();
   expect(state.layers['public-trails']!.on).toBe(true);
   sheet.close();
+});
+
+it('renders one sharing switch beside preferences and persists changes', async () => {
+  const {root,ctx}=setup();
+  await vi.waitFor(()=>expect(ctx.repo.communitySharing).toHaveBeenCalled());
+  const input=root.querySelector<HTMLInputElement>('[aria-label="Share scan results"]')!;
+  expect(input.checked).toBe(true);expect(input.closest('label')!.textContent).toBe('Share scan results');
+  input.checked=false;input.dispatchEvent(new Event('change'));
+  expect(ctx.repo.setCommunitySharing).toHaveBeenCalledWith(false);
 });

@@ -1,3 +1,4 @@
+import type { WireScan } from '../community/codec';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Candidates } from '../lidar/postprocess';
 import type { Box } from '../lidar/ept';
@@ -24,6 +25,7 @@ export interface ImportLogEntry {
 export interface LidarRun { id: string; createdAt: number; box: Box; candidates: Candidates }
 
 export interface HuntDB extends DBSchema {
+  communityQueue: { key: string; value: { id: string; sharing: true; scan: WireScan } };
   records: { key: string; value: SyncRecord };
   lidarRuns: { key: string; value: LidarRun };
   items: { key: string; value: Item; indexes: { kind: string } };
@@ -35,13 +37,14 @@ export interface HuntDB extends DBSchema {
 
 // Stable across rebrands so existing data remains accessible on this origin.
 export const DB_NAME = 'open-hunt-map';
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export function openHuntDB(name = DB_NAME): Promise<IDBPDatabase<HuntDB>> {
   let database: IDBPDatabase<HuntDB> | undefined;
   return openDB<HuntDB>(name, DB_VERSION, {
     blocking() { database?.close(); },
     upgrade(db, oldVersion) {
+      if (oldVersion < 5) db.createObjectStore('communityQueue', { keyPath: 'id' });
       // v4 categories reuse the generic records store; all v3 stores remain intact.
       if (oldVersion < 3) db.createObjectStore('records', { keyPath: 'id' });
       if (oldVersion < 2) db.createObjectStore('lidarRuns', { keyPath: 'id' });
