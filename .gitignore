@@ -19,3 +19,4 @@ public/lidar/ort-*.bin
 # Playwright artifacts.
 test-results/
 playwright-report/
+__pycache__/
