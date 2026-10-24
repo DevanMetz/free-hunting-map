@@ -1,4 +1,5 @@
 import type { IdentifyResult } from '../layerRegistry';
+import { roundCoord } from '../geo';
 
 /** Keep the MapLibre bbox token unescaped; all other values are ordinary query parameters. */
 export function mapImage(service: string, params: Record<string, string>): string {
@@ -19,12 +20,15 @@ export function attributeResult(title: string, attributes: Attributes, fields: [
 }
 /** A small geographic envelope uses the service spatial index without a server-side geodesic buffer. */
 export function queryGeometry(lng: number, lat: number, distance?: number): { geometry: string; geometryType: string } {
+  [lng, lat] = roundCoord([lng, lat]);
   if (distance === undefined || !Number.isFinite(distance) || distance <= 0) {
     return { geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint' };
   }
   const dy = distance / 111_320;
   const dx = dy / Math.max(0.000001, Math.cos(lat * Math.PI / 180));
-  return { geometry: [Math.max(-180, lng - dx), Math.max(-90, lat - dy), Math.min(180, lng + dx), Math.min(90, lat + dy)].join(','),
+  const lower = roundCoord([Math.max(-180, lng - dx), Math.max(-90, lat - dy)]);
+  const upper = roundCoord([Math.min(180, lng + dx), Math.min(90, lat + dy)]);
+  return { geometry: [...lower, ...upper].join(','),
     geometryType: 'esriGeometryEnvelope' };
 }
 export async function queryPoint(service: string, layer: number, lng: number, lat: number,

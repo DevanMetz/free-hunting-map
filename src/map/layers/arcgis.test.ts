@@ -13,3 +13,10 @@ it('converts meter tolerance to a small indexed search envelope accounting for l
   const edge = queryGeometry(180, 89.9, 100_000).geometry.split(',').map(Number);
   expect(edge[2]).toBe(180); expect(edge[3]).toBe(90);
 });
+
+it('rounds query coordinates to six decimals for reliable ArcGIS point searches', () => {
+  const lng = -91.778085417838838, lat = 45.895326958585841;
+  expect(queryGeometry(lng, lat).geometry).toBe('-91.778085,45.895327');
+  const rectangle = queryGeometry(lng, lat, 100).geometry;
+  expect(rectangle.split(',').every(value => (value.split('.')[1]?.length ?? 0) <= 6)).toBe(true);
+});
