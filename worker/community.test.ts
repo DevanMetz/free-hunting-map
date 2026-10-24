@@ -52,6 +52,7 @@ it('purges affected edge tile keys after uploads and moderation',async()=>{
  const headers={'CF-Connecting-IP':'192.0.2.26'};
  expect((await call('/api/community/scans',encode(scan(.003)),headers)).status).toBe(201);
  expect(cache.delete).toHaveBeenCalled();expect(cache.delete.mock.calls[0]![0].url).toContain('/tiles/community/12/');
+ expect(cache.delete.mock.calls.every(([request])=>new URL(request.url).origin===origin)).toBe(true);
  const [x,y]=tileXY(-89.997,40);await call(`/tiles/community/12/${x}/${y}.geojson`);expect(cache.put).toHaveBeenCalled();
  cache.delete.mockClear();await call('/api/community/delete',{bbox:scan().area},{Authorization:'Bearer test-secret'});expect(cache.delete).toHaveBeenCalled();
  }finally{vi.unstubAllGlobals();}
@@ -117,4 +118,29 @@ it('authenticates script-friendly exports and retains training and votes after d
  const after=(await (await call('/api/community/export',undefined,{Authorization:'Bearer test-secret'})).text()).trim().split('\n').map(l=>JSON.parse(l));
  expect(after.filter(f=>f.properties.dataset==='scan_lines')).toHaveLength(scans.length);
  expect(after.filter(f=>f.properties.dataset==='votes')).toHaveLength(votes.length);
+});
+
+it.each(['throw', 'reject'] as const)('committed writes succeed when cache deletion fails (%s)', async mode => {
+ const del=vi.fn((request:Request)=>{
+   expect(new URL(request.url).origin).toBe(origin);
+   if(mode==='throw')throw new Error('Cache zone mismatch');
+   return Promise.reject(new Error('Cache unavailable'));
+ });
+ const warn=vi.spyOn(console,'warn').mockImplementation(()=>{});
+ vi.stubGlobal('caches',{default:{delete:del}});
+ try {
+   const payload=encode(scan(mode==='throw'?.006:.007));
+   const headers={'CF-Connecting-IP':mode==='throw'?'192.0.5.1':'192.0.5.2'};
+   expect((await call('/api/community/scans',payload,headers)).status).toBe(201);
+   expect((await call('/api/community/scans',payload,headers)).status).toBe(409);
+   const id=(await env.DB.prepare('SELECT id FROM community_lines ORDER BY west DESC LIMIT 1').first<{id:string}>())!.id;
+   expect((await call('/api/community/vote',{id,token:'e'.repeat(64),vote:'real',type:null},headers)).status).toBe(200);
+   expect(await env.DB.prepare('SELECT real_votes FROM community_lines WHERE id=?').bind(id).first()).toMatchObject({real_votes:1});
+   expect((await call('/api/community/override',{id,override:'show'},{Authorization:'Bearer test-secret'})).status).toBe(200);
+   expect(await env.DB.prepare('SELECT override FROM community_lines WHERE id=?').bind(id).first()).toMatchObject({override:'show'});
+   expect((await call('/api/community/delete',{id},{Authorization:'Bearer test-secret'})).status).toBe(200);
+   expect(await env.DB.prepare('SELECT id FROM community_lines WHERE id=?').bind(id).first()).toBeNull();
+   expect(del).toHaveBeenCalled();expect(warn).toHaveBeenCalled();
+   expect(del.mock.calls.every(([request])=>new URL(request.url).origin===origin)).toBe(true);
+ } finally {vi.unstubAllGlobals();vi.restoreAllMocks();}
 });

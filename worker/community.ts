@@ -7,10 +7,16 @@ const edgeCache=()=>typeof caches !== 'undefined' && 'default' in caches ? (cach
 const line=(r:Row):CommunityLine=>({...r,coordinates:JSON.parse(r.geometry) as CommunityLine['coordinates']});
 export const tilePath=(tile:string)=>`/tiles/community/12/${tile}.geojson`;
 export async function purge(origin: string, keys: string[]) {
-  const cache = edgeCache();
-  if (!cache) return;
-  const origins = new Set([origin, 'https://freehuntingmap.com', 'https://www.freehuntingmap.com', 'https://open-hunt-map.metzdevan.workers.dev']);
-  await Promise.all([...origins].flatMap(host => [...new Set(keys)].map(key => cache.delete(new Request(host + tilePath(key))))));
+  // Cache API keys are zone-scoped. Other origins expire via max-age.
+  // Invalidation is best effort: a committed write must still report success.
+  try {
+    const cache = edgeCache();
+    if (!cache) return;
+    await Promise.all([...new Set(keys)].map(async key => {
+      try { await cache.delete(new Request(origin + tilePath(key))); }
+      catch (error) { console.warn('Community tile cache purge failed', key, error); }
+    }));
+  } catch (error) { console.warn('Community tile cache unavailable', error); }
 }
 export async function uploadCommunity(db:D1Database,raw:unknown,origin:string,bucket?:R2Bucket){
   let scan;try{scan=decode(raw);}catch{throw new ApiError(400,'Invalid community scan');}

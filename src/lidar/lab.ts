@@ -1,4 +1,4 @@
-import { queueScan } from '../community/queue';
+import { saveCompletedScan } from './saveScan';
 import { useFeature } from '../usage';
 import { estimateDownload } from "./download";
 import { Marker } from "maplibre-gl";
@@ -272,13 +272,8 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
         stop();
       }
       if (e.data.type === "result") {
-        const sharing = app.repo.communitySharing();
-        void queueScan(app.repo, e.data.box, e.data.candidates, sharing, e.data.stats.sources).catch(() => {});
         try {
-          await app.repo.saveLidarRun({
-            box: e.data.box,
-            candidates: e.data.candidates,
-          });
+          await saveCompletedScan(app.repo, e.data.box, e.data.candidates, e.data.stats.sources);
           useFeature('trail_scan','ok');
           const runs = await app.repo.listLidarRuns();
           displayed = {
