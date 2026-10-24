@@ -287,3 +287,17 @@ no offline-area tile downloader. `layers`, `collapsed` and `remembered` preferen
 persist in Repo and cloud sync, including unknown IDs for modules registered later.
 Basemap thumbnails are bundled tiny crops of USGS tiles and OpenFreeMap Liberty;
 source attributions and licenses are the same as their basemaps.
+
+## Community trails
+
+Trail finder shares completed detections anonymously by default, including when signed out. “Share scan results” is a single switch beside Usage analytics in Layers preferences. It is device-local, stored in IndexedDB metadata as `community.share`; turning it off discards pending uploads, and scans completed while off are never queued. Contributions already delivered are public and independent of account deletion. The separate `communityQueue` store retries on app start, reconnect and once a minute.
+
+The Trails category includes **Community trails**, enabled by default at zoom 12 and above. Cyan lines grow stronger with confirmation count; tapping one shows scans, model and last-confirmed day. Viewed areas use the layer registry’s NetworkFirst offline cache. This is community model output, not an access or right-of-way designation.
+
+`POST /api/community/scans` accepts JSON `{v:1, model:"v4", day:"YYYY-MM-DD", area:[west,south,east,north], lines:[{c:0.8,d:[lng0,lat0,deltaLng1,deltaLat1,...]}]}`. Coordinates are integers in millionths of a degree; the first pair is absolute and later pairs are deltas. Lines are simplified to 2.5 m before encoding. The area rounds outward to 0.01°. Only decoded geometry, model, confidence, UTC days, coarse area, confirmation counts and a deduplication hash are retained; uploads omit cookies and contain no account or device identifiers. Abuse counters use a transient salted IP hash, separate from scan records.
+
+Limits: 600,000 request bytes, 200 lines, 2–2,000 vertices per line, 20,000 total vertices, 50 km total length and 600 tile-index entries. Coordinates must fall in US bounding boxes, inside/near a coarse scan bbox spanning at most 0.15° each way and 0.0025 square degrees. Dates must be within the past 366 days and not in the future. A line confirms an existing line when at least 60% of its length is within 8 m; a line’s count increases once per distinct scan. Canonical duplicate scans return 409, treated as delivered. Distinct uncovered lines are inserted; partial extensions of a matched line are currently not added.
+
+`GET /tiles/community/12/{x}/{y}.geojson` returns merged GeoJSON with `scan_count`, `model`, `confidence`, `first_seen` and `last_confirmed`. This same-origin, app-owned data endpoint is covered by real local D1 integration tests. Edge responses cache for five minutes and affected tiles are purged on upload/moderation; `/api/*` remains NetworkOnly. No external data service or credentials are needed for this layer; underlying lidar/elevation is USGS public-domain data.
+
+Moderation uses `POST /api/community/delete` with either `{id:"line-id"}` or `{bbox:[west,south,east,north]}` and `Authorization: Bearer <COMMUNITY_ADMIN_TOKEN>`. The token is a Worker secret already managed in production, never a committed variable. Bbox deletion removes intersecting lines. Scan hashes remain to prevent deleted payloads being replayed. Apply migration `0003_community_trails.sql` before deployment; it adds anonymous scans, merged lines, tile indexes and a merge revision guard. Uploads and deletions use atomic D1 batches, with optimistic retries for concurrent scans.

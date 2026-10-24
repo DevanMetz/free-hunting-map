@@ -36,3 +36,5 @@ curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/analytics_eng
 ```
 
 Open points: index=day, blobs=country/pwa-or-browser/new-or-returning, doubles=1/first-week/first-month. Feature points: index=feature, blobs=feature/outcome/version/pwa-or-browser/country, double=1. Analytics Engine is sampled; use `SUM(_sample_interval)` for weighted counts. D1 is the source for the admin page. Retried feature requests can count twice if a successful response is lost; this lightweight counter intentionally has no persistent event identifier.
+
+`community_trail_upload` records `ok` when an anonymous queued scan is accepted or acknowledged as a duplicate (409), and `fail` when permanently rejected (400/413/415). Transient network failures and 429/5xx keep the queue entry for retry. This event contains no scan hash, geometry, area or model; it is independent of the anonymous community scan tables and follows the analytics opt-out.
