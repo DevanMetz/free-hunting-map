@@ -66,7 +66,7 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
-All endpoints below were verified on 2026-10-22 to return tiles/images or parcel GeoJSON (`curl` → HTTP 200 `image/*`, with CORS headers). They are defined in `src/map/sources.ts`, `src/map/layers/` and `src/conditions/weather.ts`. Vegetation services were verified again on 2026-10-24 over Clark County, Wisconsin: HTTP 200 PNG imagery, nonempty pixels, and CORS allowing `https://freehuntingmap.com`. Viewed imagery and raster attribute tables are cached; identify requests stay live.
+All endpoints below were verified on 2026-10-22 to return tiles/images or parcel GeoJSON (`curl` → HTTP 200 `image/*`, with CORS headers). They are defined in `src/map/sources.ts`, `src/map/layers/` and `src/conditions/weather.ts`. Vegetation services were verified again on 2026-10-24 over Clark County, Wisconsin: HTTP 200 PNG imagery, nonempty pixels, and CORS allowing `https://freehuntingmap.com`. Viewed imagery and raster attribute tables are cached; identify requests stay live. Additional land/water/terrain registry sources were verified on 2026-10-24. Their hosts are allowed by the production Content Security Policy in `public/_headers`.
 
 | Layer | Endpoint | License / terms |
 |---|---|---|
@@ -92,6 +92,10 @@ All endpoints below were verified on 2026-10-22 to return tiles/images or parcel
 | Tree canopy (2025) | `https://imagery.geoplatform.gov/iipp/rest/services/Vegetation/USFS_EDW_NLCD_TCC_CONUS/ImageServer` — `time=1735689600000` | USDA Forest Service NLCD TCC, [public domain](https://www.usda.gov/about-usda/policies-and-links); PNG32, zero/background transparent, pixel identify in percent. z8–18. |
 | Forest ownership | `https://imagery.geoplatform.gov/iipp/rest/services/Lands_Realty/USFS_EDW_ForestOwnership_CONUS/ImageServer` | USDA Forest Service FIA, [public domain](https://www.usda.gov/about-usda/policies-and-links); broad ownership classes, not access rights or parcel boundaries. Nonforest transparent, class identify, z8–18. |
 | Fast vegetation loss | `https://imagery.geoplatform.gov/iipp/rest/services/Vegetation/USFS_EDW_LCMS_MostRecentYearFastLoss_CONUS/ImageServer` | USDA Forest Service LCMS, [public domain](https://www.usda.gov/about-usda/policies-and-links); most recent fast vegetation loss year, 1985–2024. No-loss background transparent; year identify, z8–18. |
+| Soils (SSURGO) | `https://SDMDataAccess.sc.egov.usda.gov/Spatial/SDM.wms` (`mapunitpoly`, WMS 1.1.1) and `/Tabular/post.rest` | [USDA NRCS public-domain soil survey](https://efotg.sc.egov.usda.gov/references/Public/WI/Soil_Survey_Uses_Limitations_02252016_1222.pdf). Transparent map-unit boundaries, z12–19; viewed WMS images cached. Live SDA point intersection returns map-unit name, aggregate drainage, dominant-component hydric rating, and farmland class. |
+| Ecoregions III / IV | `https://geodata.epa.gov/arcgis/rest/services/ORD/USEPA_Ecoregions_Level_III_and_IV/MapServer/export`, `/11/query`, `/7/query` | EPA federal public-domain ecoregions, service's December 2011 edition ([EPA](https://www.epa.gov/eco-research/ecoregions), [USDA public-domain catalog](https://agdatacommons.nal.usda.gov/articles/dataset/Ecoregions_of_North_America/24661866)). Level III z4–14, IV z6–15; 25% opacity for filled polygons, key Upper Midwest legend classes, live names; viewed imagery cached. |
+| Contours | `https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export`, `/identify` | [USGS public domain](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits). Source chooses contour interval by scale; z11–19, transparent PNG32 cached when viewed. Tap returns elevation with source units. |
+| Elevation tint | `https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage`, `/identify` | [USGS 3DEP public domain](https://www.usgs.gov/3d-elevation-program). Fixed elevation bands in meters via server Remap/Colormap, z9–19, 35% default opacity; PNG32 with transparent nodata, viewed images cached; live elevation in meters and feet. |
 | Weather | `https://api.open-meteo.com/v1/forecast` | [Open-Meteo](https://open-meteo.com): free, no key, for non-commercial use; data CC BY 4.0 (attributed in the conditions panel). |
 | Sun & moon | — | Computed locally with [`suncalc`](https://github.com/mourner/suncalc) (BSD-2-Clause). |
 
@@ -191,7 +195,7 @@ registerLayer({
 });
 ```
 
-New verified registry endpoints belong in their category module under `src/map/layers/` and the Data sources table.
+New registry layers and their verified endpoints belong in category modules under `src/map/layers/` and the Data sources table; shared basemap endpoints remain in `src/map/sources.ts`.
 A declarative raster is installed on first activation and restored on style swaps.
 For custom sources use `install(map, ctx)`, `setVisible(map, on, ctx)` and
 `setOpacity(map, opacity, ctx)`; declare `layerIds` in drawing order. `ctx.beforeId`
