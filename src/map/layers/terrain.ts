@@ -128,8 +128,8 @@ registerLayers([
     attribution: '<a href="https://sdmdataaccess.sc.egov.usda.gov/">USDA NRCS SSURGO</a> · Public domain',
     legend: [{ color: '#ff8000', label: 'Soil map unit' }],
     cacheRoute: /^https:\/\/SDMDataAccess\.sc\.egov\.usda\.gov\/Spatial\/SDM\.wms\?/i,
-    source: { kind: 'raster', minzoom: 12, maxzoom: 17, tiles: [`${SOILS}/Spatial/SDM.wms?bbox={bbox-epsg-3857}&${new URLSearchParams({
-      service: 'WMS', version: '1.1.1', request: 'GetMap', layers: 'mapunitpoly', styles: '', srs: 'EPSG:3857', width: '256', height: '256', format: 'image/png', transparent: 'true',
+    source: { kind: 'raster', tileSize: 512, minzoom: 12, maxzoom: 17, tiles: [`${SOILS}/Spatial/SDM.wms?bbox={bbox-epsg-3857}&${new URLSearchParams({
+      service: 'WMS', version: '1.1.1', request: 'GetMap', layers: 'mapunitpoly', styles: '', srs: 'EPSG:3857', width: '512', height: '512', format: 'image/png', transparent: 'true',
     })}`] },
     async identify(lng, lat, signal) {
       const response = await fetch(`${SOILS}/Tabular/post.rest`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
@@ -142,7 +142,7 @@ registerLayers([
     id: c.id, category: 'terrain' as const, name: c.name, minzoom: c.minzoom, maxzoom: c.maxzoom, defaultOpacity: 0.25,
     attribution: '<a href="https://www.epa.gov/eco-research/ecoregions">US EPA ecoregions (2011)</a> · Public domain',
     legend: c.legend, cacheRoute: /^https:\/\/geodata\.epa\.gov\/arcgis\/rest\/services\/ORD\/USEPA_Ecoregions_Level_III_and_IV\/MapServer\/export\?/,
-    source: { kind: 'raster' as const, minzoom: c.minzoom, maxzoom: 14, tiles: [mapImage(ECOREGIONS, { layers: `show:${c.layer}` })] },
+    source: { kind: 'raster' as const, tileSize: 512, minzoom: c.minzoom, maxzoom: 14, tiles: [mapImage(ECOREGIONS, { layers: `show:${c.layer}` })] },
     async identify(lng: number, lat: number, signal: AbortSignal) {
       const fields = c.level === 3 ? ['US_L3NAME', 'US_L3CODE'] : ['US_L4NAME', 'US_L4CODE', 'US_L3NAME'];
       const p = await queryPoint(ECOREGIONS, c.layer, lng, lat, fields, signal);
@@ -153,7 +153,7 @@ registerLayers([
     id: 'terrain-contours', category: 'terrain', name: 'Contours', swatch: '#a67442', minzoom: 11, maxzoom: 20, defaultOpacity: 0.9,
     attribution: '<a href="https://www.usgs.gov/the-national-map-data-delivery/gis-data-download">USGS contours</a> · Public domain',
     cacheRoute: /^https:\/\/carto\.nationalmap\.gov\/arcgis\/rest\/services\/contours\/MapServer\/export\?/,
-    legend: [{ color: '#a67442', label: 'Contour' }], source: { kind: 'raster', minzoom: 11, maxzoom: 17, tiles: [mapImage(CONTOURS, {})] },
+    legend: [{ color: '#a67442', label: 'Contour' }], source: { kind: 'raster', tileSize: 512, minzoom: 11, maxzoom: 17, tiles: [mapImage(CONTOURS, {})] },
     async identify(lng, lat, signal, map) {
       const bounds = map.getBounds(), canvas = map.getCanvas();
       const params = new URLSearchParams({ f: 'json', geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint', sr: '4326',
@@ -171,8 +171,8 @@ registerLayers([
     attribution: '<a href="https://www.usgs.gov/3d-elevation-program">USGS 3DEP</a> · Public domain',
     cacheRoute: /^https:\/\/elevation\.nationalmap\.gov\/arcgis\/rest\/services\/3DEPElevation\/ImageServer\/exportImage\?/,
     legend: elevationBands.map(({ color, label }) => ({ color, label })),
-    source: { kind: 'raster', minzoom: 9, maxzoom: 17, tiles: [`${ELEVATION}/exportImage?bbox={bbox-epsg-3857}&${new URLSearchParams({
-      bboxSR: '3857', imageSR: '3857', size: '256,256', format: 'png32', f: 'image', noData: '-999999', noDataInterpretation: 'esriNoDataMatchAny',
+    source: { kind: 'raster', tileSize: 512, minzoom: 9, maxzoom: 17, tiles: [`${ELEVATION}/exportImage?bbox={bbox-epsg-3857}&${new URLSearchParams({
+      bboxSR: '3857', imageSR: '3857', size: '512,512', format: 'png32', f: 'image', noData: '-999999', noDataInterpretation: 'esriNoDataMatchAny',
       renderingRule: JSON.stringify({ rasterFunction: 'Colormap', rasterFunctionArguments: {
         Raster: { rasterFunction: 'Remap', rasterFunctionArguments: { Raster: '$$',
           InputRanges: [-500, 0, 0, 250, 250, 500, 500, 1000, 1000, 2000, 2000, 3000, 3000, 9000], OutputValues: [1, 2, 3, 4, 5, 6, 7], AllowUnmatched: false } },

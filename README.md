@@ -66,7 +66,7 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
-External endpoints below were verified on 2026-10-22 to return tiles/images or parcel GeoJSON (`curl` → HTTP 200 `image/*`, with CORS headers). They are defined in `src/map/sources.ts`, `src/map/layers/` and `src/conditions/weather.ts`. Vegetation services were verified again on 2026-10-24 over Clark County, Wisconsin: HTTP 200 PNG imagery, nonempty pixels, and CORS allowing `https://freehuntingmap.com`. Viewed imagery and raster attribute tables are cached; identify requests stay live. Additional land/water/terrain registry sources were verified on 2026-10-24. Their hosts are allowed by the production Content Security Policy in `public/_headers`.
+External endpoints below were verified on 2026-10-22 to return tiles/images or parcel GeoJSON (`curl` → HTTP 200 `image/*`, with CORS headers). They are defined in `src/map/sources.ts`, `src/map/layers/` and `src/conditions/weather.ts`. Vegetation services were verified again on 2026-10-24 over Clark County, Wisconsin: HTTP 200 PNG imagery, nonempty pixels, and CORS allowing `https://freehuntingmap.com`. Viewed imagery and raster attribute tables are cached; identify requests stay live. Additional land/water/terrain registry sources were verified on 2026-10-24. Their hosts are allowed by the production Content Security Policy in `public/_headers`. Land/water/terrain image sources use 512-pixel tiles to reduce simultaneous service requests.
 
 | Layer | Endpoint | License / terms |
 |---|---|---|

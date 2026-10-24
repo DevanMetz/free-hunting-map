@@ -3,7 +3,7 @@ import type { IdentifyResult } from '../layerRegistry';
 /** Keep the MapLibre bbox token unescaped; all other values are ordinary query parameters. */
 export function mapImage(service: string, params: Record<string, string>): string {
   return `${service}/export?bbox={bbox-epsg-3857}&${new URLSearchParams({
-    bboxSR: '3857', imageSR: '3857', size: '256,256', format: 'png32', transparent: 'true', f: 'image', ...params,
+    bboxSR: '3857', imageSR: '3857', size: '512,512', format: 'png32', transparent: 'true', f: 'image', ...params,
   })}`;
 }
 export function polygonSymbol(rgb: number[], alpha = 0, width = 1): object {

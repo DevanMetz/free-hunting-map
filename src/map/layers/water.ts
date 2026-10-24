@@ -41,7 +41,7 @@ registerLayers([
   {
     id: 'water-springs', category: 'water', name: 'Springs & seeps', swatch: '#73b2ff', minzoom: 12, maxzoom: 20, defaultOpacity: 1,
     attribution: nhdAttribution, cacheRoute: nhdRoute, legend: [{ color: '#73b2ff', label: 'Spring / seep' }],
-    source: { kind: 'raster', minzoom: 12, maxzoom: 17, tiles: [mapImage(NHD, { layers: 'show:0', layerDefs: JSON.stringify({ 0: 'FTYPE = 458' }) })] },
+    source: { kind: 'raster', tileSize: 512, minzoom: 12, maxzoom: 17, tiles: [mapImage(NHD, { layers: 'show:0', layerDefs: JSON.stringify({ 0: 'FTYPE = 458' }) })] },
     async identify(lng, lat, signal, map) {
       const distance = Math.max(5, Math.min(150, 8 * 78271.51696 * Math.cos(lat * Math.PI / 180) / 2 ** map.getZoom()));
       const p = await queryPoint(NHD, 0, lng, lat, ['GNIS_NAME', 'FTYPE'], signal, 'FTYPE = 458', distance);
@@ -53,7 +53,7 @@ registerLayers([
     id: `water-huc${c.digits}`, category: 'water' as const, name: c.name, swatch: c.color, minzoom: c.minzoom, maxzoom: 20, defaultOpacity: 0.85,
     attribution: '<a href="https://www.usgs.gov/national-hydrography/watershed-boundary-dataset">USGS / USDA WBD</a> · Public domain',
     legend: [{ color: c.color, label: `HUC ${c.digits}` }], cacheRoute: wbdRoute,
-    source: { kind: 'raster' as const, minzoom: c.minzoom, maxzoom: 17,
+    source: { kind: 'raster' as const, tileSize: 512, minzoom: c.minzoom, maxzoom: 17,
       tiles: [mapImage(WBD, { dynamicLayers: JSON.stringify([{ id: 0, source: { type: 'mapLayer', mapLayerId: 0 },
         definitionExpression: `hudigit > 0 AND hudigit <= ${c.digits}`, drawingInfo: { scaleSymbols: false, renderer: { type: 'simple',
           symbol: { type: 'esriSLS', style: 'esriSLSSolid', color: [...c.rgb, 255], width: 1.2 } } } }]) })] },
@@ -67,8 +67,8 @@ registerLayers([
     attribution: '<a href="https://www.fs.usda.gov/rds/archive/catalog/RDS-2019-0030">USFS potential riparian areas</a> · Public domain',
     cacheRoute: /^https:\/\/imagery\.geoplatform\.gov\/iipp\/rest\/services\/Ecosystems\/USFS_EDW_Riparian_Areas\/ImageServer\/exportImage\?/,
     legend: [{ color: '#309c7e', label: 'Potential riparian area' }],
-    source: { kind: 'raster', minzoom: 10, maxzoom: 17, tiles: [`${RIPARIAN}/exportImage?bbox={bbox-epsg-3857}&${new URLSearchParams({
-      bboxSR: '3857', imageSR: '3857', size: '256,256', format: 'png32', f: 'image', noData: '0', noDataInterpretation: 'esriNoDataMatchAny',
+    source: { kind: 'raster', tileSize: 512, minzoom: 10, maxzoom: 17, tiles: [`${RIPARIAN}/exportImage?bbox={bbox-epsg-3857}&${new URLSearchParams({
+      bboxSR: '3857', imageSR: '3857', size: '512,512', format: 'png32', f: 'image', noData: '0', noDataInterpretation: 'esriNoDataMatchAny',
       interpolation: 'RSP_NearestNeighbor', renderingRule: JSON.stringify({ rasterFunction: 'Colormap', rasterFunctionArguments: {
         Raster: '$$', Colormap: [[0, 0, 0, 0], [1, 48, 156, 126]],
       }, variableName: 'Raster' }),

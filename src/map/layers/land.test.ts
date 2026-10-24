@@ -17,6 +17,7 @@ it('exports transparent PNGs with a literal MapLibre bbox token and encoded rend
   const url = mapImage('https://example.gov/MapServer', { dynamicLayers: '[{"id":0}]' });
   expect(url).toContain('bbox={bbox-epsg-3857}');
   expect(new URL(url).searchParams.get('format')).toBe('png32');
+  expect(new URL(url).searchParams.get('size')).toBe('512,512');
   expect(new URL(url).searchParams.get('transparent')).toBe('true');
   expect(new URL(url).searchParams.get('dynamicLayers')).toBe('[{"id":0}]');
 });

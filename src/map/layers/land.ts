@@ -28,10 +28,10 @@ registerLayers([
     attribution: '<a href="https://doi.org/10.5066/P96WBCHS">USGS PAD-US 4.1</a> · Public domain',
     legend: access.map(({ label, color }) => ({ label, color })),
     cacheRoute: /^https:\/\/edits\.nationalmap\.gov\/arcgis\/rest\/services\/PAD-US\/PAD_US_4_1\/MapServer\/export\?/,
-    source: { kind: 'raster', minzoom: 5, maxzoom: 17, tiles: [mapImage(PADUS, { dynamicLayers: JSON.stringify([
+    source: { kind: 'raster', tileSize: 512, minzoom: 5, maxzoom: 17, tiles: [mapImage(PADUS, { dynamicLayers: JSON.stringify([
       { id: 0, source: { type: 'mapLayer', mapLayerId: 0 }, drawingInfo: { renderer: {
-        type: 'uniqueValue', field1: 'Pub_Access', defaultSymbol: polygonSymbol([130, 137, 146], 95, 0.8), defaultLabel: 'Unknown',
-        uniqueValueInfos: access.map(a => ({ value: a.code, label: a.label, symbol: polygonSymbol(a.rgb, 95, 0.8) })),
+        type: 'uniqueValue', field1: 'Pub_Access', defaultSymbol: polygonSymbol([130, 137, 146], 95, 0.8),
+        uniqueValueInfos: access.map(a => ({ value: a.code, symbol: polygonSymbol(a.rgb, 95, 0.8) })),
       } } },
     ]) })] },
     async identify(lng, lat, signal) {
@@ -47,7 +47,7 @@ registerLayers([
     attribution: '<a href="https://www.blm.gov/services/geospatial/GISData">BLM PLSS CadNSDI</a> · Public domain',
     legend: [{ color: c.color, label: c.layer === 1 ? 'Township' : 'Section' }],
     cacheRoute: /^https:\/\/gis\.blm\.gov\/arcgis\/rest\/services\/Cadastral\/BLM_Natl_PLSS_CadNSDI\/MapServer\/export\?/,
-    source: { kind: 'raster' as const, minzoom: c.minzoom, maxzoom: 17, tiles: [mapImage(PLSS, { layers: `show:${c.layer}` })] },
+    source: { kind: 'raster' as const, tileSize: 512, minzoom: c.minzoom, maxzoom: 17, tiles: [mapImage(PLSS, { layers: `show:${c.layer}` })] },
     async identify(lng: number, lat: number, signal: AbortSignal) {
       const p = await queryPoint(PLSS, c.layer, lng, lat, [...c.fields], signal);
       return p ? c.parse(p) : null;
