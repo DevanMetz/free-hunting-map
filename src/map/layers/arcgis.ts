@@ -17,11 +17,20 @@ export function attributeResult(title: string, attributes: Attributes, fields: [
   });
   return rows.length ? { title, rows } : null;
 }
+/** A small geographic envelope uses the service spatial index without a server-side geodesic buffer. */
+export function queryGeometry(lng: number, lat: number, distance?: number): { geometry: string; geometryType: string } {
+  if (distance === undefined || !Number.isFinite(distance) || distance <= 0) {
+    return { geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint' };
+  }
+  const dy = distance / 111_320;
+  const dx = dy / Math.max(0.000001, Math.cos(lat * Math.PI / 180));
+  return { geometry: [Math.max(-180, lng - dx), Math.max(-90, lat - dy), Math.min(180, lng + dx), Math.min(90, lat + dy)].join(','),
+    geometryType: 'esriGeometryEnvelope' };
+}
 export async function queryPoint(service: string, layer: number, lng: number, lat: number,
   fields: string[], signal: AbortSignal, where = '1=1', distance?: number): Promise<Attributes | null> {
-  const params = new URLSearchParams({ f: 'json', geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint', inSR: '4326',
+  const params = new URLSearchParams({ f: 'json', ...queryGeometry(lng, lat, distance), inSR: '4326',
     spatialRel: 'esriSpatialRelIntersects', where, outFields: fields.join(','), returnGeometry: 'false' });
-  if (distance !== undefined) { params.set('distance', String(distance)); params.set('units', 'esriSRUnit_Meter'); }
   const response = await fetch(`${service}/${layer}/query?${params}`, { signal });
   if (!response.ok) return null;
   const data = await response.json() as { features?: { attributes?: Attributes }[] };
