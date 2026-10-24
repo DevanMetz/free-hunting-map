@@ -14,7 +14,7 @@ const E6 = 1e6;
 export function toCompact(item: Item): CompactItem {
   const head = [item.id, item.createdAt, item.updatedAt, item.deviceId, item.deleted ? 1 : 0, item.name, item.note];
   if (item.kind === 'waypoint') {
-    return ['w', ...head, item.icon, Math.round(item.coord[0] * E6), Math.round(item.coord[1] * E6)];
+    return ['w', ...head, item.icon, Math.round(item.coord[0] * E6), Math.round(item.coord[1] * E6), ...(item.sourceUrl ? [item.sourceUrl] : [])];
   }
   const out: CompactItem = ['t', ...head, item.recorded ? 1 : 0];
   let pLng = 0;
@@ -36,7 +36,7 @@ export function fromCompact(c: unknown): Item | null {
   if (kind === 'w') {
     const [icon, x, y] = c.slice(8);
     if (typeof x !== 'number' || typeof y !== 'number') return null;
-    return sanitizeItem({ ...meta, kind: 'waypoint', icon, coord: [x / E6, y / E6] });
+    return sanitizeItem({ ...meta, kind: 'waypoint', icon, coord: [x / E6, y / E6], sourceUrl: c[11] });
   }
   if (kind === 't') {
     const rest = c.slice(9);

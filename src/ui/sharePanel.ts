@@ -1,3 +1,5 @@
+import { parseTakeoutText, parseTakeoutZip } from '../share/takeout/parse';
+import { importTakeout } from '../share/takeout/import';
 import QRCode from 'qrcode';
 import { iconSvg } from '../map/icons';
 import { downloadFile, parseFileText, serialize, shareFile, type ExportFormat } from '../share/files';
@@ -49,7 +51,7 @@ export function openSharePanel(ctx: AppContext): void {
 
   const fileInput = h('input', {
     type: 'file',
-    accept: '.gpx,.geojson,.json,application/gpx+xml,application/geo+json,application/json',
+    accept: '.zip,.csv,.gpx,.geojson,.json,application/gpx+xml,application/geo+json,application/json',
     hidden: true,
     onchange: () => void importFiles(ctx, fileInput),
   });
@@ -95,7 +97,16 @@ function exportButton(label: string, format: ExportFormat, picked: () => Item[])
 async function importFiles(ctx: AppContext, input: HTMLInputElement): Promise<void> {
   for (const file of input.files ?? []) {
     try {
-      const items = parseFileText(file.name, await file.text());
+      const text = /\.zip$/i.test(file.name) ? '' : await file.text();
+      const takeout = /\.zip$/i.test(file.name)
+        ? parseTakeoutZip(new Uint8Array(await file.arrayBuffer()))
+        : /\.(csv|json|geojson)$/i.test(file.name) ? parseTakeoutText(file.name, text) : null;
+      if (takeout) {
+        const r = await importTakeout(ctx.repo, takeout, `file:${file.name}`);
+        toast(`${r.imported} imported · ${r.duplicates} duplicates · ${r.skipped} skipped`);
+        continue;
+      }
+      const items = parseFileText(file.name, text);
       const r = await ctx.repo.importItems(items, `file:${file.name}`);
       toast(`${r.changed} new / ${r.received}`);
     } catch (e) {

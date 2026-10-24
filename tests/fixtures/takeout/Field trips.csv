@@ -1,0 +1,15 @@
+﻿Title,Note,URL,Comment,Tags
+"Place 1","First line
+Second ""line""","https://www.google.com/maps/place/Trail/@40,-90,17z/data=!3d41.12345678!4d-91.12345678","Comment","hiking"
+"Place 2","","https://www.google.com/maps/search/42,+-92","Comment","hiking"
+"Place 3","","https://maps.google.com/?q=43,-93","Comment","hiking"
+"Place 4","","https://maps.google.com/?ll=44,-94","Comment","hiking"
+"Place 5","","https://www.google.com/maps/search/?api=1&query=45,-95","Comment","hiking"
+"Place 6","","https://www.google.com/maps/place/46,-96","Comment","hiking"
+"Place 7","","https://www.google.com/maps/place/Overlook/@47,-97,17z","Comment","hiking"
+"Place 8","","https://www.google.com/maps/search/48%2C%2B-98","Comment","hiking"
+"Place 9","","https%3A%2F%2Fwww.google.com%2Fmaps%2Fplace%2FEncoded%2Fdata%3D!3d49!4d-99","Comment","hiking"
+"Place 10","","https://www.google.com/maps/place/?q=place_id:ChIJexample","Comment","hiking"
+"Place 11","","https://maps.google.com/?cid=123456789","Comment","hiking"
+"Place 12","","https://www.google.com/maps/place/Business/data=!1s0x123:0x456","Comment","hiking"
+,,,

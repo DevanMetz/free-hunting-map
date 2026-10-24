@@ -20,7 +20,7 @@ export function sanitizeItem(raw: unknown): Item | null {
   if (r.kind === 'waypoint') {
     const coord = lngLat(r.coord);
     if (!coord) return null;
-    return { ...meta, kind: 'waypoint', name, note, icon: icon(r.icon), coord };
+    return { ...meta, kind: 'waypoint', name, note, icon: icon(r.icon), coord, ...(typeof r.sourceUrl === 'string' && /^https?:\/\//i.test(r.sourceUrl) ? { sourceUrl: r.sourceUrl.slice(0, 8192) } : {}) };
   }
   if (r.kind === 'track') {
     if (!Array.isArray(r.coords) || r.coords.length > MAX_COORDS) return null;

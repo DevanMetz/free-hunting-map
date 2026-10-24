@@ -44,6 +44,10 @@ Geolocation and camera need a secure context: `localhost` works; on a phone, ser
 | Merge | Pure per-item last-write-wins (`src/sync/merge.ts`): higher `updatedAt` wins; on a tie the tombstone wins; then higher `deviceId`; then canonical JSON (only for corrupt data). Idempotent, commutative and associative — property-tested. Every import (file or QR) goes through it. |
 | Future sync | Every local write and every import that changes state is written to the `outbox` store (latest snapshot per item) in the same transaction. A sync server can drain it with `Repo.pending()` / `Repo.ack()`. |
 
+Import accepts GPX, GeoJSON, and Google Takeout ZIP, CSV and JSON files. In [Google Takeout](https://takeout.google.com/), select **Saved** (one CSV per list), **Maps (your places)** (starred places in `Saved Places.json`), and optionally **Maps → My labeled places** (`Labeled places.json`). Import the whole ZIP or individual files from Share → Import file.
+
+Takeout places become waypoint markers. List names, notes/comments, tags and addresses go into the existing note field; Google Maps source URLs are retained through exports, QR and sync. Coordinates come from Point geometry, Location Geo Coordinates, or coordinate-bearing URLs (`!3d/!4d`, `@`, `/maps/search/lat,lng`, `/maps/place/lat,lng`, `q`, `ll`, `query`). Actual place coordinates take precedence over a URL viewport. Rows without usable coordinates—including place-ID/cid-only links—are counted as skipped; importing uses no network or geocoding. Existing live waypoints and places within an import deduplicate by identical source URL, or case/whitespace-insensitive title within five meters. The result reports imported, duplicate and skipped counts.
+
 Foreign GPX/GeoJSON files without our metadata get deterministic content-hash ids and `updatedAt = 0`, so re-importing the same file never duplicates and any local edit wins.
 
 ### QR format

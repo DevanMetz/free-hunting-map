@@ -16,6 +16,7 @@ export function toGpx(items: Item[]): string {
       `<ohm:updatedAt>${item.updatedAt}</ohm:updatedAt><ohm:deviceId>${esc(item.deviceId)}</ohm:deviceId>` +
       `<ohm:deleted>${item.deleted}</ohm:deleted>` +
       (item.kind === 'track' ? `<ohm:recorded>${item.recorded}</ohm:recorded>` : '') +
+      (item.kind === 'waypoint' && item.sourceUrl ? `<ohm:sourceUrl>${esc(item.sourceUrl)}</ohm:sourceUrl>` : '') +
       `</extensions>`;
     const text = `<name>${esc(item.name)}</name>${item.note ? `<desc>${esc(item.note)}</desc>` : ''}`;
     if (item.kind === 'waypoint') {
@@ -68,6 +69,7 @@ function withMeta(el: Element, fields: Record<string, unknown>): Item | null {
     return sanitizeItem({
       ...fields,
       id,
+      sourceUrl: ohm(el, 'sourceUrl'),
       createdAt: Number(ohm(el, 'createdAt')),
       updatedAt: Number(ohm(el, 'updatedAt')),
       deviceId: ohm(el, 'deviceId'),

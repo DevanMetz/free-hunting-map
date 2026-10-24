@@ -26,6 +26,7 @@ export interface Waypoint extends ItemMeta {
   note: string;
   icon: WaypointIcon;
   coord: LngLat;
+  sourceUrl?: string;
 }
 
 export interface Track extends ItemMeta {

@@ -18,7 +18,7 @@ export function toGeoJSON(items: Item[]): { type: 'FeatureCollection'; features:
       const { kind, id, createdAt, updatedAt, deviceId, deleted, name, note } = item;
       const props: Record<string, unknown> = { ohm: 1, kind, id, name, note, createdAt, updatedAt, deviceId, deleted };
       if (item.kind === 'waypoint') {
-        return { type: 'Feature', geometry: { type: 'Point', coordinates: item.coord }, properties: { ...props, icon: item.icon } };
+        return { type: 'Feature', geometry: { type: 'Point', coordinates: item.coord }, properties: { ...props, icon: item.icon, ...(item.sourceUrl ? { sourceUrl: item.sourceUrl } : {}) } };
       }
       return {
         type: 'Feature',
