@@ -1,8 +1,9 @@
+import { communityTile, uploadCommunity, deleteCommunity } from './community';
 import { serveTiles } from './tiles';
 import { recordUsage, usageReport } from './usage';
 import { verifyGoogleToken } from './token';
 import { ApiError, sync } from './sync';
-export interface Env { DB: D1Database; TILES?: R2Bucket; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; USAGE?: AnalyticsEngineDataset }
+export interface Env { DB: D1Database; TILES?: R2Bucket; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; COMMUNITY_ADMIN_TOKEN?: string; USAGE?: AnalyticsEngineDataset }
 // Random values are only allowed inside handlers; this salt lives for the isolate.
 let pingSalt: string | undefined;
 const COOKIE = '__Host-fhm_session';
@@ -35,6 +36,9 @@ async function body(request: Request, cap = 8_000_000) {
 export default {
   async fetch(request: Request, env: Env, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname.startsWith('/tiles/community/')) {
+      try { return await communityTile(request,env.DB); } catch { return new Response(null,{status:503}); }
+    }
     if (url.pathname === '/tiles' || url.pathname.startsWith('/tiles/')) return serveTiles(request, env.TILES, ctx);
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
     try {
@@ -59,6 +63,13 @@ export default {
         await rate(env.DB,`ping:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,30);
         return await recordUsage(input,request,env,events);
       }
+      if (url.pathname === '/api/community/scans') {
+        const input=await body(request,600_000);
+        await rate(env.DB,`community:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,10);
+        await env.DB.prepare("DELETE FROM rate_limits WHERE key LIKE 'community:%' AND window<?").bind(Math.floor(Date.now()/60_000)-5).run();
+        return await uploadCommunity(env.DB,input,url.origin);
+      }
+      if (url.pathname === '/api/community/delete') return await deleteCommunity(request,env.DB,await body(request,2048),env.COMMUNITY_ADMIN_TOKEN);
       const input = await body(request);
       if (url.pathname === '/api/auth/google') {
         await rate(env.DB,`auth:${await hash(request.headers.get('CF-Connecting-IP') ?? 'local')}`,20);
