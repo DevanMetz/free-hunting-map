@@ -22,7 +22,7 @@ export async function renderAnalytics(root: HTMLElement) {
     const table=(head:string[],rows:unknown[][])=>h('div',{class:'table-scroll'},h('table',{},h('thead',{},h('tr',{},...head.map(v=>h('th',{scope:'col'},v)))),h('tbody',{},...rows.map(row=>h('tr',{},...row.map(v=>h('td',{},String(v??0))))))));
     main.append(table(['PWA','Browser','New','Returning'],[['pwa','browser','new','returning'].map(k=>days.reduce((n,d)=>n+d[k],0))]),h('h2',{},'Countries'),table(['Country','Users'],data.countries.map((r:any)=>[r.country,r.users])),h('h2',{},'Features'));
     for(const group of data.features) { const denominator=data[group.period==='today'?'dau':group.period==='week'?'wau':'mau']??0;
-      main.append(h('h3',{},group.period==='today'?'Today':group.period==='week'?'Week':'Month'),table(['Feature','Uses','Users','Active %','OK','Fail'],group.rows.map((r:any)=>[r.feature,r.uses,r.users,denominator?`${Math.round(r.users/denominator*100)}%`:'0%',r.ok,r.fail])));
+      main.append(h('h3',{},group.period==='today'?'Today':group.period==='week'?'Week':'Month'),table(['Feature','Uses','Users','Active %','OK','Fail'],group.rows.map((r:any)=>[r.feature,r.uses,r.users,denominator?`${Math.min(100,Math.round(r.users/denominator*100))}%`:'0%',r.ok,r.fail])));
     }
     main.append(h('h3',{},'30 days'),table(['Day','Feature','Uses'],data.daily.map((r:any)=>[r.day,r.feature,r.uses])));
   } catch { main.append(h('p',{},'Unavailable')); }
