@@ -1,3 +1,4 @@
+import { useFeature } from '../usage';
 import type { Repo } from '../storage/repo';
 import { sanitizeRecord } from './records';
 
@@ -57,7 +58,8 @@ export class CloudSync extends EventTarget {
   async signIn(credential: string): Promise<void> {
     if (this.deleting) throw new Error('Account deletion in progress');
     if (await this.repo.getMeta<boolean>('cloud.logout')) await this.finishLogout();
-    const result = await this.json('auth/google', { credential });
+    const result = await this.json('auth/google', { credential }).catch(error=>{useFeature('sign_in','fail'); throw error;});
+    useFeature('sign_in','ok');
     try { await this.repo.bindSyncAccount(result.user.id); }
     catch (err) {
       await this.json('auth/logout', {});
@@ -148,8 +150,9 @@ export class CloudSync extends EventTarget {
         await this.repo.setMeta('cloud.cursor', cursor);
         if (!result.hasMore && !(await this.repo.pending()).length) break;
       }
-      this.state = 'synced';
+      this.state = 'synced'; useFeature('sync','ok');
     } catch {
+      useFeature('sync','fail');
       if (epoch !== this.epoch) return;
       this.state = this.user ? (this.online() ? 'error' : 'offline') : 'signed-out';
     }

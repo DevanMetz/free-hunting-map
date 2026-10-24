@@ -1,0 +1,2 @@
+CREATE TABLE usage_pings (day TEXT NOT NULL, anon TEXT NOT NULL, installed INTEGER NOT NULL, [returning] INTEGER NOT NULL, new_week INTEGER NOT NULL, new_month INTEGER NOT NULL, country TEXT NOT NULL, PRIMARY KEY(day,anon));
+CREATE TABLE feature_uses (day TEXT NOT NULL, anon TEXT NOT NULL, feature TEXT NOT NULL, outcome TEXT NOT NULL, installed INTEGER NOT NULL, version TEXT NOT NULL, country TEXT NOT NULL, count INTEGER NOT NULL, new_week INTEGER NOT NULL, new_month INTEGER NOT NULL, PRIMARY KEY(day,anon,feature,outcome));

@@ -1,6 +1,8 @@
+import { recordUsage, usageReport } from './usage';
 import { verifyGoogleToken } from './token';
 import { ApiError, sync } from './sync';
-export interface Env { DB: D1Database; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string }
+export interface Env { DB: D1Database; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; USAGE?: AnalyticsEngineDataset }
+const pingSalt = crypto.randomUUID();
 const COOKIE = '__Host-fhm_session';
 const AGE = 45 * 86400;
 const clearCookie = { 'Set-Cookie': `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` };
@@ -18,12 +20,12 @@ async function user(request: Request, env: Env) {
   if (!token || token.length > 128) return null;
   return env.DB.prepare('SELECT users.id,users.email,users.name,users.picture FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.hash=? AND sessions.expires_at>?').bind(await hash(token),Date.now()).first<{id: string; email?: string; name?: string; picture?: string}>();
 }
-async function body(request: Request) {
+async function body(request: Request, cap = 8_000_000) {
   if (!request.headers.get('content-type')?.match(/^application\/json(?:\s*;|$)/i)) throw new ApiError(415,'JSON required');
-  if (Number(request.headers.get('content-length')) > 8_000_000) throw new ApiError(413,'Request too large');
+  if (Number(request.headers.get('content-length')) > cap) throw new ApiError(413,'Request too large');
   const reader = request.body?.getReader();
   let size = 0; const chunks: Uint8Array[] = [];
-  if (reader) while (true) { const part = await reader.read(); if (part.done) break; size += part.value.byteLength; if (size > 8_000_000) { await reader.cancel(); throw new ApiError(413,'Request too large'); } chunks.push(part.value); }
+  if (reader) while (true) { const part = await reader.read(); if (part.done) break; size += part.value.byteLength; if (size > cap) { await reader.cancel(); throw new ApiError(413,'Request too large'); } chunks.push(part.value); }
   const bytes = new Uint8Array(size); let offset = 0;
   for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length; }
   try { return JSON.parse(new TextDecoder().decode(bytes)) as unknown; } catch { throw new ApiError(400,'Invalid JSON'); }
@@ -41,7 +43,19 @@ export default {
       }
       if (request.method === 'GET' && url.pathname === '/api/config') return json({ googleClientId: env.GOOGLE_CLIENT_ID || null });
       if (request.method === 'GET' && url.pathname === '/api/me') return json({ user: await user(request,env) });
+      if (request.method === 'GET' && url.pathname === '/api/admin/usage') {
+        const account = await user(request,env);
+        if (!account) throw new ApiError(401,'Sign in required');
+        if (!account.email || !(env.ADMIN_EMAILS ?? 'metzdevan@gmail.com').split(',').map(v=>v.trim().toLowerCase()).includes(account.email.toLowerCase())) throw new ApiError(403,'Forbidden');
+        return json(await usageReport(env.DB));
+      }
       if (request.method !== 'POST') return json({ error:'Not found' },404);
+      if (['/api/ping','/api/events'].includes(url.pathname)) {
+        const events=url.pathname==='/api/events';
+        const input=await body(request,events?8192:1024);
+        await rate(env.DB,`ping:${await hash(pingSalt+ (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,30);
+        return await recordUsage(input,request,env,events);
+      }
       const input = await body(request);
       if (url.pathname === '/api/auth/google') {
         await rate(env.DB,`auth:${await hash(request.headers.get('CF-Connecting-IP') ?? 'local')}`,20);

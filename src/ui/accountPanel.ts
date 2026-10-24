@@ -12,7 +12,7 @@ declare global {
 }
 
 let gisLoading: Promise<GoogleIdentity> | undefined;
-function loadGoogle(): Promise<GoogleIdentity> {
+export function loadGoogle(): Promise<GoogleIdentity> {
   if (window.google?.accounts.id) return Promise.resolve(window.google.accounts.id);
   if (!gisLoading) {
     gisLoading = new Promise<GoogleIdentity>((resolve, reject) => {

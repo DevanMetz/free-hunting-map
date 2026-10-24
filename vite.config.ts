@@ -1,3 +1,4 @@
+import { version } from './package.json';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { CACHE_ROUTES } from './src/map/cacheRoutes';
@@ -16,6 +17,7 @@ const tileCache = (name: string, urlPattern: RegExp, maxEntries: number) => ({
 });
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(version) },
   // MapLibre alone is ~1 MB minified; it is precached once, so a single chunk is fine.
   worker: { format: 'es' },
   server: { port: 5180, strictPort: true, proxy: { '/api': {

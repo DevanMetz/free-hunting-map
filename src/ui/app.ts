@@ -1,3 +1,4 @@
+import { useFeature } from '../usage';
 import { accountControl } from './accountPanel';
 import { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
@@ -268,7 +269,7 @@ export class App implements AppContext {
     if (!('geolocation' in navigator)) return toast('GPS unavailable');
     const name = `Track ${new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
     this.recording = await this.repo.create<Track>({ kind: 'track', name, note: '', coords: [], recorded: true });
-    this.recorder.start();
+    this.recorder.start(); useFeature('track_record');
     if (this.map.geolocate._watchState === 'OFF') this.map.geolocate.trigger();
     this.wakeLock = await navigator.wakeLock?.request('screen').catch(() => null) ?? null;
     this.recChip.hidden = false;

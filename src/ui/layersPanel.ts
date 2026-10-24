@@ -1,3 +1,4 @@
+import { privacyBlocked, usageAllowed, setUsageEnabled, useFeature } from '../usage';
 import { PUBLIC_LANDS } from '../map/publicLands';
 import { LABEL_SCALES } from '../map/labels';
 import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
@@ -52,7 +53,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
               'aria-checked': String(state.basemap === id),
               class: state.basemap === id ? 'selected' : '',
               onclick: () => {
-                ctx.map.setBasemap(id);
+                ctx.map.setBasemap(id); useFeature('basemap_change');
                 persist();
                 ctx.sheet.replace(render());
               },
@@ -70,7 +71,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
               checked: state.labels,
               onchange: (e: Event) => {
                 ctx.map.setLabels((e.target as HTMLInputElement).checked);
-                persist();
+                persist(); useFeature('layer_toggle');
                 ctx.sheet.replace(render());
               },
             }),
@@ -94,7 +95,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
                 style: `font-size:${fontSize}px`,
                 onclick: () => {
                   ctx.map.setLabelScale(scale);
-                  persist();
+                  persist(); useFeature('layer_toggle');
                   ctx.sheet.replace(render());
                 },
               },
@@ -119,7 +120,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
           h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: state.publicLand[category.id],
             'aria-label': category.label, onchange: (event: Event) => {
               ctx.map.setPublicLand(category.id, (event.target as HTMLInputElement).checked);
-              persist();
+              persist(); useFeature('layer_toggle');
             } }), h('span', { class: 'land-swatch', style: `background:${category.color}` })), name);
       })),
       h(
@@ -130,7 +131,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
           checked: state.hillshade,
           onchange: (e: Event) => {
             ctx.map.setHillshade((e.target as HTMLInputElement).checked);
-            persist();
+            persist(); useFeature('layer_toggle');
             ctx.sheet.replace(render());
           },
         }),
@@ -142,8 +143,9 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
         ['deerUnits', 'Deer units', (on: boolean) => ctx.map.setDeerUnits(on)],
       ] as const).map(([key, label, set]) => h('label', { class: 'toggle' },
         h('input', { type: 'checkbox', checked: state[key], onchange: (e: Event) => {
-          set((e.target as HTMLInputElement).checked); persist(); ctx.sheet.replace(render());
+          set((e.target as HTMLInputElement).checked); persist(); useFeature('layer_toggle'); ctx.sheet.replace(render());
         } }), h('span', {}, label))),
+      h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: usageAllowed(), disabled: privacyBlocked(), onchange: (e: Event) => setUsageEnabled((e.target as HTMLInputElement).checked) }), h('span', {}, 'Usage analytics')),
       h('nav', { class: 'policy-links', 'aria-label': 'Policies' },
         h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms')),
     );

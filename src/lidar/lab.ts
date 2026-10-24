@@ -1,3 +1,4 @@
+import { useFeature } from '../usage';
 import { estimateDownload } from "./download";
 import { Marker } from "maplibre-gl";
 import { BoxDrawing, estimateBox, boxLabel, type Point } from "./boxDrawing";
@@ -255,6 +256,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
       type: "module",
     });
     worker.onerror = (e) => {
+      useFeature('trail_scan','fail');
       status.textContent = e.message;
       stop();
     };
@@ -264,6 +266,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
         status.textContent = download ? `${e.data.stage} · ${mb} / ${Math.round(download / 1e6)} MB · ${Math.min(99, Math.round(e.data.bytes / download * 100))}%` : `${e.data.stage} · ${mb} MB`;
       }
       if (e.data.type === "error") {
+        useFeature('trail_scan','fail');
         status.textContent = e.data.message;
         stop();
       }
@@ -273,6 +276,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
             box: e.data.box,
             candidates: e.data.candidates,
           });
+          useFeature('trail_scan','ok');
           const runs = await app.repo.listLidarRuns();
           displayed = {
             type: "FeatureCollection",
@@ -281,6 +285,7 @@ export async function createTrailFinder(app: AppContext): Promise<TrailFinder> {
           show();
           status.textContent = `${displayed.features.length} · Unverified`;
         } catch (err) {
+          useFeature('trail_scan','fail');
           status.textContent = `Save failed: ${(err as Error).message}`;
         } finally {
           stop();

@@ -1,13 +1,14 @@
 import { registerSW } from 'virtual:pwa-register';
 import { Repo } from './storage/repo';
-import { App } from './ui/app';
+import { startUsage } from './usage';
 import './styles.css';
 
 async function main(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) throw new Error('#app missing');
-  const repo = await Repo.open();
-  await App.start(root, repo);
+  if (location.pathname !== '/admin/analytics') startUsage();
+  if (location.pathname === '/admin/analytics') await (await import('./ui/analytics')).renderAnalytics(root);
+  else { const repo = await Repo.open(); await (await import('./ui/app')).App.start(root, repo); }
   // Ask the browser not to evict our IndexedDB data under storage pressure.
   void navigator.storage?.persist?.();
   let controlled = !!navigator.serviceWorker?.controller;

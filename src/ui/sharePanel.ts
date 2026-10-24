@@ -1,3 +1,4 @@
+import { useFeature } from '../usage';
 import { parseTakeoutText, parseTakeoutZip } from '../share/takeout/parse';
 import { importTakeout } from '../share/takeout/import';
 import QRCode from 'qrcode';
@@ -84,6 +85,7 @@ function exportButton(label: string, format: ExportFormat, picked: () => Item[])
       onclick: () => {
         const items = picked();
         if (!items.length) return toast('Nothing selected');
+        useFeature(format === 'gpx' ? 'gpx_export' : 'geojson_export');
         const { name, mime, text } = serialize(items, format);
         void shareFile(name, mime, text).then((r) => {
           if (r === 'unsupported') downloadFile(name, mime, text);
@@ -96,20 +98,25 @@ function exportButton(label: string, format: ExportFormat, picked: () => Item[])
 
 async function importFiles(ctx: AppContext, input: HTMLInputElement): Promise<void> {
   for (const file of input.files ?? []) {
+    let feature: 'takeout_import'|'gpx_import'|'geojson_import' = /\.(zip|csv)$/i.test(file.name) ? 'takeout_import' : /\.gpx$/i.test(file.name) ? 'gpx_import' : 'geojson_import';
     try {
       const text = /\.zip$/i.test(file.name) ? '' : await file.text();
       const takeout = /\.zip$/i.test(file.name)
         ? parseTakeoutZip(new Uint8Array(await file.arrayBuffer()))
         : /\.(csv|json|geojson)$/i.test(file.name) ? parseTakeoutText(file.name, text) : null;
       if (takeout) {
+        feature='takeout_import';
         const r = await importTakeout(ctx.repo, takeout, `file:${file.name}`);
+        useFeature(feature,'ok');
         toast(`${r.imported} imported · ${r.duplicates} duplicates · ${r.skipped} skipped`);
         continue;
       }
       const items = parseFileText(file.name, text);
       const r = await ctx.repo.importItems(items, `file:${file.name}`);
+      useFeature(feature,'ok');
       toast(`${r.changed} new / ${r.received}`);
     } catch (e) {
+      useFeature(feature,'fail');
       toast(`Import failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
@@ -117,6 +124,7 @@ async function importFiles(ctx: AppContext, input: HTMLInputElement): Promise<vo
 }
 
 function showQr(ctx: AppContext, items: Item[]): void {
+  useFeature('qr_share');
   const chunks = encodeItemsToChunks(items);
   const canvas = h('canvas', { class: 'qr', 'aria-label': 'QR code' });
   const counter = h('span', { class: 'counter' });

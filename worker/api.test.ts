@@ -12,7 +12,7 @@ async function call(path: string, body?: unknown, cookie?: string, requestOrigin
  return worker.fetch(new Request(origin+path,{method:body===undefined?'GET':'POST',headers:{origin:requestOrigin,'content-type':'application/json',...(cookie?{cookie}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})}),env);
 }
 const item=(id='marker-0001',updatedAt=1,deleted=false)=>({kind:'waypoint',id,name:'Camp',note:'',icon:'pin',coord:[-90,40],createdAt:1,updatedAt,deviceId:'a',deleted});
-beforeAll(async()=>{const db=await mf.getD1Database('DB','test'); await db.exec(readFileSync('migrations/0001_cloud_sync.sql','utf8').replace(/\n/g,' ')); env={DB:db as unknown as D1Database,DEV_AUTH:'1',ASSETS:{fetch:async()=>new Response('SPA')} as Fetcher};});
+beforeAll(async()=>{const db=await mf.getD1Database('DB','test'); await db.exec(readFileSync('migrations/0001_cloud_sync.sql','utf8').replace(/\n/g,' ')); await db.exec(readFileSync('migrations/0002_usage.sql','utf8').replace(/\n/g,' ')); env={DB:db as unknown as D1Database,DEV_AUTH:'1',ASSETS:{fetch:async()=>new Response('SPA')} as Fetcher};});
 afterAll(async()=>mf.dispose());
 describe('Worker with real local D1',()=>{
  it('hides unconfigured Google sign in and protects APIs',async()=>{
@@ -127,4 +127,27 @@ it('deletes all account data and sessions without affecting other users', async 
  const { sync } = await import('./sync');
  await expect(sync(env.DB,'delete-me',{cursor:0,changes:[item('late-marker-0001')]})).rejects.toThrow();
  expect(await env.DB.prepare('SELECT id FROM items WHERE user_id=?').bind('delete-me').first()).toBeNull();
+});
+
+it('records anonymous usage, validates limits and protects admin reports',async()=>{
+ const day=new Date().toISOString().slice(0,10), ping={id:'anonymous-test-1234',day,installed:true,returning:false,newWeek:true,newMonth:true};
+ const countryRequest=new Request(origin+'/api/ping',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(ping)});
+ Object.defineProperty(countryRequest,'cf',{value:{country:'US'}});
+ expect((await worker.fetch(countryRequest,env)).status).toBe(204);
+ expect((await call('/api/ping',ping)).status).toBe(204);
+ expect(await env.DB.prepare('SELECT COUNT(*) n,country FROM usage_pings').first()).toMatchObject({n:1,country:'US'});
+ expect((await call('/api/ping',{...ping,day:'2026-99-99'})).status).toBe(400);
+ expect((await call('/api/ping',{...ping,id:'bad'})).status).toBe(400);
+ expect((await call('/api/ping',{...ping,pad:'x'.repeat(1024)})).status).toBe(413);
+ expect((await call('/api/ping',ping,undefined,'https://evil.example')).status).toBe(403);
+ const event={id:ping.id,installed:true,version:'0.1.0',events:[{f:'marker_add',day,fw:true,fm:true},{f:'unknown'}]};
+ expect((await call('/api/events',event)).status).toBe(204);await call('/api/events',event);
+ expect(await env.DB.prepare('SELECT count,country FROM feature_uses').first()).toMatchObject({count:2,country:'XX'});
+ expect((await call('/api/admin/usage')).status).toBe(401);
+ const login=await call('/api/auth/google',{credential:'dev:admin-usage'}), session=login.headers.get('set-cookie')!.split(';')[0]!;
+ expect((await call('/api/admin/usage',undefined,session)).status).toBe(403);
+ await env.DB.prepare('UPDATE users SET email=? WHERE id=?').bind('MetzDevan@gmail.com','admin-usage').run();
+ const report=await call('/api/admin/usage',undefined,session);expect(report.status).toBe(200);expect(await report.json()).toMatchObject({dau:1,wau:1,mau:1});
+ for(let i=0;i<30;i++) await call('/api/ping',ping);
+ expect((await call('/api/ping',ping)).status).toBe(429);
 });

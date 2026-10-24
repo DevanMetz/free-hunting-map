@@ -1,3 +1,4 @@
+import { useFeature } from '../usage';
 import { formatDistance, pathLength, roundCoord } from '../map/geo';
 import type { LngLat, Track, Waypoint, WaypointIcon } from '../types';
 import type { AppContext } from './context';
@@ -18,6 +19,7 @@ export function waypointTool(ctx: AppContext, done: () => void): Tool {
   const drop = async (coord: LngLat): Promise<void> => {
     const wp = await ctx.repo.create<Waypoint>({ kind: 'waypoint', name: '', note: '', icon, coord: roundCoord(coord) });
     done();
+    useFeature('marker_add');
     ctx.openItem(wp);
   };
 
