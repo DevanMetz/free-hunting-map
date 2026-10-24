@@ -22,9 +22,8 @@ Historic aerials are not tiled here. They come directly from the Wisconsin DNR p
 - **USGS 3DEP lidar point clouds**: Entwine Point Tiles in `s3://usgs-lidar-public`
   (AWS Open Data, public domain). Clark uses `WI_Clark_2018`. Its southwest corner, which that
   project does not cover, is filled from `WI_12County_9_B22`.
-- **Historic aerials**: USDA NAIP 2005–2022 (public domain), served by Wisconsin DNR. The 1930s mosaic
-  (USDA 1937–41 photos, scanned by UW–Madison SCO and Wisconsin DNR) is reference imagery with
-  patchy coverage. Excluded: DNR 1990s leaf-off (internal DNR use only), county-produced 1997 and
+- **Historic aerials**: USDA NAIP 2005–2022 (public domain), served by Wisconsin DNR. Excluded: the DNR 1930s mosaic (covers only
+  scattered patches of the state and none of the Wildcat Ln area), DNR 1990s leaf-off (internal DNR use only), county-produced 1997 and
   WROC 2010 imagery (license unclear).
 
 ## Pipeline
@@ -65,7 +64,7 @@ v1 measurements:
 | | Clark (v1) | Wisconsin (×33) |
 | --- | --- | --- |
 | DEM download | 87 tiles, 15 GB | ~500 GB, streamed per region |
-| Archives | LRM 364 MB, openness 307 MB, hillshade 220 MB, slope ~250 MB, CHM 69 MB (≈1.2 GB) | ~40 GB in R2 |
+| Archives | LRM 364 MB, openness 307 MB, hillshade 220 MB, slope 254 MB, CHM 69 MB (≈1.2 GB) | ~40 GB in R2 |
 | Colab High-RAM CPU | ~1.5 h, ≈0.3 CU | ~10 CU, or run it on any 8+ core box |
 
 1. Work in regions of about 1° × 1°, roughly 2 to 4 counties each. Group them by UTM zone

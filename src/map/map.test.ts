@@ -49,13 +49,13 @@ it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, res
   hunt.setLayerOpacity('historic-aerials', 0.46);
   const order = layers.map(l => l.id);
   const aerial = sources.get('historic-aerials');
-  hunt.setLayerVariant('historic-aerials', '1938');
-  expect(aerial.setTiles).toHaveBeenCalledWith(layerRegistry.get('historic-aerials')!.variants!.at(-1)!.tiles);
-  expect(aerial._options.attribution).toContain('1937–41');
+  hunt.setLayerVariant('historic-aerials', '2022');
+  expect(aerial.setTiles).toHaveBeenCalledWith(layerRegistry.get('historic-aerials')!.variants![0]!.tiles);
+  expect(aerial._options.attribution).toContain('NAIP');
   expect(layers.map(l => l.id)).toEqual(order);
-  expect(hunt.mapState.layers['historic-aerials']).toEqual({ on: true, opacity: 0.46, variant: '1938' });
+  expect(hunt.mapState.layers['historic-aerials']).toEqual({ on: true, opacity: 0.46, variant: '2022' });
   reset(); hunt.installed.clear(); await hunt.installOverlays();
-  expect(sources.get('historic-aerials').tiles).toEqual(layerRegistry.get('historic-aerials')!.variants!.at(-1)!.tiles);
+  expect(sources.get('historic-aerials').tiles).toEqual(layerRegistry.get('historic-aerials')!.variants![0]!.tiles);
   check(); hunt.setLayerOpacity('public-trails', 0.4);
   expect(map.setPaintProperty).toHaveBeenCalledWith('public-trails-foot', 'line-opacity', 0.4);
   expect(map.setPaintProperty).toHaveBeenCalledWith('public-trails-mvum-casing', 'line-opacity', 0.4 * 0.95);
