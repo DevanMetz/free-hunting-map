@@ -30,6 +30,7 @@ export async function session(
   const model = await cached("/lidar/model.onnx");
   return ort.InferenceSession.create(model, {
     executionProviders: [provider],
+    logSeverityLevel: 3,
     graphOptimizationLevel: "all",
   });
 }
