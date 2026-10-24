@@ -20,7 +20,11 @@ export function townshipContent(p: Attributes): IdentifyResult | null {
   return attributeResult('PLSS township', p, [['TWNSHPLAB', 'Township / range'], ['PRINMER', 'Meridian']]);
 }
 export function sectionContent(p: Attributes): IdentifyResult | null {
-  return attributeResult('PLSS section', p, [['FRSTDIVNO', 'Section'], ['PLSSID', 'Township ID'], ['FRSTDIVTXT', 'Division']]);
+  const id = text(p.PLSSID);
+  const match = /^[A-Z]{2}\d{2}(\d{3})0([NS])(\d{3})0([EW])\d$/.exec(id);
+  const township = match ? `${Number(match[1])}${match[2]} ${Number(match[3])}${match[4]}` : '';
+  return attributeResult('PLSS section', { ...p, township, FRSTDIVTXT: p.FRSTDIVTXT === 'Section' ? '' : p.FRSTDIVTXT },
+    [['FRSTDIVNO', 'Section'], township ? ['township', 'Township / range'] : ['PLSSID', 'Township ID'], ['FRSTDIVTXT', 'Division']]);
 }
 registerLayers([
   {

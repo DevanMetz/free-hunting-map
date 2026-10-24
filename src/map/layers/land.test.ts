@@ -21,3 +21,8 @@ it('exports transparent PNGs with a literal MapLibre bbox token and encoded rend
   expect(new URL(url).searchParams.get('transparent')).toBe('true');
   expect(new URL(url).searchParams.get('dynamicLayers')).toBe('[{"id":0}]');
 });
+
+it('reads township and range from standard PLSS section IDs without guessing fractional surveys', () => {
+  expect(sectionContent({ FRSTDIVNO: '36', PLSSID: 'WI460240N0040W0', FRSTDIVTXT: 'Section' })?.rows).toEqual([['Section', '36'], ['Township / range', '24N 4W']]);
+  expect(sectionContent({ FRSTDIVNO: '09', PLSSID: 'WI460242N0040W0' })?.rows).toContainEqual(['Township ID', 'WI460242N0040W0']);
+});
