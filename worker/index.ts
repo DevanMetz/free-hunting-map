@@ -2,7 +2,8 @@ import { recordUsage, usageReport } from './usage';
 import { verifyGoogleToken } from './token';
 import { ApiError, sync } from './sync';
 export interface Env { DB: D1Database; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; USAGE?: AnalyticsEngineDataset }
-const pingSalt = crypto.randomUUID();
+// Random values are only allowed inside handlers; this salt lives for the isolate.
+let pingSalt: string | undefined;
 const COOKIE = '__Host-fhm_session';
 const AGE = 45 * 86400;
 const clearCookie = { 'Set-Cookie': `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` };
@@ -53,7 +54,7 @@ export default {
       if (['/api/ping','/api/events'].includes(url.pathname)) {
         const events=url.pathname==='/api/events';
         const input=await body(request,events?8192:1024);
-        await rate(env.DB,`ping:${await hash(pingSalt+ (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,30);
+        await rate(env.DB,`ping:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,30);
         return await recordUsage(input,request,env,events);
       }
       const input = await body(request);
