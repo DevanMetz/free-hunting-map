@@ -47,7 +47,7 @@ registerLayers([
     attribution: HILLSHADE_ATTR, source: { kind: 'raster', tiles: [HILLSHADE_EXPORT], minzoom: 11, maxzoom: 17 }, cacheRoute: CACHE_ROUTES.hillshade },
   { id: 'slope', category: 'terrain', name: 'Slope', defaultOpacity: 0.65, minzoom: 10,
     legend: [{ color: '#d1d1d1', label: '0°' }, { color: '#fffac2', label: '5°' }, { color: '#ffff00', label: '10°' },
-      { color: '#ffbe00', label: '15°' }, { color: '#fda133', label: '20°' }, { color: '#fe7200', label: '30°' }, { color: '#a24a1b', label: '45°+' }],
+      { color: '#ffbe00', label: '15°' }, { color: '#fda133', label: '20°' }, { color: '#fe7200', label: '30°' }, { color: '#a24a1b', label: '>30°' }],
     attribution: HILLSHADE_ATTR, source: { kind: 'raster', tiles: [SLOPE_EXPORT], maxzoom: 17 }, cacheRoute: CACHE_ROUTES.hillshade },
   { id: 'aspect', category: 'terrain', name: 'Aspect', defaultOpacity: 0.65, minzoom: 11,
     legend: [{ color: 'linear-gradient(90deg,#84d800 50%,#a0d21e 50%)', label: 'N' }, { color: '#00aa41', label: 'NE' },
