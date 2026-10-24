@@ -6,6 +6,7 @@ import { loadSettings, type Settings } from './settings';
 import { Repo } from '../storage/repo';
 import type { TypeVisibility } from '../organize/model';
 vi.mock('maplibre-gl', () => ({ setWorkerUrl: vi.fn() }));
+vi.mock('maplibre-gl/dist/maplibre-gl-worker.mjs?url', () => ({ default: '' }));
 
 it('keeps a local visibility edit when an older preference read completes later', async () => {
   const repo = await Repo.open(crypto.randomUUID());
