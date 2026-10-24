@@ -171,6 +171,14 @@ it.each([['tiger-trails', 'tiger'], ['usfs-closed-roads', 'usfs'], ['osm-tracks'
   expect((await call(`/tiles/${name}/v1/1/0/0.webp`, binding)).status).toBe(404);
   expect(await (await call(`/tiles/${name}/v1.json`, binding)).json()).toMatchObject({ minzoom: 8, maxzoom: 14, vector_layers: [{ id: layer }], tiles: [`${origin}/tiles/${name}/v1/{z}/{x}/{y}.mvt`] });
 });
+it.each([['topo-early', 9, 15], ['topo-1970s', 10, 16]])('serves %s historic topo WebP tiles', async (name, minzoom, maxzoom) => {
+  const bytes = fixture(true, false); bytes[99] = 4;
+  const binding = await upload(bytes, name as string);
+  const tile = await call(`/tiles/${name}/v1/1/0/0.webp`, binding);
+  expect(tile.status).toBe(200);
+  expect(tile.headers.get('Content-Type')).toBe('image/webp');
+  expect(await (await call(`/tiles/${name}/v1.json`, binding)).json()).toMatchObject({ format: 'webp', minzoom, maxzoom });
+});
 it('rejects unknown archives and wrong extensions', async () => {
   for (const path of ['/tiles/unknown/v1.json', '/tiles/unknown/v1.pmtiles', '/tiles/unknown/v1/1/0/0.webp', '/tiles/trails/v1/1/0/0.webp']) {
     expect((await call(path)).status).toBe(404);

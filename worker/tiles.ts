@@ -11,6 +11,8 @@ const ARCHIVES: Record<string, Archive> = {
   'osm-tracks': vector('OSM tracks', '© OpenStreetMap contributors (ODbL)', 'osm'),
   'wi-forest-roads': vector('County forest roads', 'Wisconsin county forests', 'wiforest'),
   ...Object.fromEntries(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'].map(name => [name, raster(name, 'USGS 3DEP lidar')])),
+  'topo-early': raster('Historic topos 1924–1958', 'USGS Historical Topographic Map Collection (public domain)', 9, 15),
+  'topo-1970s': raster('Historic topos 1969–1984', 'USGS Historical Topographic Map Collection (public domain)', 10, 16),
 };
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const readers = new WeakMap<R2Bucket, Map<string, Promise<PMTiles | null>>>();

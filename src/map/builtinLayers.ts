@@ -1,6 +1,7 @@
 import './layers/communityHikes';
 import './layers/lidar';
 import './layers/historicAerials';
+import './layers/historicTopo';
 import './layers/hazards';
 import './layers/agriculture';
 import './layers/vegetation';
