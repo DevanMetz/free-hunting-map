@@ -1,3 +1,4 @@
+import { hikeShareControl } from './hikeShare';
 import { categoryPicker } from './categoryControls';
 import { fovEditor } from './fovEditor';
 import { sanitizeFov } from '../sync/validate';
@@ -94,12 +95,14 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
 
   const title = (): string => item.kind === 'track' ? 'Track' : icon === 'trailcam' ? 'Trail cam' : 'Waypoint';
   const picker = item.kind === 'waypoint' ? iconPicker(icon, (i) => { icon = i; iconOverride = true; updateCamera(); ctx.sheet.setTitle(title()); }) : null;
+  const hikeShare = item.kind === 'track' && item.recorded ? hikeShareControl(ctx, item) : undefined;
   const body = h(
     'div',
     { class: 'form' },
     picker,
     h('div', { class: 'item-identity' }, name, categoryPicker(ctx, categoryId, id => { categoryId = id; updateCamera(); })),
     cameraBody,
+    hikeShare?.element,
     h('details', { class: 'item-details', open: item.kind !== 'waypoint' || item.icon !== 'trailcam' || window.innerWidth >= 760 }, h('summary', {}, 'Details'), h('div', { class: 'form' }, cameraDetails, note,
     h('div', { class: 'row item-appearance' },
       h('label', { class: 'row' }, 'Color', h('input', { type: 'color', 'aria-label': 'Item color', value: color ?? '#e87826', onchange: (e: Event) => { color = (e.target as HTMLInputElement).value; updateCamera(); } })),
@@ -112,7 +115,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
       h('button', { type: 'button', class: 'btn primary', onclick: () => void save() }, 'Save'),
     ),
   );
-  ctx.sheet.open(`item:${item.id}`, title(), body, () => cameraEditor?.close());
+  ctx.sheet.open(`item:${item.id}`, title(), body, () => { cameraEditor?.close(); hikeShare?.close(); });
   updateCamera();
   if (!item.name && (item.kind !== 'waypoint' || item.icon !== 'trailcam' || window.innerWidth >= 760)) name.focus();
 }

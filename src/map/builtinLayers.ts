@@ -1,3 +1,4 @@
+import './layers/communityHikes';
 import './layers/hazards';
 import './layers/agriculture';
 import './layers/vegetation';

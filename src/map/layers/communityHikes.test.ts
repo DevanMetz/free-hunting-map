@@ -1,0 +1,23 @@
+import { afterEach,it,expect,vi } from 'vitest';
+import type { Map } from 'maplibre-gl';
+import { layerRegistry } from '../layerRegistry';
+import './communityHikes';
+const def=layerRegistry.get('community-hikes')!;
+afterEach(()=>vi.unstubAllGlobals());
+it('registers a default violet dashed layer, deduplicates tiles, identifies public fields and restores after style changes',async()=>{
+ const feature={type:'Feature',id:'hike-a',geometry:{type:'LineString',coordinates:[[-90,40],[-89.99,40]]},properties:{id:'hike-a',distance:850,month:'2026-10',name:'Public walk',type:'scouting'}};
+ const fetcher=vi.fn().mockResolvedValue({ok:true,json:async()=>({type:'FeatureCollection',features:[feature]})});vi.stubGlobal('fetch',fetcher);
+ const source={setData:vi.fn()},layers=new Set<string>(),listeners=new globalThis.Map<string,()=>void>();let zoom=13;
+ const addLayer=vi.fn((l:{id:string})=>layers.add(l.id));
+ const map={getSource:()=>source,addSource:vi.fn(),getLayer:(id:string)=>layers.has(id),addLayer,on:(event:string,handler:()=>void)=>listeners.set(event,handler),getZoom:()=>zoom,getBounds:()=>({getWest:()=>-90.01,getEast:()=>-89.99,getSouth:()=>39.99,getNorth:()=>40.01}),setLayoutProperty:vi.fn(),setPaintProperty:vi.fn(),queryRenderedFeatures:()=>[feature]} as unknown as Map;
+ const ctx={basemap:'topo' as const,setParcelsEnabled:vi.fn()};def.install!(map,ctx);def.setVisible!(map,true,ctx);
+ await vi.waitFor(()=>expect(source.setData).toHaveBeenCalled());
+ expect(source.setData.mock.calls[0]![0].features).toHaveLength(1);
+ expect(addLayer.mock.calls[0]![0]).toMatchObject({paint:{'line-color':'#b85cff','line-dasharray':[3,2]}});
+ expect(fetcher.mock.calls.every(([url])=>url.startsWith('/tiles/community-hikes/12/'))).toBe(true);
+ expect(await def.identify!(0,0,new AbortController().signal,map,[0,0])).toEqual({communityHikeId:'hike-a',title:'Public walk',rows:[['Distance','0.53 mi'],['Month','2026-10'],['Type','scouting']]});
+ layers.clear();def.install!(map,ctx);expect(addLayer).toHaveBeenCalledTimes(2);
+ const count=fetcher.mock.calls.length;zoom=11;listeners.get('moveend')!();expect(fetcher).toHaveBeenCalledTimes(count);
+ def.setVisible!(map,false,ctx);zoom=13;listeners.get('moveend')!();expect(fetcher).toHaveBeenCalledTimes(count);
+ expect(def.defaultOn).toBe(true);expect(def.cacheStrategy).toBe('NetworkFirst');expect(def.cacheRoute!.test('https://freehuntingmap.com/tiles/community-hikes/12/1024/1550.geojson')).toBe(true);
+});

@@ -81,7 +81,7 @@ it('falls back to existing area inspection on a trail miss, and skips disabled o
     if (mode === 'zoom') app.map.map.getZoom = () => 7;
     app.onMapClick(e); await vi.waitFor(() => expect(area).toHaveBeenCalled());
     expect(app.sheet.current).toBeNull();
-    expect(query.mock.calls.length).toBe(mode === 'miss' ? 3 : mode === 'disabled' ? 2 : 1);
+    expect(query.mock.calls.length).toBe(mode === 'miss' ? 4 : mode === 'disabled' ? 3 : 1);
     vi.restoreAllMocks();
   }
 });

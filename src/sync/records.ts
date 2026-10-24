@@ -1,3 +1,4 @@
+import { decodeHike, encodeHike, validHikeId, type WireHike } from '../community/hike';
 import type { Category, Item, ItemMeta } from '../types';
 import type { LidarRun } from '../storage/db';
 import { sanitizeItem, lngLat, color, isWaypointIcon } from './validate';
@@ -7,7 +8,10 @@ export interface PreferenceRecord extends ItemMeta {
   preferences: Record<string, unknown>;
 }
 export interface LidarRecord extends ItemMeta, LidarRun { kind: 'lidar-run' }
-export type SyncRecord = Item | Category | PreferenceRecord | LidarRecord;
+export interface HikeRecord extends ItemMeta {
+  kind: 'community-hike'; trackId: string; shareId: string; secret: string; shared: boolean; hike: WireHike;
+}
+export type SyncRecord = Item | Category | PreferenceRecord | LidarRecord | HikeRecord;
 const booleans = ['hillshade', 'trails', 'parcels', 'water', 'deerUnits', 'labels', 'showPins', 'showTrails', 'showRecordings'];
 const lands = ['usfs', 'blm', 'nps', 'fws', 'stateWildlife', 'statePark', 'stateTrust', 'dod', 'other'];
 
@@ -45,6 +49,10 @@ export function sanitizeRecord(raw: unknown): SyncRecord | null {
   if (!probe) return null;
   const { id, createdAt, updatedAt, deviceId, deleted } = probe;
   const meta = { id, createdAt, updatedAt, deviceId, deleted };
+  if (r.kind === 'community-hike') {
+    if (typeof r.trackId !== 'string' || r.trackId.length < 8 || r.trackId.length > 64 || id !== r.shareId || !validHikeId(r.shareId) || !validHikeId(r.secret) || typeof r.shared !== 'boolean') return null;
+    try { const hike=decodeHike(r.hike); return {...meta,kind:'community-hike',trackId:r.trackId,shareId:r.shareId,secret:r.secret,shared:r.shared,hike:encodeHike(hike.coordinates,hike.month,hike.name,hike.type)}; } catch { return null; }
+  }
   if (r.kind === 'category') {
     if (typeof r.name !== 'string' || !r.name.trim()) return null;
     return { ...meta, kind: 'category', name: r.name.trim().slice(0, 120), hidden: r.hidden === true,

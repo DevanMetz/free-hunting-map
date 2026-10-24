@@ -449,3 +449,7 @@ input[type='color'] { min-width: 44px; width: 44px; height: 44px; padding: 3px; 
 .community-vote-buttons button[aria-pressed="true"] { background: var(--accent, #007f8b); color: #111; }
 .community-vote select { width: 100%; min-width: 0; min-height: 44px; }
 .community-vote select { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+
+.hike-trim { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.hike-trim input { width: 100%; min-width: 0; min-height: 44px; margin: 0; accent-color: #b85cff; }
+.hike-trim output { white-space: nowrap; font-variant-numeric: tabular-nums; }

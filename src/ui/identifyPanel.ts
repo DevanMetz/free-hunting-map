@@ -1,3 +1,4 @@
+import { communityHikes } from '../community/hikes';
 import { communityVotes } from '../community/votes';
 import { TRAIL_TYPES, type Vote } from '../community/vote';
 import { toast } from './dom';
@@ -22,6 +23,15 @@ export function openIdentifyPanel(sheet: Sheet, key: string, result: IdentifyRes
     negative.onclick=()=>{selected=selected==='not'?null:'not';update();void save();};
     picker.onchange=()=>{void save();};update();
     content.append(h('div',{class:'community-vote'},h('div',{class:'community-vote-buttons'},real,negative),picker));
+  }
+  if(result.communityHikeId && communityHikes){
+    const hikeId=result.communityHikeId,hikes=communityHikes;
+    const report=h('button',{type:'button',class:'btn',onclick:()=>{
+      report.disabled=true;
+      void hikes.report(hikeId).then(()=>{report.textContent='Reported';}).catch(()=>{report.disabled=false;toast('Could not save report');});
+    }},'Report');
+    void hikes.reported(hikeId).then(reported=>{report.disabled=reported;if(reported)report.textContent='Reported';});
+    content.append(report);
   }
   sheet.open(key, result.title ?? '', content);
 }

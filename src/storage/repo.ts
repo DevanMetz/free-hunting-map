@@ -3,7 +3,7 @@ import type { IDBPDatabase } from 'idb';
 import type { Category, Item } from '../types';
 import { HybridClock } from '../sync/hlc';
 import { canonicalJson, mergeItem } from '../sync/merge';
-import { sanitizeRecord, portablePreferences, type SyncRecord } from '../sync/records';
+import { sanitizeRecord, portablePreferences, type SyncRecord, type HikeRecord } from '../sync/records';
 import { sanitizeItem } from '../sync/validate';
 import { legacyTakeoutCategory } from './takeoutMigration';
 import { contentId, uuid } from '../sync/ids';
@@ -43,6 +43,18 @@ export class Repo extends EventTarget {
     await repo.migrateTakeoutCategories();
     return repo;
   }
+
+  async hikeShare(trackId: string): Promise<HikeRecord | undefined> {
+    return (await this.hikeShares()).filter(r=>r.trackId===trackId).sort((a,b)=>b.createdAt-a.createdAt || b.id.localeCompare(a.id))[0];
+  }
+  async saveHikeShare(fields: Pick<HikeRecord,'trackId'|'shareId'|'secret'|'shared'|'hike'>): Promise<HikeRecord> {
+    const previous=await this.db.get('records',fields.shareId), now=this.clock.now();
+    const record=sanitizeRecord({...fields,kind:'community-hike',id:fields.shareId,createdAt:previous?.createdAt??now,updatedAt:now,deviceId:this.deviceId,deleted:false});
+    if(!record || record.kind!=='community-hike')throw new Error('Invalid hike share');
+    await this.writeRecord(record);
+    return record;
+  }
+  async hikeShares(): Promise<HikeRecord[]> { return (await this.db.getAll('records')).filter((r):r is HikeRecord=>r.kind==='community-hike'); }
 
   async categories(): Promise<Category[]> {
     return (await this.db.getAll('records')).filter((r): r is Category => r.kind === 'category' && !r.deleted)
@@ -226,6 +238,9 @@ export class Repo extends EventTarget {
   async remove(id: string): Promise<void> {
     const item = await this.get(id);
     if (!item || item.deleted) return;
+    if (item.kind === 'track') for (const share of await this.hikeShares()) {
+      if (share.trackId === id && share.shared) await this.saveHikeShare({ ...share, shared: false });
+    }
     await this.writeLocal({ ...item, deleted: true, updatedAt: this.clock.now(), deviceId: this.deviceId });
   }
 
