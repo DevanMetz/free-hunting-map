@@ -567,15 +567,27 @@ class Runner:
 
     def archive(self):
         remote = 'content/drive/MyDrive/FreeHuntingMap-lidar'
-        deadline = time.monotonic()+1200
+        deadline = time.monotonic()+3600
         try:
             self.command('colab', 'ls', '-s', 'v5gpu', remote, timeout=60)
             for layer in LAYERS:
                 remaining = deadline-time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError('Archive exceeded 20 minutes')
-                self.command('colab', 'upload', '-s', 'v5gpu', self.paths()/'pm'/f'lidar-{layer}.pmtiles',
-                             f'{remote}/layers/v2/{self.block["id"]}/lidar-{layer}.pmtiles', timeout=remaining)
+                # Colab's contents API cannot create folders and rejects large bodies, so
+                # archive flat in layers/ as 64 MiB parts (cat parts in order to restore).
+                src = self.paths()/'pm'/f'lidar-{layer}.pmtiles'
+                name = f'v2-{self.block["id"]}-lidar-{layer}.pmtiles'
+                with src.open('rb') as f:
+                    for n, chunk in enumerate(iter(lambda: f.read(64 << 20), b'')):
+                        part = self.paths()/'pm'/'drive-part'
+                        part.write_bytes(chunk)
+                        remaining = deadline-time.monotonic()
+                        if remaining <= 0:
+                            raise TimeoutError('Archive exceeded time limit')
+                        self.command('colab', 'upload', '-s', 'v5gpu', part,
+                                     f'{remote}/layers/{name}.part-{n:03d}', timeout=remaining)
+                        part.unlink()
         except Exception as e:
             self.stage.update(status='skipped', reason=str(e))
             log(f'Archive skipped: {e}')
