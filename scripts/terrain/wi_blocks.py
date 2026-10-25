@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resumable, serial Wisconsin z8 terrain builds. See README.md for resource limits."""
+"""Resumable, serial Wisconsin z9 terrain builds. See README.md for resource limits."""
 import argparse
 import contextlib
 import datetime as dt
@@ -27,8 +27,13 @@ R = 6378137
 WORLD = math.pi * R
 TNM = 'https://tnmaccess.nationalmap.gov/api/v1/products'
 EPT_INDEX = 'https://raw.githubusercontent.com/hobu/usgs-lidar/master/boundaries/resources.geojson'
-MAX_SCRATCH = 36_000_000_000
-MIN_FREE = 3 * 1024**3
+BLOCK_ZOOM = 9
+CLARK_BOUNDS = [-90.93, 44.42, -90.31, 45.04]
+MAX_SCRATCH = 20_000_000_000
+MIN_FREE = 10 * 1024**3
+STAGE_HEADROOM = 4 * 1024**3
+DISK_RESERVE = 1024**3  # Stop writers before they reach the hard free-space floor.
+RETRY_SECONDS = 600
 CG = Path('/sys/fs/cgroup/fhm')
 
 
@@ -57,28 +62,28 @@ def atomic_json(path, value):
         os.close(fd)
 
 
-def tile_xy(lon, lat, z=8):
+def tile_xy(lon, lat, z=BLOCK_ZOOM):
     n = 2**z
     lat = max(-85.0511287798066, min(85.0511287798066, lat))
     return (max(0, min(n-1, math.floor((lon+180)/360*n))),
             max(0, min(n-1, math.floor((1-math.asinh(math.tan(math.radians(lat)))/math.pi)/2*n))))
 
 
-def tile_bounds(x, y, z=8):
+def tile_bounds(x, y, z=BLOCK_ZOOM):
     n = 2**z
     lat = lambda j: math.degrees(math.atan(math.sinh(math.pi*(1-2*j/n))))
     return [x/n*360-180, lat(y+1), (x+1)/n*360-180, lat(y)]
 
 
-def merc_bounds(x, y, z=8):
+def merc_bounds(x, y, z=BLOCK_ZOOM):
     width = 2*WORLD/2**z
     return [-WORLD+x*width, WORLD-(y+1)*width, -WORLD+(x+1)*width, WORLD-y*width]
 
 
 def block_version(block_id):
-    match = re.fullmatch(r'b8-(\d{1,3})-(\d{1,3})', block_id)
-    if not match or any(int(v) >= 256 for v in match.groups()):
-        raise ValueError('Invalid z8 block')
+    match = re.fullmatch(rf'b{BLOCK_ZOOM}-(\d{{1,3}})-(\d{{1,3}})', block_id)
+    if not match or any(int(v) >= 2**BLOCK_ZOOM for v in match.groups()):
+        raise ValueError(f'Invalid z{BLOCK_ZOOM} block')
     return 'v2/' + block_id
 
 
@@ -119,10 +124,11 @@ def make_blocks(state, buffered):
             clip = buffered.intersection(extent)
             if clip.is_empty or clip.area == 0:
                 continue
-            blocks.append(dict(id=f'b8-{x}-{y}', x=x, y=y, bounds=list(clip.bounds),
+            blocks.append(dict(id=f'b{BLOCK_ZOOM}-{x}-{y}', x=x, y=y, bounds=list(clip.bounds),
                                geometry=mapping(clip), km2=transform(project, state.intersection(extent)).area/1e6,
+                               clark_km2=transform(project, clip.intersection(box(*CLARK_BOUNDS))).area/1e6,
                                status='pending', attempts=0, stages={}))
-    return sorted(blocks, key=lambda b: (b['id'] != 'b8-63-92', -b['km2'], b['id']))
+    return sorted(blocks, key=lambda b: (-b['clark_km2'], -b['km2'], b['id']))
 
 
 @contextlib.contextmanager
@@ -143,10 +149,13 @@ def lock(base):
 def plan(base):
     path = base/'manifest.json'
     if path.exists():
-        return json.loads(path.read_text())
+        manifest = json.loads(path.read_text())
+        if manifest['block_zoom'] != BLOCK_ZOOM:
+            raise ValueError('Archive the old manifest and replan before running this grid')
+        return manifest
     state, buffered = state_polygon(base)
     manifest = dict(schema=1, created=now(), source=str(base/'cb_2024_us_state_500k.zip'),
-                    buffer_m=500, block_zoom=8, blocks=make_blocks(state, buffered))
+                    buffer_m=500, block_zoom=BLOCK_ZOOM, blocks=make_blocks(state, buffered))
     atomic_json(path, manifest)
     return manifest
 
@@ -162,49 +171,80 @@ def get_json(url):
             time.sleep(min(60, 2**attempt))
 
 
-def download(url, path, expected=None, progress=None):
-    """HTTP/1.1 streaming, range resume, verified Content-Length and TNM size."""
+def download(url, path, expected=None, progress=None, reserve=None):
+    """Resume contiguous HTTP bytes; TNM size is advisory, HTTP size is persisted."""
     path = Path(path)
     part = path.with_suffix(path.suffix + '.partial')
+    metadata = path.with_suffix(path.suffix + '.http.json')
+    recorded = json.loads(metadata.read_text()) if metadata.exists() else {}
     if path.exists():
-        if expected and path.stat().st_size != expected:
-            raise IOError(f'Completed download has wrong size: {path}')
+        if recorded.get('url') == url and recorded.get('complete') and path.stat().st_size == recorded['total']:
+            return 0
+        # Legacy/unverified files must be fetched again, never accepted by TNM size.
+        path.unlink()
+    if (part.exists() and recorded.get('url') == url and recorded.get('complete')
+            and part.stat().st_size == recorded['total']):
+        os.replace(part, path)
         return 0
     transferred = 0
     for attempt in range(5):
         offset = part.stat().st_size if part.exists() else 0
+        if recorded and not recorded.get('complete') and offset >= recorded['total']:
+            # All bytes arrived but validation/checkpoint did not finish. Re-fetch;
+            # neither TNM nor an unvalidated full partial proves completion.
+            part.unlink(missing_ok=True)
+            offset = 0
         try:
             req = urllib.request.Request(url, headers={'Range': f'bytes={offset}-'} if offset else {})
             with urllib.request.urlopen(req, timeout=120) as response:
-                if offset and response.status != 206:
+                if response.status not in (200, 206):
+                    raise IOError(f'Unexpected HTTP status {response.status}')
+                if response.status == 200:
                     offset = 0
+                length = response.headers.get('Content-Length')
                 if response.status == 206:
                     cr = re.fullmatch(r'bytes (\d+)-(\d+)/(\d+)', response.headers.get('Content-Range', ''))
-                    if not cr or int(cr[1]) != offset:
+                    if not cr or int(cr[1]) != offset or not offset <= int(cr[2]) < int(cr[3]):
                         raise IOError('Unexpected Content-Range')
-                    total = int(cr[3])
+                    total, end = int(cr[3]), int(cr[2])+1
+                    if length is not None and int(length) != end-offset:
+                        raise IOError('Content-Length disagrees with Content-Range')
+                    if recorded and (recorded.get('url') != url or recorded['total'] != total):
+                        part.unlink(missing_ok=True)
+                        metadata.unlink(missing_ok=True)
+                        recorded = {}
+                        raise IOError('HTTP source changed during range resume; restarting')
                 else:
-                    total = int(response.headers['Content-Length']) if response.headers.get('Content-Length') else expected
-                if expected and total and total != expected:
-                    raise IOError(f'Source size changed: TNM={expected}, HTTP={total}')
+                    if length is None:
+                        raise IOError('Missing authoritative HTTP size')
+                    total = end = int(length)
+                if total <= 0:
+                    raise IOError('Empty HTTP source')
+                if expected and total != expected:
+                    log(f'WARNING source size differs: TNM={expected}, HTTP={total}; using HTTP')
+                if reserve:
+                    reserve(total)
+                recorded = dict(url=url, total=total, complete=False)
+                atomic_json(metadata, recorded)
+                received = 0
                 with part.open('ab' if offset else 'wb') as f:
                     while chunk := response.read(1 << 20):
+                        if received+len(chunk) > end-offset:
+                            raise IOError('HTTP body exceeds declared range')
                         f.write(chunk)
+                        received += len(chunk)
                         transferred += len(chunk)
                         if progress:
                             progress(len(chunk))
                     f.flush()
                     os.fsync(f.fileno())
-            size = part.stat().st_size
-            if not size or (total and size != total) or (expected and size != expected):
-                raise IOError('Truncated download')
+                if received != end-offset or part.stat().st_size != total:
+                    raise IOError('Truncated download')
+            recorded['complete'] = True
+            atomic_json(metadata, recorded)
             os.replace(part, path)
             return transferred
         except Exception:
-            # A complete partial can result from interruption immediately before rename.
-            if expected and part.exists() and part.stat().st_size == expected:
-                os.replace(part, path)
-                return transferred
             if attempt == 4:
                 raise
             time.sleep(min(60, 2**attempt))
@@ -220,7 +260,14 @@ def project_year(name):
 
 
 def disk_bytes(path):
-    return sum(p.stat().st_blocks*512 for p in path.rglob('*') if p.is_file()) if path.exists() else 0
+    total = 0
+    for p in path.rglob('*'):
+        try:
+            if p.is_file():
+                total += p.stat().st_blocks*512
+        except FileNotFoundError:
+            pass  # A running stage can retire a consumed input during the scan.
+    return total
 
 
 class Runner:
@@ -244,7 +291,30 @@ class Runner:
         self.manifest['updated'] = now()
         atomic_json(self.base/'manifest.json', self.manifest)
 
-    def guard(self, force=False):
+    def wait_disk(self, extra=DISK_RESERVE, process=None, reason='scratch guard'):
+        stopped = False
+        try:
+            while True:
+                used = disk_bytes(self.work)
+                free = shutil.disk_usage(self.work).free
+                if free >= MIN_FREE+extra and used < MAX_SCRATCH:
+                    break
+                if process is not None and not stopped and process.poll() is None:
+                    os.killpg(process.pid, signal.SIGSTOP)
+                    stopped = True
+                log(f'waiting for disk: {reason}; free={free/1024**3:.2f} GiB, '
+                    f'required={(MIN_FREE+extra)/1024**3:.2f} GiB, scratch={used/1024**3:.2f} GiB')
+                if self.stage is not None:
+                    self.stage['waiting'] = f'disk: {reason}'
+                    self.save()
+                time.sleep(RETRY_SECONDS)
+        finally:
+            if stopped and process.poll() is None:
+                os.killpg(process.pid, signal.SIGCONT)
+        if self.stage is not None:
+            self.stage.pop('waiting', None)
+
+    def guard(self, force=False, process=None):
         if CG.exists():
             memory = int((CG/'memory.current').read_text())
             self.peak = max(self.peak, memory)
@@ -253,8 +323,7 @@ class Runner:
         if force or time.monotonic()-self.last_disk > 5:
             self.last_disk = time.monotonic()
             used = disk_bytes(self.work)
-            if used > MAX_SCRATCH or shutil.disk_usage(self.work).free < MIN_FREE:
-                raise RuntimeError(f'Scratch/free-space limit reached: {used/1024**3:.2f} GiB scratch')
+            self.wait_disk(process=process)
             if self.stage is not None:
                 self.stage['scratch_peak_bytes'] = max(self.stage.get('scratch_peak_bytes', 0), used)
                 self.stage['cgroup_peak_observed_bytes'] = self.peak
@@ -273,12 +342,13 @@ class Runner:
 
     def command(self, *args, env=None, timeout=None):
         log('+ ' + ' '.join(map(str, args)))
+        self.wait_disk(STAGE_HEADROOM, reason='command headroom')
         self.guard(True)
         started = time.monotonic()
-        with subprocess.Popen(list(map(str, args)), cwd=ROOT, env={**self.env, **(env or {})}, start_new_session=True) as p:
+        with subprocess.Popen(['nice', '-n', '10', *map(str, args)], cwd=ROOT, env={**self.env, **(env or {})}, start_new_session=True) as p:
             try:
                 while p.poll() is None:
-                    self.guard()
+                    self.guard(process=p)
                     if timeout and time.monotonic()-started > timeout:
                         raise TimeoutError(f'Command exceeded {timeout}s')
                     time.sleep(2)
@@ -339,24 +409,33 @@ class Runner:
                 if not page:
                     raise RuntimeError('TNM pagination ended before total')
             if not items:
-                raise RuntimeError('No 1 m DEM available for this WI block')
+                raise ValueError('No 1 m DEM available for this WI block')
             atomic_json(catalog, sorted(items.values(), key=lambda i: (i['publicationDate'], i['downloadURL']), reverse=True))
         items = json.loads(catalog.read_text())
         self.stage['tiles_total'] = len(items)
+        estimate = int(0.55 * sum(int(i.get('sizeInBytes') or 0) for i in items))
+        self.stage['estimated_dem_bytes'] = estimate
+        # Already merged chunks occupy space counted by disk_usage; reserve only growth.
+        self.wait_disk(max(0, estimate-disk_bytes(dem))+STAGE_HEADROOM, reason='DEM preflight')
         completed = self.stage.setdefault('sources', {})
         groups = self.stage.setdefault('groups', {})
         for index, item in enumerate(items):
             url = item['downloadURL']
             key = hashlib.sha256(url.encode()).hexdigest()[:16]
+            raw = dem/(key+'.tif')
             if key in completed:
+                for suffix in ('.tif', '.tif.partial', '.tif.http.json'):
+                    raw.with_suffix(suffix).unlink(missing_ok=True)
                 continue
             self.guard(True)
             log(f'{self.block["id"]} dem {index+1}/{len(items)} {Path(url).name}')
-            raw = dem/(key+'.tif')
+            size = int(item.get('sizeInBytes') or 0)
+            self.wait_disk(max(DISK_RESERVE, 2*size), reason='DEM source')
             def progress(n):
                 self.stage['bytes_downloaded'] = self.stage.get('bytes_downloaded', 0)+n
                 self.guard()
-            download(url, raw, int(item.get('sizeInBytes') or 0) or None, progress)
+            download(url, raw, size or None, progress,
+                     reserve=lambda total: self.wait_disk(max(DISK_RESERVE, 2*total), reason='HTTP source'))
             with rasterio.open(raw) as src:
                 epsg = src.crs.to_epsg()
                 if not epsg:
@@ -376,6 +455,7 @@ class Runner:
             self.stage['tiles_done'] = len(completed)
             self.save()
             raw.unlink()
+            raw.with_suffix('.tif.http.json').unlink(missing_ok=True)
             self.release_cache()
         for group in groups.values():
             atomic_json(Path(group)/'items.json', [dict(downloadURL=p.name, publicationDate='2000-01-01')
@@ -399,7 +479,9 @@ class Runner:
         groups = self.block['stages']['dem']['groups']
         for epsg in self.block['crs_order']:
             if epsg in completed:
+                shutil.rmtree(groups[epsg], ignore_errors=True)
                 continue
+            self.stage['current'] = epsg
             self.script('derive.py', Path(groups[epsg])/'mosaic.vrt', work/'derived'/epsg,
                         env={'DEM_CONSUME': str(groups[epsg])})
             completed.append(epsg)
@@ -420,7 +502,7 @@ class Runner:
             return project_year(f['properties']['name']), f['properties']['name']
         projects.sort(key=year, reverse=True)
         if not projects:
-            raise RuntimeError('No EPT coverage for block')
+            raise ValueError('No EPT coverage for block')
         self.stage['projects'] = [f['properties']['name'] for f in projects]
         self.stage['acquisition_years'] = {f['properties']['name']: project_year(f['properties']['name']) or None for f in projects}
         completed = self.stage.setdefault('projects_done', [])
@@ -439,6 +521,7 @@ class Runner:
             name = feature['properties']['name']
             if name in completed:
                 continue
+            self.stage['current'] = name
             url = feature['properties']['url'].removesuffix('/ept.json')
             output = chm/'fill.tif'
             self.script('chm.py', url, work/'ground.tif', output, env=env)
@@ -462,9 +545,18 @@ class Runner:
         pm.mkdir(exist_ok=True)
         completed = self.stage.setdefault('layers', {})
         env = dict(TILE_BOUNDS=','.join(map(str, merc_bounds(self.block['x'], self.block['y']))), CUTLINE=str(self.cutline()))
+        def consume(layer):
+            shutil.rmtree(work/('warp-'+layer), ignore_errors=True)
+            if layer == 'chm':
+                (work/'chm'/'chm_byte.tif').unlink(missing_ok=True)
+            else:
+                for epsg in self.block['crs_order']:
+                    shutil.rmtree(work/'derived'/epsg/layer, ignore_errors=True)
         for layer in LAYERS:
             if layer in completed:
+                consume(layer)
                 continue
+            self.stage['current'] = layer
             sources = []
             merged = work/('warp-'+layer)
             merged.mkdir(exist_ok=True)
@@ -476,7 +568,7 @@ class Runner:
                     vrt = merged/(epsg+'.vrt')
                     sources_in = sorted((work/'derived'/epsg/layer).glob('*.tif'))
                     if not sources_in:
-                        raise RuntimeError(f'Missing derivative inputs: {epsg}/{layer}')
+                        raise ValueError(f'Missing derivative inputs: {epsg}/{layer}')
                     listing = merged/(epsg+'.txt')
                     listing.write_text('\n'.join(map(str, sources_in))+'\n')
                     self.command('gdalbuildvrt', '-overwrite', '-input_file_list', listing, vrt)
@@ -490,7 +582,7 @@ class Runner:
                 self.command('gdalbuildvrt', '-overwrite', combined, *sources)
                 source = str(combined)
             archive = pm/f'lidar-{layer}.pmtiles'
-            self.script('tile.py', layer, source, archive, 15 if layer == 'chm' else 16, env=env)
+            self.script('tile.py', layer, source, archive, 15 if layer == 'chm' else 16, BLOCK_ZOOM, env=env)
             # Find an actual nonempty z14 tile for public verification, even on coastal slivers.
             from pmtiles.reader import Reader, MmapSource
             with archive.open('rb') as f:
@@ -502,18 +594,13 @@ class Runner:
                     x1, y1 = tile_xy(bounds[2], bounds[1], 14)
                     tile = next(([14, x, y] for y in range(y0, y1+1) for x in range(x0, x1+1) if reader.get(14, x, y)), None)
                     if tile is None:
-                        raise RuntimeError(f'Empty archive for {layer}')
+                        raise ValueError(f'Empty archive for {layer}')
             with archive.open('rb') as f:
                 digest = hashlib.file_digest(f, 'sha256').hexdigest()
             completed[layer] = dict(bytes=archive.stat().st_size, sha256=digest, check_tile=tile,
                                     bounds=json.loads(Path(str(archive)+'.bounds.json').read_text()))
             self.save()
-            shutil.rmtree(merged)
-            if layer != 'chm':
-                for epsg in self.block['crs_order']:
-                    shutil.rmtree(work/'derived'/epsg/layer)
-            else:
-                (work/'chm'/'chm_byte.tif').unlink()
+            consume(layer)
 
     def upload(self):
         work = self.paths()
@@ -539,14 +626,16 @@ class Runner:
             completed[layer] = dict(verified=now(), url=url)
             self.save()
         # Save a small Clark comparison for review once the first block reaches publication.
-        if self.block['id'] == 'b8-63-92':
+        if self.block.get('clark_km2', 0) > 0:
             self.compare_clark()
 
     def compare_clark(self):
         from PIL import Image, ImageDraw
-        x, y = tile_xy(-90.65, 44.75, 14)
-        folder = self.base/'clark-comparison'
-        folder.mkdir(exist_ok=True)
+        from shapely.geometry import shape, box
+        point = shape(self.block['geometry']).intersection(box(*CLARK_BOUNDS)).representative_point()
+        x, y = tile_xy(point.x, point.y, 14)
+        folder = self.base/'clark-comparison'/self.block['id']
+        folder.mkdir(parents=True, exist_ok=True)
         results = {}
         for layer in LAYERS:
             images = []
@@ -607,11 +696,11 @@ class Runner:
                 record = block['stages'][interrupted]
                 record['status'] = 'pending'
                 record.setdefault('errors', []).append(dict(at=now(), error='Previous run interrupted'))
-                block['attempts'] = block.get('attempts', 0)+1
                 self.save()
             while next_stage(block) is not None and block.get('attempts', 0) < 3:
                 name = next_stage(block)
                 self.stage = block['stages'].setdefault(name, {})
+                self.stage.pop('waiting', None)
                 self.stage.update(status='running', started=now(), attempts=self.stage.get('attempts', 0)+1)
                 block['status'] = 'running'
                 started = time.monotonic()
@@ -626,50 +715,76 @@ class Runner:
                 except Exception as e:
                     import traceback
                     traceback.print_exc()
-                    block['attempts'] = block.get('attempts', 0)+1
+                    # Unknown subprocess/network/OS errors are retryable. Only explicit
+                    # input/invariant errors spend the deterministic failure budget.
+                    deterministic = isinstance(e, (ValueError, AssertionError)) and not isinstance(e, json.JSONDecodeError)
+                    if deterministic:
+                        block['attempts'] = block.get('attempts', 0)+1
                     self.stage.update(status='pending', error=str(e))
                     self.stage.setdefault('errors', []).append(dict(at=now(), error=str(e)))
-                    log(f'{block["id"]} failure {block["attempts"]}/3: {e}')
+                    self.stage['waiting'] = 'retry' if deterministic else 'transient error; checkpoint retained'
+                    log(f'{block["id"]} {"failure " + str(block["attempts"]) + "/3" if deterministic else "pause-and-retry"}: {e}')
                 finally:
                     self.stage['seconds'] = self.stage.get('seconds', 0)+time.monotonic()-started
                     self.stage['cgroup_peak_observed_bytes'] = self.peak
                     self.save()
                 if self.stage['status'] == 'pending':
-                    time.sleep(min(60, 10*block['attempts']))
+                    time.sleep(RETRY_SECONDS)
             if next_stage(block) is None:
                 block['status'] = 'done'
                 block['finished'] = now()
             else:
                 block['status'] = 'failed'
-                # Preserve small records; failed intermediates cannot accumulate across WI.
+                # Keep merged DEMs and resumable derivatives unless reclaiming space is essential.
                 failed = self.base/'failed'/block['id']
                 failed.mkdir(parents=True, exist_ok=True)
                 atomic_json(failed/'block.json', block)
-                shutil.rmtree(self.paths())
-                block['scratch_removed'] = True
+                if shutil.disk_usage(self.work).free < MIN_FREE:
+                    shutil.rmtree(self.paths())
+                    block['scratch_removed'] = True
+                else:
+                    block['scratch_removed'] = False
             shutil.rmtree(self.work/'tmp')
             (self.work/'tmp').mkdir()
             self.save()
-            status(self.manifest)
+            status(self.manifest, self.base)
         self.stage = None
 
 
-def status(manifest):
+def status(manifest, base=BASE):
     blocks = manifest['blocks']
     done = [b for b in blocks if b['status'] == 'done']
     failed = [b for b in blocks if b['status'] == 'failed']
-    remaining = [b for b in blocks if b['status'] not in ('done', 'failed')]
+    remaining = [b for b in blocks if b['status'] != 'done']
     area = sum(b['km2'] for b in done)
     seconds = sum(sum(s.get('seconds', 0) for s in b['stages'].values()) for b in done)
     eta = seconds/area*sum(b['km2'] for b in remaining)/3600 if area else None
-    print(f'Blocks: {len(done)} done, {len(remaining)} remaining, {len(failed)} failed; WI {area:,.1f}/{sum(b["km2"] for b in blocks):,.1f} km²', flush=True)
-    print(f'Measured hours/block: {seconds/3600/len(done):.2f}; ETA {eta:.1f} h (area-weighted completed blocks)' if done else
-          'Measured hours/block and ETA: pending first completed block (then elapsed seconds per WI km² × remaining km²)', flush=True)
-    for b in remaining:
-        if b['status'] == 'running':
-            stage = next_stage(b)
-            record = b['stages'].get(stage, {})
-            print(f'{b["id"]}: {stage}; DEM {record.get("tiles_done", 0)}/{record.get("tiles_total", "?")}; {record.get("bytes_downloaded", 0)/1e9:.2f} GB downloaded', flush=True)
+    print(f'Blocks: {len(done)}/{len(blocks)} done, {len(failed)} failed; '
+          f'WI {area:,.1f}/{sum(b["km2"] for b in blocks):,.1f} km²', flush=True)
+    print(f'Disk: {shutil.disk_usage(base).free/1024**3:.2f} GiB free; '
+          f'{disk_bytes(base/"work")/1024**3:.2f} GiB scratch', flush=True)
+    print(f'ETA: {eta:.1f} h ({seconds/area:.2f} s/km² × remaining WI area)' if area else
+          'ETA: pending first completed block', flush=True)
+    active = next((b for b in remaining if b['status'] == 'running'), None)
+    if active:
+        stage = next_stage(active)
+        record = active['stages'].get(stage, {})
+        if stage == 'dem':
+            progress = f'{record.get("tiles_done", 0)}/{record.get("tiles_total", "?")} sources'
+        elif stage == 'derive':
+            chunks = len(list((base/'work'/active['id']/'derived').glob('*/done/b_*')))
+            progress = f'{len(record.get("groups_done", []))}/{len(active.get("crs_order", []))} CRS groups; {chunks} chunks'
+        elif stage == 'chm':
+            progress = f'{len(record.get("projects_done", []))}/{len(record.get("projects", []))} projects'
+        elif stage in ('tile', 'upload'):
+            progress = f'{len(record.get("layers", {}))}/{len(LAYERS)} layers'
+        else:
+            progress = record.get('status', 'pending')
+        print(f'Current: {active["id"]} {stage}: {progress}; {record.get("current", "")}; '
+              f'{record.get("bytes_downloaded", 0)/1e9:.2f} GB downloaded'
+              + (f'; waiting: {record["waiting"]}' if record.get('waiting') else ''), flush=True)
+    else:
+        print('Current: idle', flush=True)
 
 
 def main():
@@ -682,12 +797,12 @@ def main():
     commands.add_parser('status')
     args = parser.parse_args()
     if args.command == 'status':
-        status(json.loads((args.base/'manifest.json').read_text()))
+        status(json.loads((args.base/'manifest.json').read_text()), args.base)
         return
     with lock(args.base):
         manifest = plan(args.base)
         if args.command == 'plan':
-            status(manifest)
+            status(manifest, args.base)
             for block in manifest['blocks']:
                 print(f'{block["id"]} {block["km2"]:.1f} km² {block["bounds"]}')
             return

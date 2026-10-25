@@ -16,8 +16,8 @@ const ARCHIVES: Record<string, Archive> = {
 };
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const LIDAR = /^lidar-(?:lrm|openness|hillshade|slope|chm)$/;
-/** Lidar v2+ is published as one archive per z8 tile (`<name>/<version>/b8-<x>-<y>/`) so coverage grows block by block. */
-export const BLOCK_ZOOM = 8;
+/** Lidar v2+ is published as one archive per z9 tile (`<name>/<version>/b9-<x>-<y>/`) so coverage grows block by block. */
+export const BLOCK_ZOOM = 9;
 const blocked = (name: string, version: string) => LIDAR.test(name) && version !== 'v1';
 const SHORT = 'public, max-age=600';
 const readers = new WeakMap<R2Bucket, Map<string, Promise<PMTiles | null>>>();
@@ -85,7 +85,7 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
       if (z < BLOCK_ZOOM) return new Response(null, { status: 204, headers: headers0 });
       const shift = z - BLOCK_ZOOM;
       // Blocks not yet published fall back to the v1 (Clark County) archive.
-      const pm = bucket ? await reader(bucket, name, `${version}/b8-${x >>> shift}-${y >>> shift}`) ?? await reader(bucket, name, 'v1') : null;
+      const pm = bucket ? await reader(bucket, name, `${version}/b${BLOCK_ZOOM}-${x >>> shift}-${y >>> shift}`) ?? await reader(bucket, name, 'v1') : null;
       const bytes = pm ? await pm.tile(z, x, y) : null;
       if (!pm || pm.archive.prefix.endsWith('/v1/')) {
         // Not cached at the edge: the block may land later.

@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import wi_blocks as wi
@@ -16,36 +16,37 @@ import upload
 
 class BlockMath(unittest.TestCase):
     def test_round_trip(self):
-        for x in range(61, 67):
-            for y in range(89, 95):
+        for x in range(122, 134):
+            for y in range(178, 190):
                 w, s, e, n = wi.tile_bounds(x, y)
                 self.assertEqual(wi.tile_xy((w+e)/2, (s+n)/2), (x, y))
                 a, b, c, d = wi.merc_bounds(x, y)
-                self.assertAlmostEqual(c-a, 2*wi.WORLD/256, places=7)
-                self.assertAlmostEqual(d-b, 2*wi.WORLD/256, places=7)
+                self.assertAlmostEqual(c-a, 2*wi.WORLD/512, places=7)
+                self.assertAlmostEqual(d-b, 2*wi.WORLD/512, places=7)
                 self.assertAlmostEqual(a, math.radians(w)*wi.R, places=7)
                 self.assertAlmostEqual(d, wi.R*math.asinh(math.tan(math.radians(n))), places=7)
 
     def test_zone_edge_and_clark(self):
-        self.assertEqual(wi.tile_bounds(63, 92)[2], -90)
-        self.assertEqual(wi.tile_bounds(64, 92)[0], -90)
-        self.assertEqual(wi.tile_xy(-90.65, 44.75), (63, 92))
+        self.assertEqual(wi.tile_bounds(127, 184)[2], -90)
+        self.assertEqual(wi.tile_bounds(128, 184)[0], -90)
+        self.assertEqual(wi.tile_xy(-90.65, 44.75), (127, 184))
         x, y = wi.tile_xy(-90.65, 44.75, 14)
-        self.assertEqual((x >> 6, y >> 6), (63, 92))
+        self.assertEqual((x >> 5, y >> 5), (127, 184))
 
     def test_edges(self):
         self.assertEqual(wi.tile_xy(-180, 90), (0, 0))
-        self.assertEqual(wi.tile_xy(180, -90), (255, 255))
+        self.assertEqual(wi.tile_xy(180, -90), (511, 511))
 
     def test_wi_blocks(self):
         if not (wi.BASE/'cb_2024_us_state_500k.zip').exists():
             self.skipTest('Census state ZIP is not installed')
         state, buffered = wi.state_polygon()
         blocks = wi.make_blocks(state, buffered)
-        self.assertEqual(blocks[0]['id'], 'b8-63-92')
-        self.assertEqual(len(blocks), 23)
+        self.assertEqual(blocks[0]['id'], 'b9-127-184')
+        self.assertEqual(len(blocks), 73)
+        self.assertEqual([b['clark_km2'] for b in blocks], sorted((b['clark_km2'] for b in blocks), reverse=True))
         self.assertEqual(len({b['id'] for b in blocks}), len(blocks))
-        self.assertEqual([b['km2'] for b in blocks[1:]], sorted((b['km2'] for b in blocks[1:]), reverse=True))
+        self.assertEqual([b['km2'] for b in blocks if not b['clark_km2']], sorted((b['km2'] for b in blocks if not b['clark_km2']), reverse=True))
         from shapely.geometry import shape
         from shapely.ops import unary_union
         union = unary_union([shape(b['geometry']) for b in blocks])
@@ -56,7 +57,7 @@ class BlockMath(unittest.TestCase):
         from shapely.geometry import box
         state = box(-90.1, 44.7, -89.9, 44.8)
         blocks = wi.make_blocks(state, state)
-        self.assertEqual({b['id'] for b in blocks}, {'b8-63-92', 'b8-64-92'})
+        self.assertEqual({b['id'] for b in blocks}, {'b9-127-184', 'b9-128-184'})
 
 
 class Resume(unittest.TestCase):
@@ -83,7 +84,7 @@ class Resume(unittest.TestCase):
                 pass
 
     def test_resume_skips_finished_stages(self):
-        block = dict(id='b8-63-92', status='running', km2=10, attempts=0,
+        block = dict(id='b9-127-184', status='running', km2=10, attempts=0,
                      stages={s: {'status': 'done'} for s in wi.STAGES[:4]})
         calls = []
         with tempfile.TemporaryDirectory() as d:
@@ -96,12 +97,12 @@ class Resume(unittest.TestCase):
             self.assertEqual(block['status'], 'done')
 
     def test_three_failures_then_continue(self):
-        blocks = [dict(id=f'b8-{x}-92', status='pending', km2=1, attempts=0, stages={}) for x in (63, 64)]
+        blocks = [dict(id=f'b9-{x}-184', status='pending', km2=1, attempts=0, stages={}) for x in (127, 128)]
         with tempfile.TemporaryDirectory() as d:
             runner = wi.Runner(Path(d), {'blocks': blocks})
             def dem():
-                if runner.block['id'] == 'b8-63-92':
-                    raise IOError('network failed')
+                if runner.block['id'] == 'b9-127-184':
+                    raise ValueError('invalid DEM CRS')
             runner.dem = dem
             for stage in wi.STAGES[1:]:
                 setattr(runner, stage, lambda: None)
@@ -109,6 +110,7 @@ class Resume(unittest.TestCase):
                 runner.run()
             self.assertEqual(blocks[0]['status'], 'failed')
             self.assertEqual(blocks[0]['attempts'], 3)
+            self.assertFalse(blocks[0]['scratch_removed'])
             self.assertEqual(blocks[1]['status'], 'done')
 
     def test_download_range_resume(self):
@@ -134,13 +136,158 @@ class Resume(unittest.TestCase):
                 wi.download('https://example.test/a', path, 6)
             self.assertEqual(path.read_bytes(), b'abcdef')
 
+    def test_download_tnm_is_advisory_and_completed_size_is_http(self):
+        class Response(io.BytesIO):
+            status = 200
+            headers = {'Content-Length': '6'}
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'a.tif'
+            with patch('urllib.request.urlopen', return_value=Response(b'abcdef')), patch('wi_blocks.log') as log:
+                wi.download('https://example.test/a', path, 5)
+                self.assertIn('TNM=5, HTTP=6', log.call_args.args[0])
+            with patch('urllib.request.urlopen') as request:
+                self.assertEqual(wi.download('https://example.test/a', path, 5), 0)
+                request.assert_not_called()
+            path.write_bytes(b'abcde')  # Matches TNM, but corrupt against recorded HTTP size.
+            with patch('urllib.request.urlopen', return_value=Response(b'abcdef')) as request:
+                wi.download('https://example.test/a', path, 5)
+                request.assert_called_once()
+            self.assertEqual(path.read_bytes(), b'abcdef')
+
+    def test_truncated_tnm_sized_partial_is_not_promoted(self):
+        class Response(io.BytesIO):
+            status = 200
+            headers = {'Content-Length': '6'}
+        with tempfile.TemporaryDirectory() as d, patch('wi_blocks.time.sleep'), patch('wi_blocks.log'):
+            path = Path(d)/'a.tif'
+            with patch('urllib.request.urlopen', side_effect=lambda *a, **k: Response(b'abcde')):
+                with self.assertRaisesRegex(IOError, 'Truncated'):
+                    wi.download('https://example.test/a', path, 5)
+            self.assertFalse(path.exists())
+
+    def test_invalid_ranges_are_never_appended(self):
+        for headers in ({'Content-Range': 'bytes 2-5/6'}, {'Content-Range': 'bytes 3-6/6'},
+                        {'Content-Range': 'bytes 3-5/6', 'Content-Length': '4'}):
+            with self.subTest(headers=headers), tempfile.TemporaryDirectory() as d, patch('wi_blocks.time.sleep'):
+                path = Path(d)/'a.tif'
+                part = path.with_suffix('.tif.partial')
+                part.write_bytes(b'abc')
+                def response(*args, **kwargs):
+                    result = io.BytesIO(b'def')
+                    result.status, result.headers = 206, headers
+                    return result
+                with patch('urllib.request.urlopen', side_effect=response), self.assertRaises(IOError):
+                    wi.download('https://example.test/a', path, 6)
+                self.assertEqual(part.read_bytes(), b'abc')
+                self.assertFalse(path.exists())
+
+    def test_verified_partial_survives_interruption_before_rename(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'a.tif'
+            path.with_suffix('.tif.partial').write_bytes(b'abcdef')
+            wi.atomic_json(path.with_suffix('.tif.http.json'), dict(url='https://example.test/a', total=6, complete=True))
+            with patch('urllib.request.urlopen') as request:
+                wi.download('https://example.test/a', path, 5)
+                request.assert_not_called()
+            self.assertEqual(path.read_bytes(), b'abcdef')
+
+    def test_unverified_full_partial_restarts_instead_of_looping_on_416(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'a.tif'
+            path.with_suffix('.tif.partial').write_bytes(b'abcdef')
+            wi.atomic_json(path.with_suffix('.tif.http.json'), dict(url='https://example.test/a', total=6, complete=False))
+            response = io.BytesIO(b'abcdef')
+            response.status, response.headers = 200, {'Content-Length': '6'}
+            reserve = Mock()
+            with patch('urllib.request.urlopen', return_value=response) as request:
+                wi.download('https://example.test/a', path, reserve=reserve)
+                self.assertNotIn('Range', request.call_args.args[0].headers)
+            reserve.assert_called_once_with(6)
+            self.assertEqual(path.read_bytes(), b'abcdef')
+
+    def test_dem_preflight_and_source_reservation_precede_download(self):
+        from shapely.geometry import box, mapping
+        block = dict(id='b9-127-184', geometry=mapping(box(-90.5, 44.5, -90.4, 44.6)))
+        with tempfile.TemporaryDirectory() as d:
+            runner = wi.Runner(Path(d), {'blocks': [block]})
+            runner.block, runner.stage = block, {}
+            dem = runner.paths()/'dem'
+            dem.mkdir()
+            wi.atomic_json(dem/'catalog.json', [dict(downloadURL='https://example.test/a.tif', sizeInBytes=10_000_000_000)])
+            with patch.object(runner, 'wait_disk') as wait, patch.object(runner, 'guard'), \
+                    patch('wi_blocks.disk_bytes', return_value=1_000_000_000), patch('wi_blocks.log'), \
+                    patch('wi_blocks.download', side_effect=TimeoutError) as download:
+                with self.assertRaises(TimeoutError):
+                    runner.dem()
+            self.assertEqual(wait.call_args_list[0].args, (4_500_000_000+wi.STAGE_HEADROOM,))
+            self.assertEqual(wait.call_args_list[1].args, (20_000_000_000,))
+            download.assert_called_once()
+
+    def test_scratch_cap_waits_without_deleting_checkpoint(self):
+        with tempfile.TemporaryDirectory() as d:
+            runner = wi.Runner(Path(d), {'blocks': []})
+            checkpoint = runner.work/'checkpoint'
+            checkpoint.write_text('keep')
+            with patch('wi_blocks.disk_bytes', side_effect=[wi.MAX_SCRATCH, 1]), \
+                    patch('wi_blocks.shutil.disk_usage', return_value=Mock(free=100*1024**3)), \
+                    patch('wi_blocks.time.sleep') as sleep, patch('wi_blocks.log'):
+                runner.wait_disk()
+            sleep.assert_called_once_with(600)
+            self.assertEqual(checkpoint.read_text(), 'keep')
+
+    def test_transient_errors_retain_checkpoint_without_failure_budget(self):
+        block = dict(id='b9-127-184', status='pending', km2=1, attempts=0, stages={})
+        with tempfile.TemporaryDirectory() as d:
+            runner = wi.Runner(Path(d), {'blocks': [block]})
+            checkpoint = runner.work/'checkpoint'
+            checkpoint.write_text('merged DEM')
+            failures = iter([OSError('network'), TimeoutError('timeout'),
+                             __import__('subprocess').CalledProcessError(1, ['chm.py']), None])
+            def dem():
+                self.assertEqual(checkpoint.read_text(), 'merged DEM')
+                error = next(failures)
+                if error:
+                    raise error
+            runner.dem = dem
+            for stage in wi.STAGES[1:]:
+                setattr(runner, stage, lambda: None)
+            with patch('wi_blocks.time.sleep'), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                runner.run()
+            self.assertEqual(block['status'], 'done')
+            self.assertEqual(block['attempts'], 0)
+
+    def test_disk_wait_stops_only_owned_process_and_rechecks(self):
+        import signal
+        with tempfile.TemporaryDirectory() as d:
+            runner = wi.Runner(Path(d), {'blocks': []})
+            runner.stage = {}
+            process = Mock(pid=12345)
+            process.poll.return_value = None
+            usage = [Mock(free=wi.MIN_FREE+100), Mock(free=wi.MIN_FREE+2000)]
+            with patch('wi_blocks.shutil.disk_usage', side_effect=usage), patch('wi_blocks.os.killpg') as kill, \
+                    patch('wi_blocks.time.sleep') as sleep, patch('wi_blocks.log') as log:
+                runner.wait_disk(1000, process=process)
+            self.assertEqual([c.args for c in kill.call_args_list], [(12345, signal.SIGSTOP), (12345, signal.SIGCONT)])
+            sleep.assert_called_once_with(600)
+            self.assertIn('waiting for disk', log.call_args.args[0])
+            self.assertNotIn('waiting', runner.stage)
+
+    def test_status_reports_progress_disk_and_area_eta(self):
+        blocks = [dict(id='done', status='done', km2=10, stages={'dem': {'seconds': 3600}}),
+                  dict(id='b9-127-184', status='running', km2=20,
+                       stages={'dem': dict(status='running', tiles_done=2, tiles_total=5)})]
+        with tempfile.TemporaryDirectory() as d, contextlib.redirect_stdout(io.StringIO()) as out:
+            wi.status({'blocks': blocks}, Path(d))
+        for expected in ('1/2 done', 'GiB free', 'GiB scratch', 'ETA: 2.0 h', 'b9-127-184 dem: 2/5 sources'):
+            self.assertIn(expected, out.getvalue())
+
     def test_acquisition_not_las_packaging_year(self):
         self.assertEqual(wi.project_year('USGS_LPC_WI_OneidaCo_2013_LAS_2019'), 2013)
         self.assertEqual(wi.project_year('WI_12County_9_B22'), 2022)
         self.assertEqual(wi.project_year('MN_FullState'), 0)
 
-    def test_interrupted_stage_counts_attempt(self):
-        block = dict(id='b8-63-92', status='running', km2=1, attempts=0,
+    def test_interrupted_stage_keeps_failure_budget(self):
+        block = dict(id='b9-127-184', status='running', km2=1, attempts=0,
                      stages={'dem': {'status': 'running'}})
         with tempfile.TemporaryDirectory() as d:
             runner = wi.Runner(Path(d), {'blocks': [block]})
@@ -148,16 +295,16 @@ class Resume(unittest.TestCase):
                 setattr(runner, stage, lambda: None)
             with contextlib.redirect_stdout(io.StringIO()):
                 runner.run()
-            self.assertEqual(block['attempts'], 1)
+            self.assertEqual(block['attempts'], 0)
             self.assertEqual(block['status'], 'done')
 
 
 class Prefix(unittest.TestCase):
     def test_prefix(self):
-        self.assertEqual(wi.block_version('b8-63-92'), 'v2/b8-63-92')
-        for version in ('v1', 'v2', 'v9999', 'v2/b8-63-92'):
+        self.assertEqual(wi.block_version('b9-127-184'), 'v2/b9-127-184')
+        for version in ('v1', 'v2', 'v9999', 'v2/b9-127-184'):
             self.assertTrue(upload.valid_version(version))
-        for version in ('v1/b8-63-92', 'v2/../v1', 'v2/b8-256-92', 'v0', 'v2/b8-1-2/part-001'):
+        for version in ('v1/b9-127-184', 'v2/../v1', 'v2/b9-512-184', 'v0', 'v2/b9-1-2/part-001'):
             self.assertFalse(upload.valid_version(version))
         with self.assertRaises(ValueError):
             wi.block_version('../v1')

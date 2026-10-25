@@ -33,8 +33,8 @@ def _wrangler(*args):
 
 
 def valid_version(version):
-    return bool(re.fullmatch(r'v[1-9]\d{0,3}(?:/b8-(?:\d{1,3})-(?:\d{1,3}))?', version)) and (
-        '/' not in version or (version.startswith('v2/') and all(0 <= int(v) < 256 for v in version.split('-')[1:])))
+    return bool(re.fullmatch(r'v[1-9]\d{0,3}(?:/b9-(?:\d{1,3})-(?:\d{1,3}))?', version)) and (
+        '/' not in version or (version.startswith('v2/') and all(0 <= int(v) < 512 for v in version.split('-')[1:])))
 
 
 def main(name, version, archive):
@@ -50,7 +50,7 @@ def main(name, version, archive):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         existing = wrangler('r2', 'object', 'get', prefix + 'manifest.json', '--file', tmp / 'old.json', '--remote', check=False)
-        if existing.returncode == 0 and os.environ.get('UPLOAD_RESUME') == '1' and version.startswith('v2/b8-'):
+        if existing.returncode == 0 and os.environ.get('UPLOAD_RESUME') == '1' and version.startswith('v2/b9-'):
             old = json.loads((tmp / 'old.json').read_text())
             with archive.open('rb') as stream:
                 digest = hashlib.file_digest(stream, 'sha256').hexdigest()

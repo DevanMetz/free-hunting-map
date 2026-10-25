@@ -195,27 +195,27 @@ it('keys archive readers by name and version on the same R2 binding', async () =
   expect((await call('/tiles/trails/v2/1/0/0.mvt', binding)).status).toBe(503);
 });
 
-it('serves lidar v2 from per-z8 block archives and falls back to v1 for missing blocks', async () => {
-  for (const name of ['lidar-slope', 'lidar-chm']) for (const v of ['v1', 'v2/b8-61-90']) await bucket.delete(`${name}/${v}/manifest.json`);
-  // z9 tiles 122,180 / 123,180 lie in z8 block 61,90.
-  const id = tileId(9, 122, 180);
+it('serves lidar v2 from per-z9 block archives and falls back to v1 for missing blocks', async () => {
+  for (const name of ['lidar-slope', 'lidar-chm']) for (const v of ['v1', 'v2/b9-122-180']) await bucket.delete(`${name}/${v}/manifest.json`);
+  // z10 tiles 244,360 / 245,360 lie in z9 block 122,180.
+  const id = tileId(10, 244, 360);
   const block = fixture(true, false, tileBytes, id); block[99] = 4;
-  await upload(block, 'lidar-slope', 'v2/b8-61-90');
+  await upload(block, 'lidar-slope', 'v2/b9-122-180');
   const clark = fixture(false, false, secondTile, tileId(9, 120, 182)); clark[99] = 4;
   const binding = await upload(clark, 'lidar-slope');
-  const hit = await call('/tiles/lidar-slope/v2/9/122/180.webp', binding);
+  const hit = await call('/tiles/lidar-slope/v2/10/244/360.webp', binding);
   expect(hit.status).toBe(200);
   expect(hit.headers.get('Cache-Control')).toContain('immutable');
   expect(new Uint8Array(await hit.arrayBuffer())).toEqual(tileBytes);
-  expect((await call(`/tiles/lidar-slope/v2/9/${122 + 1}/180.webp`, binding)).status).toBe(200);
+  expect((await call(`/tiles/lidar-slope/v2/10/${244 + 1}/360.webp`, binding)).status).toBe(200);
   const fallback = await call('/tiles/lidar-slope/v2/9/120/182.webp', binding);
   expect(fallback.status).toBe(200);
   expect(fallback.headers.get('Cache-Control')).toBe('public, max-age=600');
   expect(new Uint8Array(await fallback.arrayBuffer())).toEqual(secondTile);
   const empty = await call('/tiles/lidar-slope/v2/9/100/100.webp', binding);
   expect([empty.status, empty.headers.get('Cache-Control')]).toEqual([204, 'public, max-age=600']);
-  expect((await call('/tiles/lidar-slope/v2/7/60/45.webp', binding)).status).toBe(204);
-  expect((await call('/tiles/lidar-chm/v2/9/122/180.webp', binding)).status).toBe(204);
+  expect((await call('/tiles/lidar-slope/v2/8/60/45.webp', binding)).status).toBe(204);
+  expect((await call('/tiles/lidar-chm/v2/10/244/360.webp', binding)).status).toBe(204);
   expect((await call('/tiles/lidar-slope/v2.pmtiles', binding)).status).toBe(404);
-  expect(await (await call('/tiles/lidar-slope/v2.json', binding)).json()).toMatchObject({ format: 'webp', minzoom: 8, tiles: [`${origin}/tiles/lidar-slope/v2/{z}/{x}/{y}.webp`] });
+  expect(await (await call('/tiles/lidar-slope/v2.json', binding)).json()).toMatchObject({ format: 'webp', minzoom: 9, tiles: [`${origin}/tiles/lidar-slope/v2/{z}/{x}/{y}.webp`] });
 });
