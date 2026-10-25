@@ -74,7 +74,7 @@ Motor Vehicle Use Maps and roads), BLM (Ground Transportation Linear Features),
 NPS (trails), and USGS (National Digital Trails).
 Attribution: USFS, BLM, NPS, USGS trails (public domain).
 Source agency, unit, source dataset and source date are retained in tile properties
-where available. The tiles are served from the same-origin /tiles/trails/v1/ route.
+where available. The tiles are served from the same-origin /tiles/trails/v2/ route.
 
 The in-repo PMTiles v3 reader implements the published format specification:
 https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md

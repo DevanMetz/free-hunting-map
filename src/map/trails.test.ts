@@ -7,7 +7,7 @@ describe('public trails', () => {
   it.each(['topo', 'satellite', 'streets'] as const)('has valid cased styles on %s with distinct classes and MVUM priority', basemap => {
     const layers = trailLayers(true, basemap);
     expect(validateStyleMin({ version: 8, sources: { [TRAILS_SOURCE]: trailsSource() }, layers })).toEqual([]);
-    expect(trailsSource()).toMatchObject({ maxzoom: 14, tiles: ['/tiles/trails/v1/{z}/{x}/{y}.mvt'] });
+    expect(trailsSource()).toMatchObject({ maxzoom: 14, tiles: ['/tiles/trails/v2/{z}/{x}/{y}.mvt'] });
     const byId = new Map(layers.map(layer => [layer.id, layer]));
     const line = (type: string) => byId.get(`public-trails-${type}`)!;
     expect(new Set(['foot', 'horse', 'bike', 'ohv', 'snow', 'road'].map(type => line(type).paint?.['line-color'])).size).toBe(6);

@@ -76,7 +76,7 @@ def request(url, params=None, method='GET'):
             r = urllib.request.urlopen(urllib.request.Request(url, method=method, headers={'User-Agent': 'FreeHuntingMap-trails/1.0'}), timeout=60)
             return r
         except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-            if isinstance(exc, urllib.error.HTTPError) and 400 <= exc.code < 500 and exc.code != 429:
+            if isinstance(exc, urllib.error.HTTPError) and 400 <= exc.code < 500 and exc.code not in (403, 429):
                 raise
             if attempt == 4:
                 raise
@@ -286,7 +286,7 @@ def normalize_properties(src, properties, date=''):
 
 def disk_guard(work):
     size = sum(p.stat().st_size for p in work.rglob('*') if p.is_file())
-    if size >= 7.5 * 1024 ** 3 or shutil.disk_usage(work).free < 1024 ** 3:
+    if size >= float(os.environ.get('TRAILS_DISK_GIB', '7.5')) * 1024 ** 3 or shutil.disk_usage(work).free < 1024 ** 3:
         raise RuntimeError(f'Disk budget reached ({size / 1024**3:.2f} GiB work); regional upload remains available')
 
 
@@ -615,18 +615,21 @@ def length_km(geometry):
     return total
 
 
-def normalize(args):
+def normalize(args, raw_dir=None, ownership=None, excluded_boundary=None):
     init_geometry()
     folder = args.work / args.region
     output = folder / 'trails.geojsonl'
     index_path = folder / 'index.sqlite'
     index_path.unlink(missing_ok=True)
     index = LineIndex(index_path)
-    clip = box(*REGIONS[args.region])
-    stats = {'region':args.region, 'bounds':list(REGIONS[args.region]), 'sources':{}, 'excluded':collections.Counter()}
+    clip = box(*REGIONS.get(args.region, REGIONS['lower48']))
+    if ownership is not None:
+        from shapely import prepare
+        prepare(ownership)
+    stats = {'region':args.region, 'bounds':list(ownership.bounds if ownership is not None else REGIONS[args.region]), 'sources':{}, 'excluded':collections.Counter()}
     seen = set()
     def raw(src):
-        paths = sorted((folder / 'raw').glob(src + '-*.jsonl.gz'))
+        paths = sorted((raw_dir or folder / 'raw').glob(src + '-*.jsonl.gz'))
         paths = [path for path in paths if path.with_suffix('.done.json').exists()]
         bulk = [path for path in paths if path.name.endswith('-bulk.jsonl.gz')]
         if bulk:
@@ -650,23 +653,34 @@ def normalize(args):
             if g.length <= 0:
                 continue
             geo = transform(backward, g)
-            # Stable 6-decimal coordinates are ample for ~20m dedup tolerance.
-            coords = [[round(x,6),round(y,6)] for x,y,*_ in geo.coords]
-            coords = [p for i,p in enumerate(coords) if i == 0 or p != coords[i-1]]
-            if len(coords) < 2:
-                continue
-            geometry = {'type':'LineString','coordinates':coords}
-            sig = hashlib.sha256(compact([props, sorted([coords,list(reversed(coords))])[0]]).encode()).digest()
-            if sig in seen:
-                stats['excluded'][props['src'] + ':exact'] += 1
-                continue
-            seen.add(sig)
-            minzoom = 10 if props['type'] == 'road' else (7 if props.get('mvum') or props['type'] == 'ohv' else 8)
-            f.write(compact({'type':'Feature','properties':props,'geometry':geometry,'tippecanoe':{'minzoom':minzoom,'maxzoom':14}}) + '\n')
-            s = stats['sources'].setdefault(props['src'], {'features':0,'km':0,'types':collections.Counter()})
-            s['features'] += 1; s['km'] += length_km(geo); s['types'][props['type']] += 1
-            if agency:
-                index.add('agency',g)
+            if ownership is not None:
+                if agency:
+                    index.add('agency', g)
+                if not ownership.covers(geo):
+                    geo = geo.intersection(ownership)
+                if excluded_boundary is not None and not geo.is_empty:
+                    geo = geo.difference(excluded_boundary)
+            for emitted in lines(geo):
+                write_line(emitted, g, props, f, agency)
+
+    def write_line(geo, g, props, f, agency):
+        # Stable 6-decimal coordinates are ample for ~20m dedup tolerance.
+        coords = [[round(x,6),round(y,6)] for x,y,*_ in geo.coords]
+        coords = [p for i,p in enumerate(coords) if i == 0 or p != coords[i-1]]
+        if len(coords) < 2:
+            return
+        geometry = {'type':'LineString','coordinates':coords}
+        sig = hashlib.sha256(compact([props, sorted([coords,list(reversed(coords))])[0]]).encode()).digest()
+        if sig in seen:
+            stats['excluded'][props['src'] + ':exact'] += 1
+            return
+        seen.add(sig)
+        minzoom = 10 if props['type'] == 'road' else (7 if props.get('mvum') or props['type'] == 'ohv' else 8)
+        f.write(compact({'type':'Feature','properties':props,'geometry':geometry,'tippecanoe':{'minzoom':minzoom,'maxzoom':14}}) + '\n')
+        s = stats['sources'].setdefault(props['src'], {'features':0,'km':0,'types':collections.Counter()})
+        s['features'] += 1; s['km'] += length_km(geo); s['types'][props['type']] += 1
+        if agency and ownership is None:
+            index.add('agency',g)
     with output.with_suffix('.partial').open('w', encoding='utf-8') as f:
         # MVUM goes into a temporary spatial index first; it is emitted only
         # after NFS geometry has absorbed its overlapping designated segments.
@@ -752,35 +766,47 @@ def run(command, work=None, **kw):
             raise
 
 
-def tiles(args):
+def tile_ranges(args):
+    """Build the pilot's disjoint zoom ranges; caller owns their lifecycle."""
     folder = args.work / args.region
     temp = folder / 'tile-tmp'; temp.mkdir(exist_ok=True)
-    env = {**os.environ, 'TIPPECANOE_MAX_THREADS':'4'}
+    env = {**os.environ, 'TIPPECANOE_MAX_THREADS':os.environ.get('TIPPECANOE_MAX_THREADS','2')}
     common = ['tippecanoe','--force','--layer=trails','--name=Public trails', '--attribution='+ATTRIBUTION, '--simplification=2', '--buffer=8', '--no-progress-indicator', '--temporary-directory='+str(temp)]
     try:
-        # Separate zoom ranges ensure that no density dropping or coalescing
-        # can ever propagate into z12+.
         for low,high,name,options in [(6,11,'low',['--drop-densest-as-needed']), (12,14,'high',['--no-feature-limit','--no-tile-size-limit'])]:
             disk_guard(args.work)
             run(common + ['-Z'+str(low),'-z'+str(high),'-o',folder/(name+'.pmtiles')] + options + [folder/'trails.geojsonl'], env=env, work=args.work)
-        run(['tile-join','--force','--no-tile-size-limit','--no-tile-stats','-o',folder/'trails.pmtiles',folder/'low.pmtiles',folder/'high.pmtiles'], env=env, work=args.work)
-        # tile-join infers the first populated zoom (7/8/10). The public
-        # source contract starts at z6 even when those tiles are empty. This
-        # fixed-size header field does not change offsets or tile contents.
-        with (folder/'trails.pmtiles').open('r+b') as f:
-            if f.read(8) != b'PMTiles\x03':
-                raise RuntimeError('Expected PMTiles v3 output')
-            f.seek(100); f.write(bytes([6])); f.seek(0)
-            header = f.read(127)
-            if header[:8] != b'PMTiles\x03' or header[100:102] != bytes([6,14]):
-                raise RuntimeError('Unexpected PMTiles format/zoom range')
-            metadata_offset, metadata_length = struct.unpack_from('<QQ',header,24)
-            f.seek(metadata_offset); payload=f.read(metadata_length)
-            if header[97] == 2:
-                payload=gzip.decompress(payload)
-            meta=json.loads(payload)
-            if [l['id'] for l in meta['vector_layers']] != ['trails']:
-                raise RuntimeError('Expected exactly one trails vector layer')
+    finally:
+        shutil.rmtree(temp,ignore_errors=True)
+
+
+def check_archive(archive):
+    # tile-join infers the first populated zoom; the contract starts at z6.
+    with archive.open('r+b') as f:
+        if f.read(8) != b'PMTiles\x03':
+            raise RuntimeError('Expected PMTiles v3 output')
+        f.seek(100); f.write(bytes([6])); f.seek(0)
+        header = f.read(127)
+        if header[100:102] != bytes([6,14]):
+            raise RuntimeError('Unexpected PMTiles zoom range')
+        metadata_offset, metadata_length = struct.unpack_from('<QQ',header,24)
+        f.seek(metadata_offset); payload=f.read(metadata_length)
+        if header[97] == 2:
+            payload=gzip.decompress(payload)
+        meta=json.loads(payload)
+        if [l['id'] for l in meta['vector_layers']] != ['trails']:
+            raise RuntimeError('Expected exactly one trails vector layer')
+        if meta.get('name') != 'Public trails' or meta.get('attribution') != ATTRIBUTION:
+            raise RuntimeError('Unexpected archive name/attribution')
+    return meta
+
+
+def tiles(args):
+    folder = args.work / args.region
+    try:
+        tile_ranges(args)
+        run(['tile-join','--force','--no-tile-size-limit','--no-tile-stats','-o',folder/'trails.pmtiles',folder/'low.pmtiles',folder/'high.pmtiles'], env={**os.environ, 'TIPPECANOE_MAX_THREADS':'2'}, work=args.work)
+        check_archive(folder/'trails.pmtiles')
         size = (folder/'trails.pmtiles').stat().st_size
         stats = json.loads((folder/'stats.json').read_text())
         stats['archiveBytes'] = size
@@ -791,7 +817,6 @@ def tiles(args):
     finally:
         for name in ['low.pmtiles','high.pmtiles']:
             (folder/name).unlink(missing_ok=True)
-        shutil.rmtree(temp,ignore_errors=True)
 
 
 def wrangler(*args, check=True, capture=False):
@@ -821,7 +846,15 @@ def upload(args):
     try:
         with archive.open('rb') as f:
             for i in range(manifest['parts']):
-                part.write_bytes(f.read(PART_SIZE))
+                # Bound Python memory independently of the fixed R2 part size.
+                remaining = min(PART_SIZE, size - i * PART_SIZE)
+                with part.open('wb') as out:
+                    while remaining:
+                        block = f.read(min(8 * 1024 * 1024, remaining))
+                        if not block:
+                            raise RuntimeError('Archive truncated during upload')
+                        out.write(block)
+                        remaining -= len(block)
                 wrangler('r2','object','put',PREFIX+f'part-{i:03}','--file',part,'--remote','--content-type','application/octet-stream')
         # Publish after ALL parts. Stable keys mean replacement is not atomic
         # for clients reading an old cached manifest; see README deployment note.
@@ -852,7 +885,8 @@ def main():
     parser.add_argument('--region',choices=REGIONS,default='wi')
     parser.add_argument('--version',default='v2',help='R2 data version prefix (trails/vN/); use a new N for every build')
     parser.add_argument('--work',type=Path,default=Path('/workspace/trails-build/work'))
-    args=parser.parse_args(); args.work=args.work.resolve(); args.work.mkdir(parents=True,exist_ok=True)
+    parser.add_argument('--disk-budget-gib', type=float, default=float(os.environ.get('TRAILS_DISK_GIB','7.5')))
+    args=parser.parse_args(); os.environ['TRAILS_DISK_GIB']=str(args.disk_budget_gib); args.work=args.work.resolve(); args.work.mkdir(parents=True,exist_ok=True)
     if args.command=='all':
         for command in [download,normalize,tiles,upload]:
             command(args)
