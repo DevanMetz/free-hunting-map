@@ -6,7 +6,7 @@ import { encode } from '../src/community/codec';
 import { tileXY,type Scan } from '../src/community/geometry';
 const mf=new Miniflare(convertV4MiniflareOptions({workers:[{name:'community',modules:true,script:'export default {fetch(){return new Response("ok")}}',compatibilityDate:'2026-10-13',d1Databases:['DB'],r2Buckets:['TILES']}]}));
 let env:Env;const origin='http://localhost:8787';
-const scan=(offset=0):Scan=>({model:'v4',day:new Date().toISOString().slice(0,10),area:[-90.01,39.99,-89.99,40.01],lines:[{confidence:.8,coordinates:[[-90+offset,40],[-89.999+offset,40]]}]});
+const scan=(offset=0):Scan=>({model:'v4',day:new Date(Date.now()).toISOString().slice(0,10),area:[-90.01,39.99,-89.99,40.01],lines:[{confidence:.8,coordinates:[[-90+offset,40],[-89.999+offset,40]]}]});
 const call=(path:string,body?:unknown,extra:Record<string,string>={})=>worker.fetch(new Request(origin+path,{method:body===undefined?'GET':'POST',headers:{origin,'content-type':'application/json',...extra},...(body===undefined?{}:{body:JSON.stringify(body)})}),env);
 beforeAll(async()=>{const db=await mf.getD1Database('DB','community');for(const name of ['0001_cloud_sync','0002_usage','0003_community_trails','0004_community_hikes'])await db.exec(readFileSync(`migrations/${name}.sql`,'utf8').replace(/\n/g,' '));env={TILES:await mf.getR2Bucket('TILES','community') as unknown as R2Bucket,DB:db as unknown as D1Database,COMMUNITY_ADMIN_TOKEN:'test-secret',ASSETS:{fetch:async()=>new Response('SPA')} as Fetcher};});
 beforeEach(()=>{vi.spyOn(Date,'now').mockReturnValue(1792843200000);});

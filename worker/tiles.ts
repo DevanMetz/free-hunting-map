@@ -15,6 +15,11 @@ const ARCHIVES: Record<string, Archive> = {
   'topo-1970s': raster('Historic topos 1969–1984', 'USGS Historical Topographic Map Collection (public domain)', 10, 16),
 };
 const IMMUTABLE = 'public, max-age=31536000, immutable';
+const LIDAR = /^lidar-(?:lrm|openness|hillshade|slope|chm)$/;
+/** Lidar v2+ is published as one archive per z8 tile (`<name>/<version>/b8-<x>-<y>/`) so coverage grows block by block. */
+export const BLOCK_ZOOM = 8;
+const blocked = (name: string, version: string) => LIDAR.test(name) && version !== 'v1';
+const SHORT = 'public, max-age=600';
 const readers = new WeakMap<R2Bucket, Map<string, Promise<PMTiles | null>>>();
 async function reader(bucket: R2Bucket, name: string, version: string): Promise<PMTiles | null> {
   const key = `${name}/${version}`;
@@ -70,7 +75,26 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
       return request.method === 'HEAD' ? new Response(null, { status: cached.status, headers: cached.headers }) : cached;
     }
   }
+  const headers0 = new Headers({ 'Cache-Control': SHORT });
   try {
+    if (blocked(name, version) && !raw) {
+      if (tilejson) {
+        headers0.set('Content-Type', 'application/json');
+        return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: archive.title, format: 'webp', tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.webp`], minzoom: BLOCK_ZOOM, maxzoom: archive.maxzoom, attribution: archive.attribution }), { headers: headers0 });
+      }
+      if (z < BLOCK_ZOOM) return new Response(null, { status: 204, headers: headers0 });
+      const shift = z - BLOCK_ZOOM;
+      // Blocks not yet published fall back to the v1 (Clark County) archive.
+      const pm = bucket ? await reader(bucket, name, `${version}/b8-${x >>> shift}-${y >>> shift}`) ?? await reader(bucket, name, 'v1') : null;
+      const bytes = pm ? await pm.tile(z, x, y) : null;
+      if (!pm || pm.archive.prefix.endsWith('/v1/')) {
+        // Not cached at the edge: the block may land later.
+        headers0.set('Content-Type', archive.contentType);
+        return new Response(request.method === 'HEAD' || !bytes ? null : new Uint8Array(bytes).buffer, { status: bytes ? 200 : 204, headers: headers0 });
+      }
+      return await finishTile(request, pm, bytes, archive, `${z}-${x}-${y}`, cache, cacheKey, ctx);
+    }
+    if (blocked(name, version)) return new Response('Not found', { status: 404 });
     const pm = bucket ? await reader(bucket, name, version) : null;
     if (!pm) return new Response(archive.ext === 'mvt' ? 'Trails unavailable' : 'Terrain unavailable', { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
     const { manifest } = pm.archive;
@@ -96,16 +120,21 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
       headers.set('Content-Type', 'application/json');
       return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: archive.title, ...(archive.ext === 'webp' ? { format: 'webp' } : {}), tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.${archive.ext}`], minzoom: archive.minzoom, maxzoom: archive.maxzoom, bounds: manifest.bounds, attribution: archive.attribution, ...(archive.layer ? { vector_layers: [{ id: archive.layer, fields: name === 'trails' ? { type: 'String', src: 'String', agency: 'String' } : {} }] } : {}) }), { headers });
     }
-    const bytes = await pm.tile(z, x, y);
-    headers.set('Content-Type', archive.contentType);
-    const response = new Response(bytes ? new Uint8Array(bytes).buffer : null, { status: bytes ? 200 : 204, headers });
-    if (cache && request.method === 'GET') {
-      const put = cache.put(cacheKey, response.clone());
-      if (ctx) ctx.waitUntil(put); else await put;
-    }
-    return request.method === 'HEAD' ? new Response(null, { status: response.status, headers }) : response;
+    return await finishTile(request, pm, await pm.tile(z, x, y), archive, `${z}-${x}-${y}`, cache, cacheKey, ctx);
   } catch (error) {
     console.error('Tile request failed', error);
     return new Response(archive.ext === 'mvt' ? 'Trails unavailable' : 'Terrain unavailable', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' } });
   }
+}
+
+async function finishTile(request: Request, pm: PMTiles, bytes: Uint8Array | null, archive: Archive, id: string, cache: Cache | undefined, cacheKey: Request, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
+  const etag = `"${pm.archive.manifest.sha256}-${id}"`;
+  const headers = new Headers({ 'Cache-Control': IMMUTABLE, ETag: etag, 'Content-Type': archive.contentType });
+  if (unchanged(request, etag)) return new Response(null, { status: 304, headers });
+  const response = new Response(bytes ? new Uint8Array(bytes).buffer : null, { status: bytes ? 200 : 204, headers });
+  if (cache && request.method === 'GET') {
+    const put = cache.put(cacheKey, response.clone());
+    if (ctx) ctx.waitUntil(put); else await put;
+  }
+  return request.method === 'HEAD' ? new Response(null, { status: response.status, headers }) : response;
 }
