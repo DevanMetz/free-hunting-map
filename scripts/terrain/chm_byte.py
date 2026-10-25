@@ -15,8 +15,8 @@ def main(src, dst, top=40.0):
         prof.update(dtype='uint8', nodata=255, predictor=2, compress='deflate', tiled=True,
                     blockxsize=512, blockysize=512, bigtiff='yes')
         with rasterio.open(dst, 'w', **prof) as d:
-            for r in range(0, s.height, 2048):
-                win = Window(0, r, s.width, min(2048, s.height - r))
+            for r in range(0, s.height, 256):
+                win = Window(0, r, s.width, min(256, s.height - r))
                 a = s.read(1, window=win)
                 b = np.where(np.isfinite(a), np.round(np.clip(a / top, 0, 1) * 254), 255).astype('uint8')
                 d.write(b, 1, window=win)

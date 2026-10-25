@@ -7,6 +7,7 @@ Palettes are applied later by tile.py. Run on a multi-core VM (Colab CPU).
   python derive.py /content/dem/mosaic.vrt /content/out
 """
 import math, os, sys
+from pathlib import Path
 os.environ.setdefault("NUMBA_NUM_THREADS", "1")
 from concurrent.futures import ProcessPoolExecutor
 import numpy as np
@@ -15,7 +16,7 @@ from rasterio.windows import Window
 from scipy.ndimage import gaussian_filter, uniform_filter
 from numba import njit, prange
 
-BLOCK, PAD = 5000, 40
+BLOCK, PAD = int(os.environ.get('BLOCK', '2500')), 40
 NODATA = 255
 LRM_WINDOW, LRM_RANGE, LRM_SMOOTH = 21, 0.6, 1.5  # metres
 OPEN_RADIUS, OPEN_LO, OPEN_HI = 15, 78.0, 93.0  # pixels (1 m), degrees
@@ -63,6 +64,15 @@ def scale(v, lo, hi, gamma=1.0):
 
 def block(args):
     src_path, out, bx, by = args
+    checkpoint = Path(out)/'done'/f'b_{bx:03d}_{by:03d}'
+    if os.environ.get('DEM_CONSUME') and checkpoint.exists():
+        return (bx, by)
+    def done():
+        if os.environ.get('DEM_CONSUME'):
+            checkpoint.parent.mkdir(parents=True, exist_ok=True)
+            tmp = checkpoint.with_suffix('.tmp')
+            tmp.write_text('done\n')
+            os.replace(tmp, checkpoint)
     with rasterio.open(src_path) as src:
         W, H = src.width, src.height
         x0, y0 = bx * BLOCK, by * BLOCK
@@ -71,6 +81,7 @@ def block(args):
         rx1, ry1 = min(W, x0 + w + PAD), min(H, y0 + h + PAD)
         dem = src.read(1, window=Window(rx0, ry0, rx1 - rx0, ry1 - ry0), masked=True)
         if dem.mask.all():
+            done()
             return None
         res = src.res[0]
         profile = src.profile
@@ -110,6 +121,7 @@ def block(args):
         os.makedirs(f'{out}/{name}', exist_ok=True)
         with rasterio.open(f'{out}/{name}/b_{bx:03d}_{by:03d}.tif', 'w', **profile) as dst:
             dst.write(np.where(m, arr[sl], NODATA), 1)
+    done()
     return (bx, by)
 
 
@@ -118,7 +130,13 @@ if __name__ == '__main__':
     with rasterio.open(src_path) as src:
         nx, ny = math.ceil(src.width / BLOCK), math.ceil(src.height / BLOCK)
     jobs = [(src_path, out, bx, by) for by in range(ny) for bx in range(nx)]
-    workers = int(os.environ.get('WORKERS', os.cpu_count() or 4))
+    workers = min(3, max(1, int(os.environ.get('WORKERS', '2'))))
     with ProcessPoolExecutor(workers) as ex:
         for i, r in enumerate(ex.map(block, jobs)):
             print(f'{i + 1}/{len(jobs)} {r}', flush=True)
+            if os.environ.get('DEM_CONSUME') and (i+1) % nx == 0:
+                row = i // nx
+                # Row r+1's halo can read row r, but never row r-1.
+                if row >= 1:
+                    for path in Path(os.environ['DEM_CONSUME']).glob(f'dem_*_{row-1:03d}.tif'):
+                        path.unlink(missing_ok=True)
