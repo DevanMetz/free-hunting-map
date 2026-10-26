@@ -40,7 +40,8 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
   box-shadow: 0 -2px 12px #0006;
   z-index: 5;
 }
-.maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right { bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
+/* Outrank MapLibre's control positioning regardless of CSS import order. */
+#map .maplibregl-ctrl-bottom-left, #map .maplibregl-ctrl-bottom-right { bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
 @media (min-width: 760px) {
   .toolbar {
     left: auto;
@@ -54,7 +55,7 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
     border-radius: var(--radius);
     box-shadow: 0 4px 18px #0007;
   }
-  .maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right { bottom: 0; }
+  #map .maplibregl-ctrl-bottom-left, #map .maplibregl-ctrl-bottom-right { bottom: 0; }
 }
 
 .icon-btn {
