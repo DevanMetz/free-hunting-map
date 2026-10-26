@@ -1,6 +1,6 @@
 /** Public vote hiding: negative votes must exceed positive votes by this margin. */
 export const HIDE_MARGIN = 2;
-export const TRAIL_TYPES = ['logging road / two-track', 'foot / game trail', 'ATV', 'skid trail', 'fire break', 'ditch / other non-trail'] as const;
+export const TRAIL_TYPES = ['logging road / two-track', 'foot / game trail', 'game trail', 'hiking path', 'ATV', 'skid trail', 'fire break', 'ditch / other non-trail'] as const;
 export type TrailType = typeof TRAIL_TYPES[number];
 export interface Vote { id: string; vote: 'real' | 'not' | null; type: TrailType | null }
 export function validateVote(raw: unknown): Vote & { token: string } {
