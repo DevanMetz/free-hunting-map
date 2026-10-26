@@ -323,6 +323,9 @@ canvas[data-lidar-drawing] { touch-action: none; }
 .layers-panel { display: flex; flex-direction: column; gap: 10px; }
 .layers-panel button, .layers-panel a, .layers-panel input { touch-action: manipulation; }
 .layers-panel :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.layer-search { display: flex; align-items: center; gap: 4px; }
+.layer-search-input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 9px; }
+.layer-search-empty { padding: 8px; }
 .basemap-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 3px; }
 .basemap-thumb { border: 1px solid var(--line); border-radius: 9px; padding: 0; overflow: hidden; background: var(--bg); cursor: pointer; }
 .basemap-thumb img { display: block; width: 100%; height: 48px; object-fit: cover; }

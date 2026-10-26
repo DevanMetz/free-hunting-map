@@ -86,7 +86,38 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
     activeButton.textContent = `Active (${count})`; clear.disabled = count === 0;
   });
 
+  let query = '';
+  const search = h('input', { type: 'text', class: 'layer-search-input', placeholder: 'Search layers', 'aria-label': 'Search layers', oninput: () => applySearch(), onkeydown: (event: Event) => {
+    if ((event as KeyboardEvent).key === 'Escape' && search.value) { event.stopPropagation(); clearSearch(); }
+  } });
+  const searchClear = iconButton('close', 'Clear search', () => { clearSearch(); search.focus(); });
+  const searchBar = h('div', { class: 'layer-search' }, search, searchClear);
   const categories = h('div', { class: 'layer-categories' });
+  const empty = h('div', { class: 'layer-search-empty', hidden: true }, 'No layers');
+  const searchRows = new Map<string, HTMLElement>();
+  const searchCollapsed = new Set<string>();
+  const clearSearch = () => { search.value = ''; applySearch(); };
+  const applySearch = () => {
+    query = search.value.trim().toLowerCase();
+    searchCollapsed.clear();
+    searchClear.hidden = !search.value;
+    let matches = 0;
+    for (const category of layerRegistry.categories()) {
+      const entry = rendered.get(category.id);
+      if (!entry) continue;
+      let count = 0;
+      for (const def of category.layers) {
+        const row = searchRows.get(def.id);
+        const match = !query || [category.name, def.name, def.id.replace(/-/g, ' '), def.info ?? '', ...(def.variants?.map(v => v.label) ?? [])].some(value => value.toLowerCase().includes(query));
+        if (row) row.hidden = !match;
+        if (match) count++;
+      }
+      entry.rows.parentElement!.hidden = count === 0;
+      matches += count;
+    }
+    empty.hidden = !query || matches > 0;
+    refresh();
+  };
   const rendered = new Map<string, { rows: HTMLElement; update: () => void }>();
   const renderedLayers = new Set<string>();
   const renderEntries = () => {
@@ -96,7 +127,9 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
         const rows = h('div', { id: `layer-category-${category.id}`, class: 'layer-category-rows' });
         const count = h('span', { class: 'layer-count', 'aria-hidden': 'true' });
         const disclosure = iconButton('next', `${category.name} layers`, () => {
-          ctx.map.setCategoryCollapsed(category.id, !rows.hidden); close(); persist(); refresh();
+          if (query) { if (rows.hidden) searchCollapsed.delete(category.id); else searchCollapsed.add(category.id); }
+          else { ctx.map.setCategoryCollapsed(category.id, !rows.hidden); persist(); }
+          close(); refresh();
         }, 'category-disclosure');
         disclosure.setAttribute('aria-controls', rows.id);
         const name = h('span', { class: 'category-name' }, category.name);
@@ -113,7 +146,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
         const update = () => {
           const state = current;
           const defs = layerRegistry.layers().filter(d => d.category === category.id);
-          rows.hidden = state.collapsed[category.id] ?? category.id !== 'terrain';
+          rows.hidden = query ? searchCollapsed.has(category.id) : (state.collapsed[category.id] ?? category.id !== 'terrain');
           disclosure.setAttribute('aria-expanded', String(!rows.hidden));
           master.hidden = defs.every(d => d.action);
           master.setAttribute('aria-checked', categoryState(defs, state));
@@ -127,7 +160,8 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
         if (renderedLayers.has(def.id)) continue;
         renderedLayers.add(def.id);
         if (def.action) {
-          entry.rows.append(h('button', { type: 'button', class: 'btn layer-action', disabled: !openTrailFinder, onclick: () => openTrailFinder?.() }, def.name));
+          const action = h('button', { type: 'button', class: 'btn layer-action', disabled: !openTrailFinder, onclick: () => openTrailFinder?.() }, def.name);
+          searchRows.set(def.id, action); entry.rows.append(action);
           continue;
         }
         const input = h('input', { type: 'checkbox', role: 'switch', 'aria-label': def.name, onchange: () => change(def, input.checked) });
@@ -158,18 +192,18 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
               h('span', {}, h('i', { style: `background:${s.color}`, 'aria-hidden': 'true' }), s.label))));
           }
         });
-        entry.rows.append(row);
+        searchRows.set(def.id, row); entry.rows.append(row);
       }
     }
     // Category order remains stable even when a module registers after panel open.
     for (const category of layerRegistry.categories()) categories.append(rendered.get(category.id)!.rows.parentElement!);
-    refresh();
+    applySearch();
   };
   renderEntries();
   const unsubscribe = layerRegistry.subscribe(renderEntries);
   const sharing = h('input', { type: 'checkbox', role: 'switch', checked: true, disabled: true, 'aria-label': 'Share scan results', onchange: () => { void ctx.repo.setCommunitySharing(sharing.checked); } });
   void ctx.repo.communitySharing().then(on => { sharing.checked = on; sharing.disabled = false; }).catch(() => {});
-  const root = h('div', { class: 'layers-panel' }, basemaps, labelControls, activeBar, activeList, categories,
+  const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, labelControls, activeBar, activeList, categories, empty,
     h('footer', { class: 'layers-footer' },
       h('label', { class: 'layer-toggle' }, sharing, 'Share scan results'),
       h('label', { class: 'layer-toggle' }, h('input', { type: 'checkbox', role: 'switch', checked: usageAllowed(), disabled: privacyBlocked(), onchange: (e: Event) => setUsageEnabled((e.target as HTMLInputElement).checked) }), 'Usage analytics'),
