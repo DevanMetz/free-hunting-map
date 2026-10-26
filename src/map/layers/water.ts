@@ -39,6 +39,16 @@ if (!attachNhdIdentify()) {
 }
 registerLayers([
   {
+    id: 'water-occurrence', category: 'water', name: 'Surface water history', swatch: '#bf7fbf', defaultOpacity: 0.85,
+    attribution: '<a href="https://global-surface-water.appspot.com/download">Source: EC JRC/Google</a>',
+    cacheRoute: /^https:\/\/storage\.googleapis\.com\/water-world\/tiles2024\/occurrence\/\d+\/\d+\/\d+\.png$/,
+    cacheStrategy: 'NetworkFirst',
+    legend: [{ color: '#efbfcf', label: '25%' }, { color: '#bf7fbf', label: '50%' },
+      { color: '#6f3fcf', label: '75%' }, { color: '#0000ff', label: '100%' }],
+    source: { kind: 'raster', tileSize: 256, maxzoom: 13,
+      tiles: ['https://storage.googleapis.com/water-world/tiles2024/occurrence/{z}/{x}/{y}.png'] },
+  },
+  {
     id: 'water-springs', category: 'water', name: 'Springs & seeps', swatch: '#73b2ff', minzoom: 12, maxzoom: 20, defaultOpacity: 1,
     attribution: nhdAttribution, cacheRoute: nhdRoute, legend: [{ color: '#73b2ff', label: 'Spring / seep' }],
     source: { kind: 'raster', tileSize: 512, minzoom: 12, maxzoom: 17, tiles: [mapImage(NHD, { layers: 'show:0', layerDefs: JSON.stringify({ 0: 'FTYPE = 458' }) })] },
