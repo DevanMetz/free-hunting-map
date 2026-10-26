@@ -1,0 +1,11 @@
+region,x_fraction,y_fraction,label
+mn,0.15,0.90,field
+mn,0.14,0.36,field
+mn,0.08,0.24,road
+mn,0.45,0.25,forest
+va,0.48,0.35,field
+va,0.82,0.40,field
+va,0.23,0.83,forest
+me,0.89,0.89,developed
+me,0.90,0.07,road
+me,0.40,0.45,forest
