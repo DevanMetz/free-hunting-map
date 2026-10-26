@@ -147,7 +147,7 @@ it('maps known Hilbert coordinates and decodes large varints without 32-bit trun
   expect(() => decodeDirectory(Uint8Array.from([1, 128]))).toThrow();
 });
 
-it.each(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'])('serves %s WebP tiles, ranges and TileJSON independently of trails', async name => {
+it.each(['cuts', 'lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'])('serves %s WebP tiles, ranges and TileJSON independently of trails', async name => {
   const bytes = fixture(true, false); bytes[99] = 4;
   const binding = await upload(bytes, name);
   const tile = await call(`/tiles/${name}/v1/1/0/0.webp`, binding);
@@ -157,7 +157,7 @@ it.each(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar
   expect((await call(`/tiles/${name}/v1/1/1/1.webp`, binding)).status).toBe(204);
   expect((await call(`/tiles/${name}/v1/1/0/0.mvt`, binding)).status).toBe(404);
   expect(await (await call(`/tiles/${name}/v1.json`, binding)).json()).toMatchObject({
-    format: 'webp', minzoom: 8, maxzoom: 16, tiles: [`${origin}/tiles/${name}/v1/{z}/{x}/{y}.webp`],
+    format: 'webp', minzoom: name === 'cuts' ? 5 : 8, maxzoom: name === 'cuts' ? 13 : 16, tiles: [`${origin}/tiles/${name}/v1/{z}/{x}/{y}.webp`],
   });
   const raw = await call(`/tiles/${name}/v1.pmtiles`, binding, { headers: { Range: 'bytes=0-126' } });
   expect(raw.status).toBe(206); expect(new Uint8Array(await raw.arrayBuffer())).toEqual(bytes.slice(0, 127));

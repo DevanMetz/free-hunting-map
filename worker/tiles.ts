@@ -5,6 +5,7 @@ type Archive = { ext: 'mvt' | 'webp'; contentType: string; title: string; attrib
 const vector = (title: string, attribution: string, layer: string, minzoom = 8, maxzoom = 14): Archive => ({ ext: 'mvt', contentType: 'application/vnd.mapbox-vector-tile', title, attribution, minzoom, maxzoom, layer });
 const raster = (title: string, attribution: string, minzoom = 8, maxzoom = 16): Archive => ({ ext: 'webp', contentType: 'image/webp', title, attribution, minzoom, maxzoom });
 const ARCHIVES: Record<string, Archive> = {
+  cuts: raster('Logging cuts', '<a href="https://developers.google.com/earth-engine/datasets/catalog/UMD_hansen_global_forest_change_2025_v1_13">Hansen/UMD/Google/USGS/NASA Global Forest Change, CC BY 4.0</a>', 5, 13),
   trails: vector('Public trails', 'USFS, BLM, NPS, USGS trails (public domain)', 'trails', 6, 14),
   'tiger-trails': vector('Census 4WD roads', 'U.S. Census Bureau TIGER/Line (public domain)', 'tiger'),
   'usfs-closed-roads': vector('Closed forest roads', 'USDA Forest Service (public domain)', 'usfs'),

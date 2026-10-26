@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PART_SIZE = 256 * 1024 * 1024
-NAMES = {'lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'}
+NAMES = {'cuts', 'lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'}
 # Vector (MVT) archives; any topo-<era> name is a WebP raster.
 VECTOR = {'tiger-trails', 'usfs-closed-roads', 'osm-tracks', 'wi-forest-roads'}
 

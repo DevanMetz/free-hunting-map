@@ -4,6 +4,7 @@ import './layers/historicAerials';
 import './layers/historicTopo';
 import './layers/hazards';
 import './layers/agriculture';
+import './layers/cuts';
 import './layers/vegetation';
 import './layers/trails';
 import './layers/tigerRoads';

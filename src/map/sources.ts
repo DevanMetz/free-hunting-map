@@ -104,3 +104,8 @@ export const LIDAR_TILES = Object.fromEntries(
 );
 export const HISTORIC_AERIAL_SERVICE = 'https://dnrmaps.wi.gov/arcgis_image/rest/services/DW_Imagery/EN_Image_Basemap_';
 export const WISCONSIN_BOUNDS: [number, number, number, number] = [-92.89, 42.49, -86.25, 47.31];
+
+/** Hansen GFC v1.13, loss years 2001–2025; immutable lower-48 raster. */
+export const CUTS_TILES = '/tiles/cuts/v1/{z}/{x}/{y}.webp';
+export const CUTS_BOUNDS: [number, number, number, number] = [-124.85, 24.4, -66.85, 49.4];
+export const CUTS_ATTR = '<a href="https://developers.google.com/earth-engine/datasets/catalog/UMD_hansen_global_forest_change_2025_v1_13">Hansen/UMD/Google/USGS/NASA Global Forest Change, CC BY 4.0</a>';
