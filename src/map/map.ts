@@ -18,6 +18,7 @@ import { ParcelLoader } from './parcels';
 import { basemapStyle, type BasemapId } from './sources';
 import { layerRegistry, layerSetting, layerVariant, type LayerDef, type LayerContext, type LayerPreferences } from './layerRegistry';
 import './builtinLayers';
+import './cutsProtocol';
 
 // MapLibre v6 ships its worker as a separate module; point it at the bundled asset.
 setWorkerUrl(workerUrl);

@@ -3,7 +3,7 @@ import type { LayerSpecification } from 'maplibre-gl';
 import { HuntMap } from './map';
 import { loadSettings } from '../ui/settings';
 import { layerRegistry } from './layerRegistry';
-vi.mock('maplibre-gl', () => ({ setWorkerUrl: vi.fn() }));
+vi.mock('maplibre-gl', () => ({ setWorkerUrl: vi.fn(), addProtocol: vi.fn() }));
 it.each(['topo', 'satellite', 'streets'] as const)('lazily installs, orders, restores and adjusts registry layers on %s', async basemap => {
   const state = loadSettings({ basemap });
   let layers: LayerSpecification[] = [];

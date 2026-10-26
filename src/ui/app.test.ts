@@ -9,7 +9,7 @@ import { layerRegistry } from '../map/layerRegistry';
 import { wp } from '../test/fixtures';
 import type { TypeVisibility } from '../organize/model';
 const popupCreated = vi.hoisted(() => vi.fn());
-vi.mock('maplibre-gl', () => ({ setWorkerUrl: vi.fn(), Popup: class {
+vi.mock('maplibre-gl', () => ({ setWorkerUrl: vi.fn(), addProtocol: vi.fn(), Popup: class {
   constructor() { popupCreated(); }
   on() { return this; }
   isOpen() { return false; }
