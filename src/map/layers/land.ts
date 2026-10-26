@@ -3,6 +3,7 @@ import { attributeResult, mapImage, polygonSymbol, queryPoint, text, type Attrib
 
 const PADUS = 'https://edits.nationalmap.gov/arcgis/rest/services/PAD-US/PAD_US_4_1/MapServer';
 const PLSS = 'https://gis.blm.gov/arcgis/rest/services/Cadastral/BLM_Natl_PLSS_CadNSDI/MapServer';
+const SMA = 'https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer';
 const access = [
   { code: 'OA', label: 'Open', rgb: [42, 150, 92], color: '#2a965c' },
   { code: 'RA', label: 'Restricted', rgb: [228, 168, 45], color: '#e4a82d' },
@@ -27,6 +28,24 @@ export function sectionContent(p: Attributes): IdentifyResult | null {
     [['FRSTDIVNO', 'Section'], township ? ['township', 'Township / range'] : ['PLSSID', 'Township ID'], ['FRSTDIVTXT', 'Division']]);
 }
 registerLayers([
+  {
+    id: 'blm-sma', category: 'land', name: 'Surface management', defaultOpacity: 0.7, minzoom: 5, maxzoom: 20,
+    attribution: '<a href="https://www.blm.gov/services/geospatial/GISData">BLM Surface Management Agency</a> · Public domain',
+    legend: [
+      { label: 'BLM', color: '#fee679' }, { label: 'Forest Service', color: '#ccebc5' },
+      { label: 'National Park Service', color: '#cabddc' }, { label: 'Fish and Wildlife', color: '#7fcca7' },
+      { label: 'Bureau of Reclamation', color: '#ffffb3' }, { label: 'Indian Affairs', color: '#fdb46c' },
+      { label: 'Defense', color: '#fbb4ce' }, { label: 'Other federal', color: '#e4c49f' },
+      { label: 'State', color: '#b3e3ee' }, { label: 'Local', color: '#8fb5be' },
+      { label: 'Alaska Native lands', color: '#cf8c4b' }, { label: 'Alaska Native allotment', color: '#895a44' },
+    ],
+    cacheRoute: /^https:\/\/gis\.blm\.gov\/arcgis\/rest\/services\/lands\/BLM_Natl_SMA_Cached_without_PriUnk\/MapServer\/tile\//,
+    source: { kind: 'raster', tileSize: 256, minzoom: 5, maxzoom: 20, tiles: [`${SMA}/tile/{z}/{y}/{x}`] },
+    async identify(lng, lat, signal) {
+      const p = await queryPoint(SMA, 1, lng, lat, ['ADMIN_AGENCY_CODE', 'ADMIN_UNIT_NAME', 'ADMIN_UNIT_TYPE'], signal);
+      return p ? attributeResult('Surface management', p, [['ADMIN_AGENCY_CODE', 'Agency'], ['ADMIN_UNIT_NAME', 'Unit'], ['ADMIN_UNIT_TYPE', 'Type']]) : null;
+    },
+  },
   {
     id: 'padus-access', category: 'land', name: 'Public access', defaultOpacity: 0.85, minzoom: 5, maxzoom: 20,
     attribution: '<a href="https://doi.org/10.5066/P96WBCHS">USGS PAD-US 4.1</a> · Public domain',

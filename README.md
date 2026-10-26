@@ -161,8 +161,7 @@ External endpoints below were verified on 2026-10-22 to return tiles/images or p
 | Historic fire perimeters | `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/InterAgencyFirePerimeterHistory_All_Years_View/FeatureServer/0/query` | NIFC interagency federal public data; [source terms](https://www.arcgis.com/sharing/rest/content/items/e02b85c0ea784ce7bd8add7ae3d293d0?f=pjson). Viewport GeoJSON through 2025, z9–18, decade colors with transparent fill; identify name/year/acres; viewed responses cached. |
 | Weather | `https://api.open-meteo.com/v1/forecast` | [Open-Meteo](https://open-meteo.com): free, no key, for non-commercial use; data CC BY 4.0 (attributed in the conditions panel). |
 | Sun & moon | — | Computed locally with [`suncalc`](https://github.com/mourner/suncalc) (BSD-2-Clause). |
-
-Also verified, but not wired in (fallback if PAD-US is unavailable): BLM Surface Management Agency cached tiles, `https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer/tile/{z}/{y}/{x}` (BLM, public domain).
+| Surface management | `https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer/tile/{z}/{y}/{x}`, `/1/query` | [BLM Surface Management Agency](https://www.blm.gov/services/geospatial/GISData), federal public domain. Cached agency colors; tap for available agency and unit. Off by default; viewed tiles cached offline. Tile and query content types and production-origin CORS verified 2026-10-26. Management boundaries do not establish public access. |
 
 PAD-US is not a legal boundary or access determination. Always confirm land status and hunting regulations with the managing agency.
 
