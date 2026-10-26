@@ -38,7 +38,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
     ctx.map.setLayer(def.id, on);
     if (on && !was) useFeature('data_layer');
     useFeature('layer_toggle');
-    if (def.id === 'public-trails') useFeature('public_trails');
+    if (def.id === 'public-trails' && on && !was) useFeature('public_trails');
   };
   const change = (def: LayerDef, on: boolean) => { set(def, on); persist(); refresh(); };
   const basemaps = h('div', { class: 'basemap-row', role: 'radiogroup', 'aria-label': 'Basemap' });
