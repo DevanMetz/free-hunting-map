@@ -1,0 +1,9 @@
+# Small water pilot
+
+JRC Global Surface Water v1.4 maps Landsat observations through 2021 at 30 m. Its occurrence band summarizes the frequency of observed water across the record; seasonality describes the number of months water is present. It is historical evidence, not a current water forecast. Ponds smaller than a pixel, water under vegetation, and periods without clear observations may be missed. A water pixel alone does not establish access.
+
+The source is available free under the Copernicus data policy with required acknowledgement and citation: [JRC dataset and terms](https://developers.google.com/earth-engine/datasets/catalog/JRC_GSW1_4_GlobalSurfaceWater), Pekel et al., *Nature* 540, 418–422 (2016), doi:10.1038/nature20584. Source metadata reviewed 2026-10-26.
+
+`scripts/small-water/jrc-pilot.py` exports occurrence and seasonality for a 0.2° square in Wisconsin. Earth Engine task `JMD2XJ23E35HRUYMAK6ALFC3` used 0.709 EECU-seconds (0.00020 EECU-hours). This small export is not enough to estimate national cost or establish accuracy. It unmask-fills missing values with zero for exploration; the source masks areas where water was never detected, and its occurrence band has a fractional mask. A production encoding must account for masks and observation coverage rather than treating zero as proof of absence.
+
+A state-sized export is underway for a better cost estimate. Before publishing, choose a representation that preserves missing-data semantics, evaluate whether it adds useful information to existing NHD and wetlands layers in several environments, and measure storage and national processing costs. No layer has been published from this pilot.
