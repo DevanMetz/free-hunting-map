@@ -151,3 +151,5 @@ import './layers/georgiaPublicProperties';
 import './layers/georgiaDesignatedAreas';
 import './layers/westVirginiaWma';
 import './layers/newHampshireWildlifeUnits';
+
+import './layers/montanaWma';
