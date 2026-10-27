@@ -134,5 +134,6 @@ import './layers/ohioDnrLands';
 
 import './layers/arkansasWma';
 import './layers/kentuckyPublicHunting';
+import './layers/iowaPublicHunting';
 
 import './layers/missouriConservationAreas';
