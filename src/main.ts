@@ -25,10 +25,12 @@ async function main(): Promise<void> {
     const [{ repo, settings }, { App }] = await Promise.all([
       local, import('./ui/app'), import('./map/builtinLayers'),
     ]);
-    startCommunityUploads(repo);
-    startCommunityHikes(repo);
     // Votes and settings are ready before the map installs its overlays.
     await App.start(root, repo, settings);
+    // Keep background reconciliation from competing with the initial map and
+    // saved-item reads. Both services immediately flush once started.
+    startCommunityUploads(repo);
+    startCommunityHikes(repo);
   }
   // Ask the browser not to evict our IndexedDB data under storage pressure.
   void navigator.storage?.persist?.();
