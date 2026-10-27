@@ -114,6 +114,8 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
+- **Oklahoma wildlife areas:** [Oklahoma Department of Wildlife Conservation WMA boundaries](https://www.arcgis.com/home/item.html?id=25e889952822414d8431fec19d68e289), October 20, 2026 snapshot. Some areas are still being added; boundaries are informational and do not establish access or ownership. The agency provides an informational-use disclaimer and no explicit reuse license. GeoJSON and CORS verified 2026-10-27.
+
 - **Idaho parcels:** [Public Idaho Parcels](https://www.arcgis.com/home/item.html?id=65a3f7c6d4ca404ba6ab677913953b35), from Idaho ITS and participating counties. County coverage and source dates vary. Published public-use terms disclaim accuracy and restrict use of personal information as mailing or telephone lists; no explicit reuse license identified. GeoJSON and production-origin CORS verified 2026-10-27.
 
 - **Oregon parcels:** [Oregon Water Resources Department tax lots](https://gis.wrd.state.or.us/server/rest/services/tax/Tax_Lots_Public_View_WGS84/FeatureServer/2), from participating counties. Only selected counties permit public viewing; source dates and coverage vary. Public viewing permitted; no explicit reuse license identified. GeoJSON and production-origin CORS verified 2026-10-27.
@@ -432,5 +434,6 @@ When “Trim ends” is on, the client interpolates cuts by along-track distance
 `POST /api/community/hikes/report` accepts `{id,token}` using the same device-local anonymous random token as trail voting. Only its SHA-256 hash is stored. A device can report each hike once; accepted reports are logged. At `HIKE_REPORT_THRESHOLD` (3), hide from public tiles while retaining geometry for moderation/training; exports include hidden/report/override status. All anonymous hike operations have a 60/minute salted IP-hash limit; reports also have a 30/minute device-hash limit. Counters expire separately from community data.
 
 Admin `POST /api/community/hikes/delete` accepts `{id}` or `{bbox:[west,south,east,north]}`. `POST /api/community/hikes/override` accepts `{id,override:"show"|"hide"|null}`. Both require the existing `Authorization: Bearer <COMMUNITY_ADMIN_TOKEN>` secret. Override wins over report hiding; neither override nor delayed uploads revive withdrawn/deleted hikes. Display deletion retains geometry and report history for moderation, excludes it from training export, and keeps duplicate protection. The existing admin NDJSON export now includes `dataset:'hikes',source:'gps_track',label:'positive'` with the selected simplified geometry and public metadata; `scripts/community-export.mjs` additionally writes `hikes.geojson`. No ownership secret or secret hash is exported. Apply **0004_community_hikes.sql** before deployment; 0003 is unchanged. Remote migration and deployment require owner action.
+
 
 
