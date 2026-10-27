@@ -141,3 +141,5 @@ import './layers/missouriConservationAreas';
 import './layers/wisconsinVpa';
 
 import './layers/northCarolinaGameLands';
+
+import './layers/alabamaWma';
