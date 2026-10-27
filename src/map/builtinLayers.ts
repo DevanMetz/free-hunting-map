@@ -206,3 +206,5 @@ import './layers/michiganCommercialForest';
 import './layers/michiganCompletedTreatments';
 
 import './layers/michiganForestCampgrounds';
+
+import './layers/michiganFishingAccess';
