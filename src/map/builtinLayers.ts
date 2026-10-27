@@ -1,3 +1,4 @@
+import './layers/connecticutParcels';
 import './layers/massachusettsParcels';
 import './layers/vermontParcels';
 import './layers/minnesotaParcels';
