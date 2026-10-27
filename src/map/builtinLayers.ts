@@ -240,3 +240,5 @@ import './layers/pennsylvaniaGooseZones';
 import './layers/pennsylvaniaWaterAccess';
 
 import './layers/pennsylvaniaForestTrailAccess';
+
+import './layers/kentuckyElkRegulatedAreas';
