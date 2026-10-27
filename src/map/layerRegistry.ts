@@ -18,6 +18,7 @@ export interface LayerPreferences {
   layers: Record<string, LayerSetting>;
   collapsed: Record<string, boolean>;
   remembered: Record<string, string[]>;
+  layerOrder?: string[];
 }
 export interface IdentifyResult {
   communityHikeId?: string;
@@ -110,4 +111,13 @@ export function toggleCategory(defs: readonly LayerDef[], state: LayerPreference
 
 export function layerVariant(def: LayerDef, id?: string) {
   return def.variants?.find(v => v.id === id) ?? def.variants?.find(v => v.id === def.defaultVariant) ?? def.variants?.[0];
+}
+
+/** Registry order, with explicitly reordered layers placed in their saved slots. */
+export function orderedLayers(state: LayerPreferences): LayerDef[] {
+  const defs = layerRegistry.layers();
+  const byId = new globalThis.Map(defs.map(def => [def.id, def]));
+  const ordered = [...new Set(state.layerOrder ?? [])].flatMap(id => byId.has(id) ? [byId.get(id)!] : []);
+  const included = new Set(ordered.map(def => def.id));
+  return [...defs.filter(def => !included.has(def.id)), ...ordered];
 }

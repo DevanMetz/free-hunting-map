@@ -33,6 +33,7 @@ export function portablePreferences(value: unknown): Record<string, unknown> {
         ? [[id, { on: v.on, ...(typeof v.variant === 'string' && v.variant.length <= 120 ? { variant: v.variant } : {}), opacity: Math.max(0, Math.min(1, v.opacity)) }]] : [];
     }));
   }
+  if (Array.isArray(r.layerOrder)) out.layerOrder = [...new Set(r.layerOrder.filter((id): id is string => typeof id === 'string' && id.length <= 120))].slice(0, 1000);
   if (r.collapsed && typeof r.collapsed === 'object') out.collapsed = Object.fromEntries(Object.entries(r.collapsed).filter(([, v]) => typeof v === 'boolean'));
   if (r.remembered && typeof r.remembered === 'object') out.remembered = Object.fromEntries(Object.entries(r.remembered).flatMap(([id, v]) =>
     Array.isArray(v) ? [[id, v.filter((s): s is string => typeof s === 'string' && s.length <= 120).slice(0, 200)]] : []));

@@ -16,7 +16,7 @@ import { loadIconImage } from './icons';
 import { LABELS_LAYER_PREFIX, LABELS_SOURCE_ID, clampLabelScale, labelLayers, labelTextSizes, labelsSource, roadLineLayers } from './labels';
 import { ParcelLoader } from './parcels';
 import { basemapStyle, type BasemapId } from './sources';
-import { layerRegistry, layerSetting, layerVariant, type LayerDef, type LayerContext, type LayerPreferences } from './layerRegistry';
+import { layerRegistry, layerSetting, layerVariant, orderedLayers, type LayerDef, type LayerContext, type LayerPreferences } from './layerRegistry';
 import './builtinLayers';
 import './cutsProtocol';
 
@@ -81,7 +81,7 @@ export class HuntMap {
 
   get mapState(): MapState {
     return { ...this.state, layers: Object.fromEntries(Object.entries(this.state.layers).map(([id, value]) => [id, { ...value }])),
-      collapsed: { ...this.state.collapsed }, remembered: Object.fromEntries(Object.entries(this.state.remembered).map(([id, ids]) => [id, [...ids]])) };
+      layerOrder: [...(this.state.layerOrder ?? [])], collapsed: { ...this.state.collapsed }, remembered: Object.fromEntries(Object.entries(this.state.remembered).map(([id, ids]) => [id, [...ids]])) };
   }
 
   setBasemap(id: BasemapId): void {
@@ -99,6 +99,11 @@ export class HuntMap {
     const def = layerRegistry.get(id);
     const value = this.state.layers[id] ?? { on: false, opacity: def?.defaultOpacity ?? 1 };
     this.state.layers[id] = { ...value, on };
+    this.syncLayers();
+  }
+
+  setLayerOrder(ids: string[]): void {
+    this.state.layerOrder = [...new Set(ids)];
     this.syncLayers();
   }
 
@@ -164,7 +169,7 @@ export class HuntMap {
       }
     }
     // Turning an earlier category on later still preserves registry order.
-    for (const def of layerRegistry.layers()) for (const id of this.layerIds(def)) if (m.getLayer(id)) m.moveLayer(id, before);
+    for (const def of orderedLayers(this.state)) for (const id of this.layerIds(def)) if (m.getLayer(id)) m.moveLayer(id, before);
   }
 
   private layerIds(def: LayerDef): string[] { return def.layerIds ?? (def.source ? [def.id] : []); }

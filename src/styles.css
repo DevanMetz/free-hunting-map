@@ -342,9 +342,12 @@ canvas[data-lidar-drawing] { touch-action: none; }
 .active-chip { background: var(--panel-2); font-size: 0.9rem; }
 .clear-layers { font-size: 0.9rem; }
 .clear-layers:disabled { opacity: 0.4; cursor: default; }
-.active-layers { display: flex; flex-wrap: wrap; gap: 4px; }
-.active-layer-off { display: flex; align-items: center; gap: 12px; background: var(--bg); font-size: 0.85rem; }
-.active-layer-off span { color: var(--accent); font-size: 1.2rem; }
+.active-layers { display: flex; flex-direction: column; gap: 4px; }
+.active-layer-row { display: flex; align-items: center; background: var(--bg); border-radius: 9px; }
+.active-layer-name { flex: 1; min-width: 0; padding: 8px 10px; font-size: 0.9rem; }
+.active-layer-move:disabled { opacity: 0.3; }
+.move-up svg { transform: rotate(90deg); }
+.move-down svg { transform: rotate(90deg); }
 .layer-category { border-top: 1px solid var(--line); }
 .layer-category-head { display: flex; align-items: center; min-height: 52px; gap: 4px; }
 .category-name { flex: 1; font-size: 0.95rem; font-weight: 600; }

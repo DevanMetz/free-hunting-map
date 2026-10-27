@@ -1,7 +1,7 @@
 import { privacyBlocked, usageAllowed, setUsageEnabled, useFeature } from '../usage';
 import { LABEL_SCALES } from '../map/labels';
 import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
-import { categoryState, layerRegistry, layerSetting, layerVariant, toggleCategory, type LayerDef } from '../map/layerRegistry';
+import { categoryState, layerRegistry, layerSetting, layerVariant, orderedLayers, toggleCategory, type LayerDef } from '../map/layerRegistry';
 import type { AppContext } from './context';
 import { h, iconButton } from './dom';
 import { layerState, stateDistance } from './layerStates';
@@ -68,6 +68,17 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   });
 
   const activeList = h('div', { class: 'active-layers' });
+  const activeRows = new Map<string, HTMLElement>();
+  const move = (def: LayerDef, direction: number) => {
+    const ordered = orderedLayers(ctx.map.mapState).filter(d => !d.action && (d.source || d.layerIds?.length));
+    const visible = ordered.filter(d => layerSetting(ctx.map.mapState, d).on);
+    const index = visible.findIndex(d => d.id === def.id);
+    const other = visible[index + direction];
+    if (!other) return;
+    const a = ordered.indexOf(def), b = ordered.indexOf(other);
+    [ordered[a], ordered[b]] = [ordered[b]!, ordered[a]!];
+    ctx.map.setLayerOrder(ordered.map(d => d.id)); persist(); refresh();
+  };
   const activeButton = h('button', { type: 'button', class: 'active-chip', 'aria-expanded': 'false', 'aria-controls': 'active-layer-list', onclick: () => {
     activeList.hidden = !activeList.hidden; activeButton.setAttribute('aria-expanded', String(!activeList.hidden));
   } });
@@ -85,6 +96,16 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   updates.push(() => {
     const count = layerRegistry.layers().filter(d => !d.action && layerSetting(current, d).on).length;
     activeButton.textContent = `Active (${count})`; clear.disabled = count === 0;
+    const ordered = orderedLayers(current).filter(d => !d.action && layerSetting(current, d).on).reverse();
+    const movable = ordered.filter(d => d.source || d.layerIds?.length);
+    for (const def of ordered) {
+      const row = activeRows.get(def.id);
+      if (!row) continue;
+      const index = movable.indexOf(def);
+      const buttons = row.querySelectorAll<HTMLButtonElement>('.active-layer-move');
+      if (buttons.length) { buttons[0]!.disabled = index <= 0; buttons[1]!.disabled = index < 0 || index === movable.length - 1; }
+      activeList.append(row);
+    }
   });
 
   let center = ctx.map.view().center;
@@ -210,8 +231,12 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
           h('div', { class: 'data-layer-main' }, h('label', { class: 'layer-toggle' }, input,
             def.swatch ? h('span', { class: 'land-swatch', style: `background:${def.swatch}` }) : null,
             h('span', { class: 'layer-name' }, def.name)), info), extra);
-        const quick = h('button', { type: 'button', class: 'active-layer-off', 'aria-label': `Turn off ${def.name}`, onclick: () => change(def, false) }, def.name, h('span', { 'aria-hidden': 'true' }, '×'));
-        activeList.append(quick);
+        const up = iconButton('prev', `Move ${def.name} up`, () => move(def, 1), 'active-layer-move move-up');
+        const down = iconButton('next', `Move ${def.name} down`, () => move(def, -1), 'active-layer-move move-down');
+        const off = iconButton('close', `Turn off ${def.name}`, () => change(def, false));
+        const quick = h('div', { class: 'active-layer-row' }, h('span', { class: 'active-layer-name' }, def.name),
+          ...(def.source || def.layerIds?.length ? [up, down] : []), off);
+        activeRows.set(def.id, quick); activeList.append(quick);
         updates.push(() => {
           const value = layerSetting(current, def);
           input.checked = value.on; extra.hidden = !value.on; quick.hidden = !value.on;

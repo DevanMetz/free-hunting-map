@@ -152,6 +152,7 @@ export class App implements AppContext {
       this.map.setLayer(id, value.on);
       this.map.setLayerOpacity(id, value.opacity);
     }
+    this.map.setLayerOrder(saved.layerOrder ?? []);
     for (const [id, collapsed] of Object.entries(saved.collapsed)) this.map.setCategoryCollapsed(id, collapsed);
     for (const [id, ids] of Object.entries(saved.remembered)) this.map.setCategoryRemembered(id, ids);
     this.map.setTypeVisibility(saved);

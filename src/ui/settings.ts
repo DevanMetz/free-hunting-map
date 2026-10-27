@@ -20,7 +20,7 @@ export function loadSettings(saved: LegacySettings = {}): Settings {
     showPins: saved.showPins !== false, showTrails: saved.showTrails !== false, showRecordings: saved.showRecordings !== false,
     labels: saved.labels ?? true, labelScale: clampLabelScale(saved.labelScale),
     view: saved.view ?? { ...DEFAULT_SETTINGS.view, center: [...DEFAULT_SETTINGS.view.center] },
-    layers: {}, collapsed: { ...saved.collapsed },
+    layers: {}, layerOrder: Array.isArray(saved.layerOrder) ? [...new Set(saved.layerOrder.filter((id): id is string => typeof id === 'string' && id.length <= 120))].slice(0, 1000) : [], collapsed: { ...saved.collapsed },
     remembered: Object.fromEntries(Object.entries(saved.remembered ?? {}).map(([id, ids]) => [id, [...ids]])),
   };
   const legacy = {
