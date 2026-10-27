@@ -3,42 +3,11 @@ import { categoryPicker } from './categoryControls';
 import { fovEditor } from './fovEditor';
 import { sanitizeFov } from '../sync/validate';
 import { useFeature } from '../usage';
-import { ICON_STYLE, iconSvg } from '../map/icons';
+import { displayName, iconPicker } from './itemDisplay';
 import { formatDistance, formatLatLng, pathLength } from '../map/geo';
-import { WAYPOINT_ICONS, type Item, type WaypointIcon } from '../types';
+import { type Item, type WaypointIcon } from '../types';
 import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
-
-export function displayName(item: Item): string {
-  if (item.name) return item.name;
-  return item.kind === 'waypoint' ? ICON_STYLE[item.icon].title : 'Track';
-}
-
-/** Icon picker row shared by the waypoint tool and the edit form. */
-export function iconPicker(selected: WaypointIcon, onPick: (icon: WaypointIcon) => void): HTMLElement & { select(icon: WaypointIcon): void } {
-  const row = h('div', { class: 'icon-picker', role: 'radiogroup', 'aria-label': 'Icon' });
-  const render = (sel: WaypointIcon): void => {
-    row.replaceChildren(
-      ...WAYPOINT_ICONS.map((icon) =>
-        h('button', {
-          type: 'button',
-          class: `icon-choice${icon === sel ? ' selected' : ''}`,
-          role: 'radio',
-          'aria-checked': String(icon === sel),
-          'aria-label': ICON_STYLE[icon].title,
-          title: ICON_STYLE[icon].title,
-          html: iconSvg(icon, 34),
-          onclick: () => {
-            render(icon);
-            onPick(icon);
-          },
-        }),
-      ),
-    );
-  };
-  render(selected);
-  return Object.assign(row, { select: render });
-}
 
 export function openItemPanel(ctx: AppContext, item: Item): void {
   let categoryId = item.categoryId;

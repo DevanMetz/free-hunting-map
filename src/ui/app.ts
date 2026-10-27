@@ -14,7 +14,6 @@ import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
 import { UI_ICONS } from './icons';
 import { openIdentifyPanel } from './identifyPanel';
-import { openItemPanel } from './itemPanel';
 import { Sheet } from './sheet';
 import { lineTool, waypointTool, type Tool } from './tools';
 
@@ -121,8 +120,15 @@ export class App implements AppContext {
 
   openItem(item: Item): void {
     this.setTool(null);
-    openItemPanel(this, item);
+    const loading = h('progress', { 'aria-label': 'Loading item' });
+    this.sheet.open('item', item.name || (item.kind === 'waypoint' ? 'Pin' : 'Track'), loading);
     this.syncToolbar();
+    void import('./itemPanel').then(({ openItemPanel }) => {
+      if (loading.isConnected) openItemPanel(this, item);
+    }).catch(err => {
+      if (loading.isConnected) this.sheet.close();
+      toast(String(err));
+    });
   }
 
   private async reloadItems(): Promise<void> {

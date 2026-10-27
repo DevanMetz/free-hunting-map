@@ -10,7 +10,7 @@ import { startScanner } from '../share/scanner';
 import type { Item } from '../types';
 import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
-import { displayName } from './itemPanel';
+import { displayName } from './itemDisplay';
 
 const QR_CYCLE_MS = 1100;
 

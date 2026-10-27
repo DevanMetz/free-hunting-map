@@ -3,7 +3,7 @@ import { formatDistance, pathLength, roundCoord } from '../map/geo';
 import type { LngLat, Track, Waypoint, WaypointIcon } from '../types';
 import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
-import { iconPicker } from './itemPanel';
+import { iconPicker } from './itemDisplay';
 
 /** An interactive map mode. The App routes map clicks to the active tool. */
 export interface Tool {

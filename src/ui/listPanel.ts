@@ -5,7 +5,7 @@ import { matchRanges, searchItems } from '../organize/search';
 import type { Category, Item } from '../types';
 import type { AppContext } from './context';
 import { h, iconButton } from './dom';
-import { displayName } from './itemPanel';
+import { displayName } from './itemDisplay';
 import { categoryDialog, deleteCategoryDialog, moveDialog } from './categoryControls';
 
 export function openListPanel(ctx: AppContext): void {
