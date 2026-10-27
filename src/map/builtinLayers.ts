@@ -201,3 +201,5 @@ import './layers/nationalWildlifeRefuges';
 import './layers/michiganTimberSales';
 
 import './layers/michiganCommercialForest';
+
+import './layers/michiganCompletedTreatments';
