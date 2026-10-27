@@ -8,6 +8,19 @@ import './styles.css';
 async function main(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) throw new Error('#app missing');
+  // Register the offline shell while the map and local data are loading. This
+  // also leaves registration independent of map initialization failures.
+  let controlled = !!navigator.serviceWorker?.controller;
+  navigator.serviceWorker?.addEventListener('controllerchange', () => {
+    if (controlled) location.reload();
+    controlled = true;
+  });
+  registerSW({ immediate: true, onRegisteredSW(_url, registration) {
+    const update = () => { if (navigator.onLine) void registration?.update().catch(() => {}); };
+    window.addEventListener('online', update);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
+    window.setInterval(update, 60 * 60 * 1000);
+  } });
   if (location.pathname !== '/admin/analytics') startUsage();
   if (location.pathname === '/admin/analytics') await (await import('./ui/analytics')).renderAnalytics(root);
   else {
@@ -36,17 +49,6 @@ async function main(): Promise<void> {
   }
   // Ask the browser not to evict our IndexedDB data under storage pressure.
   void navigator.storage?.persist?.();
-  let controlled = !!navigator.serviceWorker?.controller;
-  navigator.serviceWorker?.addEventListener('controllerchange', () => {
-    if (controlled) location.reload();
-    controlled = true;
-  });
-  registerSW({ immediate: true, onRegisteredSW(_url, registration) {
-    const update = () => { if (navigator.onLine) void registration?.update().catch(() => {}); };
-    window.addEventListener('online', update);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
-    window.setInterval(update, 60 * 60 * 1000);
-  } });
 }
 
 void main();
