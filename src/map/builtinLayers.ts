@@ -131,3 +131,5 @@ import './layers/floridaWma';
 import './layers/tennesseeHuntingLands';
 
 import './layers/ohioDnrLands';
+
+import './layers/arkansasWma';
