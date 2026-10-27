@@ -145,3 +145,5 @@ import './layers/northCarolinaGameLands';
 import './layers/alabamaWma';
 
 import './layers/southCarolinaWma';
+
+import './layers/louisianaManagedLands';
