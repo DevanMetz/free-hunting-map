@@ -108,3 +108,4 @@ import './layers/coloradoWalkIn';
 import './layers/oregonWildlifeUnits';
 
 import './layers/newMexicoGameUnits';
+import './layers/arizonaGameUnits';
