@@ -114,6 +114,7 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
+- **New York parcels:** [NYS Tax Parcels Public](https://www.arcgis.com/home/item.html?id=8af5cef967f8474a9f262684b8908737), from NYS Geospatial Services and contributing counties. Coverage is limited to participating counties; the May 2026 release contains 2025 assessment data and geometry accuracy varies. Public service, no explicit reuse license identified. GeoJSON and production-origin CORS verified 2026-10-27.
 - **Colorado parcels:** [State of Colorado public parcels](https://www.arcgis.com/home/item.html?id=55234e04218f47c9868900e439fcbd5a), aggregated from county and municipal data. Source dates and completeness vary; boundaries are informational. State terms prohibit resale of the dataset and allow application use with attribution. State of Colorado Public addresses were accessed on 2026-10-27 from https://gis.colorado.gov/public/rest/services/Address_and_Parcel. GeoJSON and production-origin CORS verified 2026-10-27.
 
 - **Utah parcels:** [State of Utah SGID statewide parcels](https://gis.utah.gov/products/sgid/cadastre/parcels/) (live GeoJSON). County completeness and update dates vary; ownership type is generalized and parcel boundaries are not surveys. The state states there are no use constraints or warranties and encourages attribution to State of Utah, SGID. GeoJSON and production-origin CORS verified 2026-10-27.
