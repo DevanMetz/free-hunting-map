@@ -1,7 +1,5 @@
-import { startCommunityHikes } from './community/hikes';
 import { startCommunityVotes } from './community/votes';
 import { registerSW } from 'virtual:pwa-register';
-import { startCommunityUploads } from './community/queue';
 import { Repo } from './storage/repo';
 import { startUsage } from './usage';
 import type { Settings } from './ui/settings';
@@ -30,8 +28,10 @@ async function main(): Promise<void> {
       await App.start(root, repo, settings);
     } finally {
       // Start even if map initialization fails; both services flush immediately.
-      startCommunityUploads(repo);
-      startCommunityHikes(repo);
+      void import('./community/queue').then(({ startCommunityUploads }) => startCommunityUploads(repo))
+        .catch(err => console.error('Community uploads could not start:', err));
+      void import('./community/hikes').then(({ startCommunityHikes }) => startCommunityHikes(repo))
+        .catch(err => console.error('Community hikes could not start:', err));
     }
   }
   // Ask the browser not to evict our IndexedDB data under storage pressure.
