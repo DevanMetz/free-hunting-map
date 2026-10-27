@@ -82,8 +82,7 @@ export class App implements AppContext {
     document.addEventListener('sheet-closed', () => this.syncToolbar());
   }
 
-  static async start(root: HTMLElement, repo: Repo): Promise<App> {
-    const saved = await repo.getMeta<Partial<Settings>>('settings');
+  static async start(root: HTMLElement, repo: Repo, saved?: Partial<Settings>): Promise<App> {
     const app = new App(repo, loadSettings(saved), root);
     await app.reloadItems();
     void app.sync.start();

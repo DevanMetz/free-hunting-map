@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { startCommunityUploads } from './community/queue';
 import { Repo } from './storage/repo';
 import { startUsage } from './usage';
+import type { Settings } from './ui/settings';
 import './styles.css';
 
 async function main(): Promise<void> {
@@ -14,14 +15,20 @@ async function main(): Promise<void> {
   else {
     // Fetch the map UI while IndexedDB opens, rather than serializing its large
     // MapLibre and layer dependencies behind local storage initialization.
-    const [repo, { App }] = await Promise.all([
-      Repo.open(), import('./ui/app'), import('./map/builtinLayers'),
+    const local = Repo.open().then(async repo => {
+      const [settings] = await Promise.all([
+        repo.getMeta<Partial<Settings>>('settings'),
+        startCommunityVotes(repo),
+      ]);
+      return { repo, settings };
+    });
+    const [{ repo, settings }, { App }] = await Promise.all([
+      local, import('./ui/app'), import('./map/builtinLayers'),
     ]);
     startCommunityUploads(repo);
     startCommunityHikes(repo);
-    // Votes must be loaded before the map installs its community overlays.
-    await startCommunityVotes(repo);
-    await App.start(root, repo);
+    // Votes and settings are ready before the map installs its overlays.
+    await App.start(root, repo, settings);
   }
   // Ask the browser not to evict our IndexedDB data under storage pressure.
   void navigator.storage?.persist?.();
