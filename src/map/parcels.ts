@@ -28,12 +28,12 @@ export function tilesForBounds([w, s, e, n]: Bounds, z = 14): [number, number][]
   return result;
 }
 
-export function parcelQueryUrl(x: number, y: number, offset = 0, query = PARCELS_QUERY, fields = 'OWNERNME1,OWNERNME2,GISACRES,PARCELID,STATEID'): string {
+export function parcelQueryUrl(x: number, y: number, offset = 0, query = PARCELS_QUERY, fields = 'OWNERNME1,OWNERNME2,GISACRES,PARCELID,STATEID', orderField = 'OBJECTID'): string {
   const params = new URLSearchParams({
     where: '1=1', geometry: tileBounds(14, x, y).map(v => v.toFixed(6)).join(','),
     geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
     outFields: fields, returnGeometry: 'true',
-    outSR: '4326', geometryPrecision: '6', orderByFields: 'OBJECTID',
+    outSR: '4326', geometryPrecision: '6', orderByFields: orderField,
     resultOffset: String(offset), resultRecordCount: '2000', f: 'geojson',
   });
   return `${query}?${params}`;
@@ -56,7 +56,7 @@ export class ParcelLoader {
   private tiles = new globalThis.Map<string, Feature[]>();
   private pending = new Set<string>();
   private active = 0;
-  constructor(private map: Map, private source = 'parcels', private query = PARCELS_QUERY, private fields?: string, private extent?: Bounds) {
+  constructor(private map: Map, private source = 'parcels', private query = PARCELS_QUERY, private fields?: string, private extent?: Bounds, private orderField = 'OBJECTID') {
     map.on('moveend', () => { this.failedThisView.clear(); this.schedule(); });
     map.on('remove', () => clearTimeout(this.timer));
   }
@@ -97,7 +97,7 @@ export class ParcelLoader {
     const features: Feature[] = [];
     for (let page = 0; page < 5; page++) {
       if (!this.enabled || this.map.getZoom() < 13) throw new Error('Parcels paused');
-      const response = await fetch(parcelQueryUrl(x, y, page * 2000, this.query, this.fields));
+      const response = await fetch(parcelQueryUrl(x, y, page * 2000, this.query, this.fields, this.orderField));
       if (!response.ok) throw new Error('Parcel request failed');
       const data = await response.json() as FeatureCollection & { exceededTransferLimit?: boolean; properties?: { exceededTransferLimit?: boolean } };
       if (!Array.isArray(data.features)) throw new Error('Invalid parcels');
