@@ -156,3 +156,5 @@ import './layers/montanaWma';
 import './layers/newMexicoDesignatedAreas';
 
 import './layers/usgsTopoQuads';
+
+import './layers/usfsRecreation';

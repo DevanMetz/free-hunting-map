@@ -122,6 +122,7 @@ External endpoints below were verified on 2026-10-22 to return tiles/images or p
 
 | Layer | Endpoint | License / terms |
 |---|---|---|
+| USFS trailheads & campgrounds | `https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_RecInfraRecreationSites_02/MapServer/0/query` | [USDA Forest Service recreation sites](https://www.arcgis.com/home/item.html?id=84b9f46debfa4694950ad42175e82ff8); federal data, no explicit reuse license identified. Site status and access may change; check agency details. Viewed queries cached. Verified 2026-10-27: GeoJSON and production-origin CORS. |
 | USGS topo quadrangles | `https://index.nationalmap.gov/arcgis/rest/services/USTopoAvailability/MapServer/0/query` | [USGS The National Map](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits), public domain. 7.5-minute index, names and map codes; viewed queries cached. Verified 2026-10-27: GeoJSON and CORS `*`. |
 | USGS Topo | `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}` | USGS The National Map; public domain, attribution requested. |
 | USGS Imagery | `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}` | USGS The National Map orthoimagery (USDA NAIP); public domain, attribution requested. |
