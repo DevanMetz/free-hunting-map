@@ -234,3 +234,5 @@ import './layers/pennsylvaniaShootingRanges';
 import './layers/pennsylvaniaGameAccess';
 
 import './layers/pennsylvaniaDuckZones';
+
+import './layers/pennsylvaniaGooseZones';
