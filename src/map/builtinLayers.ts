@@ -236,3 +236,5 @@ import './layers/pennsylvaniaGameAccess';
 import './layers/pennsylvaniaDuckZones';
 
 import './layers/pennsylvaniaGooseZones';
+
+import './layers/pennsylvaniaWaterAccess';
