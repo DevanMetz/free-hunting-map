@@ -114,6 +114,8 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
+- **Colorado parcels:** [State of Colorado public parcels](https://www.arcgis.com/home/item.html?id=55234e04218f47c9868900e439fcbd5a), aggregated from county and municipal data. Source dates and completeness vary; boundaries are informational. State terms prohibit resale of the dataset and allow application use with attribution. State of Colorado Public addresses were accessed on 2026-10-27 from https://gis.colorado.gov/public/rest/services/Address_and_Parcel. GeoJSON and production-origin CORS verified 2026-10-27.
+
 - **Utah parcels:** [State of Utah SGID statewide parcels](https://gis.utah.gov/products/sgid/cadastre/parcels/) (live GeoJSON). County completeness and update dates vary; ownership type is generalized and parcel boundaries are not surveys. The state states there are no use constraints or warranties and encourages attribution to State of Utah, SGID. GeoJSON and production-origin CORS verified 2026-10-27.
 
 - **North Dakota parcels:** [North Dakota GIS Hub statewide parcels](https://www.arcgis.com/home/item.html?id=ac6da1176038457db16e8debe3f1abaf), contributed by counties. Rural parcels are the focus; cities and public lands can be missing, and update dates vary. Boundaries are informational, not surveys. The published terms specify limitations and disclaimers; no explicit reuse license is identified. GeoJSON and CORS verified 2026-10-27.
