@@ -27,18 +27,21 @@ async function main(): Promise<void> {
     // Fetch the map UI while IndexedDB opens, rather than serializing its large
     // MapLibre and layer dependencies behind local storage initialization.
     const local = Repo.open().then(async repo => {
+      const items = Promise.all([repo.list(), repo.categories()] as const);
+      // The UI may still be downloading when an IndexedDB read fails.
+      void items.catch(() => {});
       const [settings] = await Promise.all([
         repo.getMeta<Partial<Settings>>('settings'),
         startCommunityVotes(repo),
       ]);
-      return { repo, settings };
+      return { repo, settings, items };
     });
-    const [{ repo, settings }, { App }] = await Promise.all([
+    const [{ repo, settings, items }, { App }] = await Promise.all([
       local, import('./ui/app'), import('./map/builtinLayers'),
     ]);
     // Votes and settings are ready before the map installs its overlays.
     try {
-      await App.start(root, repo, settings);
+      await App.start(root, repo, settings, items);
     } finally {
       // Start even if map initialization fails; both services flush immediately.
       void import('./community/queue').then(({ startCommunityUploads }) => startCommunityUploads(repo))

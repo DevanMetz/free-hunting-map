@@ -81,9 +81,9 @@ export class App implements AppContext {
     document.addEventListener('sheet-closed', () => this.syncToolbar());
   }
 
-  static async start(root: HTMLElement, repo: Repo, saved?: Partial<Settings>): Promise<App> {
+  static async start(root: HTMLElement, repo: Repo, saved?: Partial<Settings>, initialItems?: Promise<[Item[], Category[]]>): Promise<App> {
     const app = new App(repo, loadSettings(saved), root);
-    await app.reloadItems();
+    await app.reloadItems(initialItems);
     void app.sync.start();
     return app;
   }
@@ -128,9 +128,9 @@ export class App implements AppContext {
     });
   }
 
-  private async reloadItems(): Promise<void> {
+  private async reloadItems(initialItems?: Promise<[Item[], Category[]]>): Promise<void> {
     const version = ++this.reloadVersion;
-    const [items, categories] = await Promise.all([this.repo.list(), this.repo.categories()]);
+    const [items, categories] = await (initialItems ?? Promise.all([this.repo.list(), this.repo.categories()]));
     if (version !== this.reloadVersion) return;
     this.liveItems = items;
     this.liveCategories = categories;
