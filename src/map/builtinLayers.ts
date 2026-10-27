@@ -265,3 +265,4 @@ import './layers/tennesseeDoveFields';
 
 import './layers/tennesseeWmaHorseTrails';
 import './layers/tennesseeWaterfowlPools';
+import './layers/tennesseeFishAttractors';
