@@ -38,7 +38,6 @@ import './layers/wiForestRoads';
 import './layers/community';
 import { registerLayers, type IdentifyResult } from './layerRegistry';
 import { PUBLIC_LANDS, publicLandExportUrl } from './publicLands';
-import { identifyDeer, identifyPublicLand, parcelContent } from './inspect';
 import { CACHE_ROUTES } from './cacheRoutes';
 import { DEER_EXPORT, DEER_ATTR, NHD_TILES, NHD_ATTR, NWI_EXPORT, NWI_ATTR, PARCELS_ATTR, HILLSHADE_ATTR, HILLSHADE_EXPORT, PADUS_ATTR, SLOPE_EXPORT, ASPECT_EXPORT } from './sources';
 
@@ -49,7 +48,7 @@ registerLayers([
     id: `padus-${c.id}`, category: 'land' as const, name: c.label, swatch: c.color, info: c.info,
     defaultOpacity: 1, minzoom: 5, attribution: PADUS_ATTR, cacheRoute: CACHE_ROUTES.padus,
     source: { kind: 'raster' as const, tiles: [publicLandExportUrl(c)], tileSize: 256, minzoom: 5 },
-    identify: async (lng: number, lat: number, signal: AbortSignal) => result(await identifyPublicLand(lng, lat, [c.id], signal)),
+    identify: async (lng: number, lat: number, signal: AbortSignal) => result(await (await import('./inspect')).identifyPublicLand(lng, lat, [c.id], signal)),
   })),
   {
     id: 'parcels', category: 'land', name: 'Parcels (WI)', swatch: '#b0306a', defaultOpacity: 0.8,
@@ -71,12 +70,12 @@ registerLayers([
     async identify(_lng, _lat, _signal, map, point) {
       if (!map.getLayer('parcels-fill')) return null;
       const feature = map.queryRenderedFeatures(point, { layers: ['parcels-fill'] })[0];
-      return feature ? result(parcelContent(feature.properties)) : null;
+      return feature ? result((await import('./inspect')).parcelContent(feature.properties)) : null;
     },
   },
   { id: 'deer-units', category: 'land', name: 'Deer units (WI DNR)', defaultOpacity: 0.8, minzoom: 6,
     attribution: DEER_ATTR, source: { kind: 'raster', tiles: [DEER_EXPORT] }, cacheRoute: CACHE_ROUTES.deer,
-    identify: async (lng, lat, signal) => result(await identifyDeer(lng, lat, signal)) },
+    identify: async (lng, lat, signal) => result(await (await import('./inspect')).identifyDeer(lng, lat, signal)) },
   { id: 'water-nhd', category: 'water', name: 'Streams & lakes', swatch: '#509ccc', defaultOpacity: 1,
     attribution: NHD_ATTR, source: { kind: 'raster', tiles: [NHD_TILES], maxzoom: 16 }, cacheRoute: CACHE_ROUTES.nhd },
   { id: 'water-nwi', category: 'water', name: 'Wetlands', swatch: '#609d71', defaultOpacity: 0.7, minzoom: 11,
