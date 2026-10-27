@@ -152,6 +152,7 @@ import './layers/michiganTurkeyUnits';
 import './layers/michiganElkUnits';
 import './layers/michiganBearUnits';
 import './layers/michiganWaterfowlUnits';
+import './layers/michiganParkHunting';
 
 import './layers/pennsylvaniaWildlifeUnits';
 
