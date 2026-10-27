@@ -98,3 +98,5 @@ import './layers/montanaDistricts';
 import './layers/montanaBlockManagement';
 
 import './layers/coloradoBigGameUnits';
+
+import './layers/idahoGameUnits';
