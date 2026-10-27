@@ -153,3 +153,4 @@ import './layers/westVirginiaWma';
 import './layers/newHampshireWildlifeUnits';
 
 import './layers/montanaWma';
+import './layers/newMexicoDesignatedAreas';
