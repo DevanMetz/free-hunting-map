@@ -113,3 +113,5 @@ import './layers/arizonaGameUnits';
 import './layers/washingtonGameUnits';
 
 import './layers/nevadaHuntUnits';
+
+import './layers/utahCwmu';
