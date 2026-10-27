@@ -151,6 +151,7 @@ import './layers/michiganDeerUnits';
 import './layers/michiganTurkeyUnits';
 import './layers/michiganElkUnits';
 import './layers/michiganBearUnits';
+import './layers/michiganWaterfowlUnits';
 
 import './layers/pennsylvaniaWildlifeUnits';
 
