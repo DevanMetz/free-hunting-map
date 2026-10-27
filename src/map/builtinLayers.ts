@@ -149,3 +149,4 @@ import './layers/southCarolinaWma';
 import './layers/louisianaManagedLands';
 import './layers/georgiaPublicProperties';
 import './layers/georgiaDesignatedAreas';
+import './layers/westVirginiaWma';
