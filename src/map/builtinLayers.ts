@@ -218,3 +218,5 @@ import './layers/oklahomaShootingRanges';
 import './layers/oklahomaCampingAreas';
 
 import './layers/oklahomaWildlifeAreas';
+
+import './layers/oklahomaFoodPlots';
