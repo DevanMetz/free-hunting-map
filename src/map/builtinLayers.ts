@@ -260,3 +260,4 @@ import './layers/northCarolinaBoatingAccess';
 import './layers/northCarolinaGameRoads';
 
 import './layers/tennesseeBoatingAccess';
+import './layers/tennesseeWmaEntrances';
