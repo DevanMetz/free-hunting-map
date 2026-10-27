@@ -122,6 +122,7 @@ import './layers/montanaDistricts';
 import './layers/montanaBlockManagement';
 
 import './layers/coloradoBigGameUnits';
+import './layers/coloradoBighornUnits';
 
 import './layers/idahoGameUnits';
 
