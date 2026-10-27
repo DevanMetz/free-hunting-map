@@ -66,20 +66,28 @@ export interface LayerDef {
 export class LayerRegistry {
   private definitions = new globalThis.Map<string, LayerDef>();
   private listeners = new Set<() => void>();
+  private ordered: LayerDef[] | undefined;
   registerLayer(def: LayerDef): void {
     if (this.definitions.has(def.id)) throw new Error(`Layer already registered: ${def.id}`);
     if (!def.id || !LAYER_CATEGORIES.some(c => c.id === def.category)) throw new Error(`Invalid layer: ${def.id}`);
     if (!Number.isFinite(def.defaultOpacity) || def.defaultOpacity < 0 || def.defaultOpacity > 1) throw new Error(`Invalid opacity: ${def.id}`);
     this.definitions.set(def.id, def);
+    this.ordered = undefined;
     for (const listener of this.listeners) listener();
   }
   registerLayers(defs: readonly LayerDef[]): void { for (const def of defs) this.registerLayer(def); }
   get(id: string): LayerDef | undefined { return this.definitions.get(id); }
   layers(): LayerDef[] {
-    return LAYER_CATEGORIES.flatMap(c => [...this.definitions.values()].filter(d => d.category === c.id));
+    if (!this.ordered) {
+      const groups = new globalThis.Map<CategoryId, LayerDef[]>(LAYER_CATEGORIES.map(c => [c.id, []]));
+      for (const def of this.definitions.values()) groups.get(def.category)!.push(def);
+      this.ordered = LAYER_CATEGORIES.flatMap(c => groups.get(c.id)!);
+    }
+    return [...this.ordered];
   }
   categories(): (typeof LAYER_CATEGORIES[number] & { layers: LayerDef[] })[] {
-    return LAYER_CATEGORIES.map(c => ({ ...c, layers: this.layers().filter(d => d.category === c.id) })).filter(c => c.layers.length);
+    const layers = this.layers();
+    return LAYER_CATEGORIES.map(c => ({ ...c, layers: layers.filter(d => d.category === c.id) })).filter(c => c.layers.length);
   }
   cacheRoutes(strategy: 'CacheFirst' | 'NetworkFirst' = 'CacheFirst'): RegExp[] {
     return [...new Set(this.layers().flatMap(d => d.cacheRoute && (d.cacheStrategy ?? 'CacheFirst') === strategy ? [d.cacheRoute] : []))];
