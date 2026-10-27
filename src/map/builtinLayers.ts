@@ -137,3 +137,5 @@ import './layers/kentuckyPublicHunting';
 import './layers/iowaPublicHunting';
 
 import './layers/missouriConservationAreas';
+
+import './layers/wisconsinVpa';
