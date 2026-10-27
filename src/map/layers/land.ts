@@ -3,6 +3,7 @@ import { attributeResult, mapImage, polygonSymbol, queryPoint, text, type Attrib
 
 const PADUS = 'https://edits.nationalmap.gov/arcgis/rest/services/PAD-US/PAD_US_4_1/MapServer';
 const PLSS = 'https://gis.blm.gov/arcgis/rest/services/Cadastral/BLM_Natl_PLSS_CadNSDI/MapServer';
+const ROADLESS = 'https://apps.fs.usda.gov/ArcX/rest/services/EDW/EDW_InventoriedRoadlessAreas2001IdCo_01/MapServer';
 const SMA = 'https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer';
 const access = [
   { code: 'OA', label: 'Open', rgb: [42, 150, 92], color: '#2a965c' },
@@ -28,6 +29,18 @@ export function sectionContent(p: Attributes): IdentifyResult | null {
     [['FRSTDIVNO', 'Section'], township ? ['township', 'Township / range'] : ['PLSSID', 'Township ID'], ['FRSTDIVTXT', 'Division']]);
 }
 registerLayers([
+  {
+    id: 'usfs-roadless', category: 'land', name: 'Inventoried roadless areas', swatch: '#ffaa00',
+    defaultOpacity: 0.8, minzoom: 5, maxzoom: 20,
+    attribution: '<a href="https://www.fs.usda.gov/managing-land/planning/roadless">US Forest Service</a> · Public domain',
+    legend: [{ label: 'Inventoried roadless area', color: '#ffaa00' }],
+    cacheRoute: /^https:\/\/apps\.fs\.usda\.gov\/ArcX\/rest\/services\/EDW\/EDW_InventoriedRoadlessAreas2001IdCo_01\/MapServer\/export\?/,
+    source: { kind: 'raster', tileSize: 512, minzoom: 5, maxzoom: 17, tiles: [mapImage(ROADLESS, {})] },
+    async identify(lng, lat, signal) {
+      const p = await queryPoint(ROADLESS, 0, lng, lat, ['roadlessareaname', 'rule', 'forestname'], signal);
+      return p ? attributeResult('Inventoried roadless area', p, [['roadlessareaname', 'Area'], ['rule', 'Rule'], ['forestname', 'Forest']]) : null;
+    },
+  },
   {
     id: 'blm-sma', category: 'land', name: 'Surface management', defaultOpacity: 0.7, minzoom: 5, maxzoom: 20,
     attribution: '<a href="https://www.blm.gov/services/geospatial/GISData">BLM Surface Management Agency</a> · Public domain',
