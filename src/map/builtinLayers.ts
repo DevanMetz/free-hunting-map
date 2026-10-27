@@ -262,3 +262,5 @@ import './layers/northCarolinaGameRoads';
 import './layers/tennesseeBoatingAccess';
 import './layers/tennesseeWmaEntrances';
 import './layers/tennesseeDoveFields';
+
+import './layers/tennesseeWmaHorseTrails';
