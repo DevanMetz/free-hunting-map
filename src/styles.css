@@ -367,6 +367,9 @@ canvas[data-lidar-drawing] { touch-action: none; }
 .data-layer-main .layer-toggle { flex: 1; font-size: 0.94rem; }
 .layer-name { overflow-wrap: anywhere; }
 .land-swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; }
+.layer-details { flex: none; }
+.layer-details svg { width: 18px; height: 18px; }
+.layer-details[aria-expanded='true'] svg { transform: rotate(90deg); }
 .layer-extra { padding: 0 4px 8px 29px; }
 .layer-extra select { min-height: 44px; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .layer-extra input[type='range'] { display: block; width: 100%; min-height: 44px; margin: 0; accent-color: var(--accent); }

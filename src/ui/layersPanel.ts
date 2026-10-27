@@ -218,7 +218,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
           continue;
         }
         const input = h('input', { type: 'checkbox', role: 'switch', 'aria-label': def.name, onchange: () => change(def, input.checked) });
-        const extra = h('div', { class: 'layer-extra', hidden: true });
+        const extra = h('div', { id: `layer-settings-${def.id}`, class: 'layer-extra', hidden: true });
         let initialized = false;
         const slider = h('input', { type: 'range', min: 0, max: 1, step: 0.01, 'aria-label': `${def.name} opacity`, oninput: () => {
           ctx.map.setLayerOpacity(def.id, Number(slider.value)); persist();
@@ -227,10 +227,26 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
           ctx.map.setLayerVariant(def.id, variants!.value); persist(); refresh();
         } }, ...def.variants.map(v => h('option', { value: v.id }, v.label))) : null;
         const info = def.info ? iconButton('info', `${def.name} info`, () => show(info!, def.info!)) : null;
+        const details = iconButton('next', `${def.name} settings`, () => {
+          extra.hidden = !extra.hidden;
+          details.setAttribute('aria-expanded', String(!extra.hidden));
+          if (!extra.hidden && !initialized) {
+            initialized = true;
+            if (variants) extra.append(variants);
+            extra.append(slider);
+            if (typeof def.legend === 'string') extra.append(h('img', { class: 'layer-legend-image', src: def.legend, alt: `${def.name} legend`, loading: 'lazy' }));
+            else if (def.legend) extra.append(h('div', { class: 'layer-legend', 'aria-label': `${def.name} legend` }, ...def.legend.map(s =>
+              h('span', {}, h('i', { style: `background:${s.color}`, 'aria-hidden': 'true' }), s.label))));
+          }
+        }, 'layer-details');
+        details.setAttribute('aria-expanded', 'false');
+        details.setAttribute('aria-controls', extra.id);
+        const colors = Array.isArray(def.legend) ? def.legend.map(item => item.color) : [];
+        const swatch = def.swatch ?? (colors.length === 1 ? colors[0] : colors.length > 1 ? `linear-gradient(90deg, ${colors.join(', ')})` : null);
         const row = h('div', { class: 'data-layer', 'data-layer': def.id },
           h('div', { class: 'data-layer-main' }, h('label', { class: 'layer-toggle' }, input,
-            def.swatch ? h('span', { class: 'land-swatch', style: `background:${def.swatch}` }) : null,
-            h('span', { class: 'layer-name' }, def.name)), info), extra);
+            swatch ? h('span', { class: 'land-swatch', style: `background:${swatch}`, 'aria-hidden': 'true' }) : null,
+            h('span', { class: 'layer-name' }, def.name)), info, details), extra);
         const up = iconButton('prev', `Move ${def.name} up`, () => move(def, 1), 'active-layer-move move-up');
         const down = iconButton('next', `Move ${def.name} down`, () => move(def, -1), 'active-layer-move move-down');
         const off = iconButton('close', `Turn off ${def.name}`, () => change(def, false));
@@ -239,15 +255,9 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
         activeRows.set(def.id, quick); activeList.append(quick);
         updates.push(() => {
           const value = layerSetting(current, def);
-          input.checked = value.on; extra.hidden = !value.on; quick.hidden = !value.on;
+          input.checked = value.on; quick.hidden = !value.on;
           slider.value = String(value.opacity);
           if (variants) variants.value = layerVariant(def, value.variant)!.id;
-          if (value.on && !initialized) {
-            initialized = true; if (variants) extra.append(variants); extra.append(slider);
-            if (typeof def.legend === 'string') extra.append(h('img', { class: 'layer-legend-image', src: def.legend, alt: `${def.name} legend`, loading: 'lazy' }));
-            else if (def.legend) extra.append(h('div', { class: 'layer-legend', 'aria-label': `${def.name} legend` }, ...def.legend.map(s =>
-              h('span', {}, h('i', { style: `background:${s.color}`, 'aria-hidden': 'true' }), s.label))));
-          }
         });
         searchRows.set(def.id, row); entry.rows.append(row);
       }
