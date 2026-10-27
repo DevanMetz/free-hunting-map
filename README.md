@@ -114,6 +114,8 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
+- **North Dakota parcels:** [North Dakota GIS Hub statewide parcels](https://www.arcgis.com/home/item.html?id=ac6da1176038457db16e8debe3f1abaf), contributed by counties. Rural parcels are the focus; cities and public lands can be missing, and update dates vary. Boundaries are informational, not surveys. The published terms specify limitations and disclaimers; no explicit reuse license is identified. GeoJSON and CORS verified 2026-10-27.
+
 - **Pennsylvania wildlife management units:** [Pennsylvania Game Commission service](https://pgcmaps.pa.gov/arcgis/rest/services/PGC/WildlifeManagementUnits/MapServer/0) (live GeoJSON); no explicit reuse license identified. Consult the [Game Commission](https://www.pa.gov/agencies/pgc/huntingandtrapping/wildlife-management-units) for current regulations and legal boundaries. GeoJSON and production-origin CORS verified 2026-10-26.
 
 - **Michigan deer management units:** [Michigan DNR game species management units](https://services3.arcgis.com/Jdnp1TjADvSDxMAX/ArcGIS/rest/services/WILDGameSpeciesManagementUnitsAndZonesOPENDATA/FeatureServer/3) (2026; live GeoJSON). The [dataset terms](https://www.arcgis.com/home/item.html?id=c8256b3c20114ed89ec500dac0bad945) permit use, reproduction and distribution; consult current [DNR regulations](https://www.michigan.gov/dnr/managing-resources/laws/regulations/deer) for legal boundaries. GeoJSON and production-origin CORS verified 2026-10-26.
