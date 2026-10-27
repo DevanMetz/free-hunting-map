@@ -1,3 +1,4 @@
+import './layers/idahoParcels';
 import './layers/oregonParcels';
 import './layers/newYorkParcels';
 import './layers/coloradoParcels';
