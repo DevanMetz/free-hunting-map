@@ -208,6 +208,7 @@ import './layers/michiganCompletedTreatments';
 import './layers/michiganForestCampgrounds';
 import './layers/michiganParkCampgrounds';
 import './layers/michiganManagedParking';
+import './layers/michiganManagedBridges';
 
 import './layers/michiganFishingAccess';
 
