@@ -1,7 +1,6 @@
 import { categoryOf, type TypeVisibility } from '../organize/model';
 import { useFeature } from '../usage';
-import { accountControl } from './accountPanel';
-import { CloudSync } from '../sync/cloud';
+import type { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
 import { layerRegistry, layerSetting, type IdentifyResult } from '../map/layerRegistry';
@@ -20,7 +19,7 @@ const RECORD_SAVE_EVERY = 5;
 
 export class App implements AppContext {
   readonly sheet: Sheet;
-  readonly sync: CloudSync;
+  sync?: CloudSync;
   readonly map: HuntMap;
   private trailFinder: Promise<import('../lidar/lab').TrailFinder> | undefined;
   private liveItems: Item[] = [];
@@ -39,28 +38,11 @@ export class App implements AppContext {
     private settings: Settings,
     root: HTMLElement,
   ) {
-    this.sync = new CloudSync(repo);
     const mapEl = h('div', { id: 'map' });
     const sheetEl = h('section', { id: 'sheet', class: 'sheet', hidden: true, 'aria-live': 'polite' });
     this.recChip = h('div', { class: 'rec-chip', hidden: true, role: 'status' });
     const toolbar = this.buildToolbar();
     root.append(mapEl, toolbar, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
-    // Keep the mobile iframe in the top-level overlay, outside the bottom rail's
-    // compositor bounds. Recreate it only when crossing the layout breakpoint.
-    const desktop = window.matchMedia('(min-width: 760px)');
-    let account: HTMLElement | undefined;
-    let accountLifetime: AbortController | undefined;
-    const placeAccount = () => {
-      accountLifetime?.abort();
-      account?.remove();
-      accountLifetime = new AbortController();
-      account = accountControl(this.sync, accountLifetime.signal);
-      (desktop.matches ? toolbar : root).append(account);
-    };
-    desktop.addEventListener('change', placeAccount);
-    placeAccount();
-
-
     this.sheet = new Sheet(sheetEl);
     this.map = new HuntMap(mapEl, settings, settings.view);
     this.recorder = new TrackRecorder(
@@ -84,8 +66,34 @@ export class App implements AppContext {
   static async start(root: HTMLElement, repo: Repo, saved?: Partial<Settings>, initialItems?: Promise<[Item[], Category[]]>): Promise<App> {
     const app = new App(repo, loadSettings(saved), root);
     await app.reloadItems(initialItems);
-    void app.sync.start();
+    void app.startAccount(root);
     return app;
+  }
+
+  private async startAccount(root: HTMLElement): Promise<void> {
+    try {
+      const [{ CloudSync }, { accountControl }] = await Promise.all([
+        import('../sync/cloud'), import('./accountPanel'),
+      ]);
+      const sync = this.sync = new CloudSync(this.repo);
+      const toolbar = root.querySelector<HTMLElement>('.toolbar')!;
+      // Keep the mobile iframe outside the bottom rail's compositor bounds.
+      const desktop = window.matchMedia('(min-width: 760px)');
+      let account: HTMLElement | undefined;
+      let lifetime: AbortController | undefined;
+      const placeAccount = () => {
+        lifetime?.abort();
+        account?.remove();
+        lifetime = new AbortController();
+        account = accountControl(sync, lifetime.signal);
+        (desktop.matches ? toolbar : root).append(account);
+      };
+      desktop.addEventListener('change', placeAccount);
+      placeAccount();
+      await sync.start();
+    } catch (err) {
+      console.error('Account sync could not start:', err);
+    }
   }
 
   items(): Item[] {
