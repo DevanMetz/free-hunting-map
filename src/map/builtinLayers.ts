@@ -125,3 +125,5 @@ import './layers/michiganDeerUnits';
 import './layers/pennsylvaniaWildlifeUnits';
 
 import './layers/virginiaWma';
+
+import './layers/floridaWma';
