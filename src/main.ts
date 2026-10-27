@@ -11,7 +11,16 @@ async function main(): Promise<void> {
   if (!root) throw new Error('#app missing');
   if (location.pathname !== '/admin/analytics') startUsage();
   if (location.pathname === '/admin/analytics') await (await import('./ui/analytics')).renderAnalytics(root);
-  else { const repo = await Repo.open(); startCommunityUploads(repo); startCommunityHikes(repo); await startCommunityVotes(repo); await (await import('./ui/app')).App.start(root, repo); }
+  else {
+    // Fetch the map UI while IndexedDB opens, rather than serializing its large
+    // MapLibre and layer dependencies behind local storage initialization.
+    const [repo, { App }] = await Promise.all([Repo.open(), import('./ui/app')]);
+    startCommunityUploads(repo);
+    startCommunityHikes(repo);
+    // Votes must be loaded before the map installs its community overlays.
+    await startCommunityVotes(repo);
+    await App.start(root, repo);
+  }
   // Ask the browser not to evict our IndexedDB data under storage pressure.
   void navigator.storage?.persist?.();
   let controlled = !!navigator.serviceWorker?.controller;
