@@ -252,3 +252,5 @@ import './layers/kentuckyFishingAccess';
 import './layers/northCarolinaGameParking';
 
 import './layers/northCarolinaGameCamping';
+
+import './layers/northCarolinaShootingRanges';
