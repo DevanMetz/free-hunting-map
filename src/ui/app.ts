@@ -13,7 +13,6 @@ import type { Category, Item, LngLat, Track } from '../types';
 import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
 import { UI_ICONS } from './icons';
-import { openIdentifyPanel } from './identifyPanel';
 import { Sheet } from './sheet';
 import { lineTool, waypointTool, type Tool } from './tools';
 
@@ -86,7 +85,6 @@ export class App implements AppContext {
     const app = new App(repo, loadSettings(saved), root);
     await app.reloadItems();
     void app.sync.start();
-    if ((await repo.listLidarRuns()).length) void app.getTrailFinder().catch(err => toast(String(err)));
     return app;
   }
 
@@ -282,7 +280,10 @@ export class App implements AppContext {
       const result = await def.identify!(...at, request.signal, this.map.map, e.point).catch(() => null);
       if (request.signal.aborted) return;
       if (result && layerSetting(this.map.mapState, def).on) {
-        openIdentifyPanel(this.sheet, def.id, result);
+        const panel = await import('./identifyPanel').catch(() => null);
+        if (request.signal.aborted || !layerSetting(this.map.mapState, def).on) return;
+        if (!panel) { toast('Could not open details'); return; }
+        panel.openIdentifyPanel(this.sheet, def.id, result);
         this.syncToolbar();
         return;
       }
