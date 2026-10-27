@@ -109,3 +109,5 @@ import './layers/oregonWildlifeUnits';
 
 import './layers/newMexicoGameUnits';
 import './layers/arizonaGameUnits';
+
+import './layers/washingtonGameUnits';
