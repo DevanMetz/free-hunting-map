@@ -273,3 +273,5 @@ import './layers/kentuckyWmaParking';
 import './layers/kentuckyWmaAccessibleHunting';
 
 import './layers/kentuckyWmaCampgrounds';
+
+import './layers/kentuckyWmaTrailheads';
