@@ -238,3 +238,5 @@ import './layers/pennsylvaniaDuckZones';
 import './layers/pennsylvaniaGooseZones';
 
 import './layers/pennsylvaniaWaterAccess';
+
+import './layers/pennsylvaniaForestTrailAccess';
