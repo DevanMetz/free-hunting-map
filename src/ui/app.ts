@@ -10,15 +10,11 @@ import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
 import type { Category, Item, LngLat, Track } from '../types';
-import { openConditionsPanel } from './conditionsPanel';
 import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
 import { UI_ICONS } from './icons';
 import { openIdentifyPanel } from './identifyPanel';
 import { openItemPanel } from './itemPanel';
-import { openLayersPanel } from './layersPanel';
-import { openListPanel } from './listPanel';
-import { openSharePanel } from './sharePanel';
 import { Sheet } from './sheet';
 import { lineTool, waypointTool, type Tool } from './tools';
 
@@ -167,15 +163,15 @@ export class App implements AppContext {
     return h(
       'nav',
       { class: 'toolbar', 'aria-label': 'Tools' },
-      add('layers', 'layers', 'Layers', () => this.togglePanel('layers', () => openLayersPanel(this, () => this.persistSettings(), () => this.openTrailFinder()))),
+      add('layers', 'layers', 'Layers', () => this.openLazyPanel('layers', 'Layers', () => import('./layersPanel').then(m => () => m.openLayersPanel(this, () => this.persistSettings(), () => this.openTrailFinder())))),
       add('tool:waypoint', 'pin', 'Drop pin', () => this.toggleTool('waypoint')),
       add('tool:track', 'track', 'Draw track', () => this.toggleTool('track')),
       add('trails', 'scan', 'Trail finder', () => this.openTrailFinder()),
       add('record', 'record', 'Record GPS track', () => void this.toggleRecording()),
       add('tool:measure', 'measure', 'Measure', () => this.toggleTool('measure')),
-      add('list', 'list', 'Organize', () => this.togglePanel('list', () => openListPanel(this))),
-      add('share', 'share', 'Share', () => this.togglePanel('share', () => openSharePanel(this))),
-      add('conditions', 'weather', 'Conditions', () => this.togglePanel('conditions', () => openConditionsPanel(this))),
+      add('list', 'list', 'Organize', () => this.openLazyPanel('list', 'Organize', () => import('./listPanel').then(m => () => m.openListPanel(this)))),
+      add('share', 'share', 'Share', () => this.openLazyPanel('share', 'Share', () => import('./sharePanel').then(m => () => m.openSharePanel(this)))),
+      add('conditions', 'weather', 'Conditions', () => this.openLazyPanel('conditions', 'Conditions', () => import('./conditionsPanel').then(m => () => m.openConditionsPanel(this)))),
     );
   }
 
@@ -190,6 +186,19 @@ export class App implements AppContext {
 
   private getTrailFinder(): Promise<import('../lidar/lab').TrailFinder> {
     return this.trailFinder ??= import('../lidar/lab').then(m => m.createTrailFinder(this));
+  }
+
+  private openLazyPanel(key: string, title: string, load: () => Promise<() => void>): void {
+    this.togglePanel(key, () => {
+      const loading = h('progress', { 'aria-label': `Loading ${title}` });
+      this.sheet.open(key, title, loading);
+      void load().then(open => {
+        if (this.sheet.current === key && loading.isConnected) open();
+      }).catch(err => {
+        if (loading.isConnected) this.sheet.close();
+        toast(String(err));
+      });
+    });
   }
 
   private togglePanel(key: string, open: () => void): void {
