@@ -250,3 +250,5 @@ import './layers/kentuckyBoatAccess';
 import './layers/kentuckyFishingAccess';
 
 import './layers/northCarolinaGameParking';
+
+import './layers/northCarolinaGameCamping';
