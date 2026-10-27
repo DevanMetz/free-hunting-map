@@ -224,3 +224,5 @@ import './layers/oklahomaFoodPlots';
 import './layers/iowaWaterAccess';
 
 import './layers/iowaCampgrounds';
+
+import './layers/iowaTrailAccess';
