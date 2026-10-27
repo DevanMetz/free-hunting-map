@@ -158,3 +158,5 @@ import './layers/newMexicoDesignatedAreas';
 import './layers/usgsTopoQuads';
 
 import './layers/usfsRecreation';
+
+import './layers/blmRecreation';
