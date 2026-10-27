@@ -230,3 +230,5 @@ import './layers/iowaTrailAccess';
 import './layers/iowaRecreationParking';
 
 import './layers/pennsylvaniaShootingRanges';
+
+import './layers/pennsylvaniaGameAccess';
