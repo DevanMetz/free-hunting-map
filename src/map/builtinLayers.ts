@@ -143,3 +143,5 @@ import './layers/wisconsinVpa';
 import './layers/northCarolinaGameLands';
 
 import './layers/alabamaWma';
+
+import './layers/southCarolinaWma';
