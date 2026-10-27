@@ -14,7 +14,9 @@ async function main(): Promise<void> {
   else {
     // Fetch the map UI while IndexedDB opens, rather than serializing its large
     // MapLibre and layer dependencies behind local storage initialization.
-    const [repo, { App }] = await Promise.all([Repo.open(), import('./ui/app')]);
+    const [repo, { App }] = await Promise.all([
+      Repo.open(), import('./ui/app'), import('./map/builtinLayers'),
+    ]);
     startCommunityUploads(repo);
     startCommunityHikes(repo);
     // Votes must be loaded before the map installs its community overlays.

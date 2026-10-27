@@ -1,7 +1,6 @@
 import { PUBLIC_LANDS } from '../map/publicLands';
 import { clampLabelScale } from '../map/labels';
 import { layerRegistry, layerVariant } from '../map/layerRegistry';
-import '../map/builtinLayers';
 import type { MapState, MapView } from '../map/map';
 
 export interface Settings extends MapState { view: MapView }
