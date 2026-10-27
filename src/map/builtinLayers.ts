@@ -155,6 +155,7 @@ import './layers/michiganWaterfowlUnits';
 import './layers/michiganPheasantUnits';
 import './layers/michiganSharpTailedGrouseUnits';
 import './layers/michiganParkHunting';
+import './layers/michiganWildlifeProperties';
 import './layers/michiganHunterAccess';
 
 import './layers/pennsylvaniaWildlifeUnits';
