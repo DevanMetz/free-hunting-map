@@ -128,6 +128,7 @@ import './layers/idahoGameUnits';
 import './layers/wyomingDeerAreas';
 
 import './layers/coloradoWalkIn';
+import './layers/coloradoPublicProperties';
 
 import './layers/oregonWildlifeUnits';
 
