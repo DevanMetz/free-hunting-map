@@ -213,3 +213,5 @@ import './layers/michiganManagedBridges';
 import './layers/michiganFishingAccess';
 
 import './layers/michiganBoatingAccess';
+
+import './layers/oklahomaShootingRanges';
