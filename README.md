@@ -114,6 +114,8 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
+- **Utah parcels:** [State of Utah SGID statewide parcels](https://gis.utah.gov/products/sgid/cadastre/parcels/) (live GeoJSON). County completeness and update dates vary; ownership type is generalized and parcel boundaries are not surveys. The state states there are no use constraints or warranties and encourages attribution to State of Utah, SGID. GeoJSON and production-origin CORS verified 2026-10-27.
+
 - **North Dakota parcels:** [North Dakota GIS Hub statewide parcels](https://www.arcgis.com/home/item.html?id=ac6da1176038457db16e8debe3f1abaf), contributed by counties. Rural parcels are the focus; cities and public lands can be missing, and update dates vary. Boundaries are informational, not surveys. The published terms specify limitations and disclaimers; no explicit reuse license is identified. GeoJSON and CORS verified 2026-10-27.
 
 - **Pennsylvania wildlife management units:** [Pennsylvania Game Commission service](https://pgcmaps.pa.gov/arcgis/rest/services/PGC/WildlifeManagementUnits/MapServer/0) (live GeoJSON); no explicit reuse license identified. Consult the [Game Commission](https://www.pa.gov/agencies/pgc/huntingandtrapping/wildlife-management-units) for current regulations and legal boundaries. GeoJSON and production-origin CORS verified 2026-10-26.
