@@ -1,3 +1,4 @@
+import './layers/minnesotaParcels';
 import './layers/northCarolinaParcels';
 import './layers/ohioParcels';
 import './layers/communityHikes';
