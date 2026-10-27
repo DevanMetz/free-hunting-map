@@ -149,6 +149,7 @@ import './layers/californiaDeerZones';
 
 import './layers/michiganDeerUnits';
 import './layers/michiganTurkeyUnits';
+import './layers/michiganElkUnits';
 
 import './layers/pennsylvaniaWildlifeUnits';
 
