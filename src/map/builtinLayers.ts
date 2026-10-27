@@ -133,5 +133,6 @@ import './layers/tennesseeHuntingLands';
 import './layers/ohioDnrLands';
 
 import './layers/arkansasWma';
+import './layers/kentuckyPublicHunting';
 
 import './layers/missouriConservationAreas';
