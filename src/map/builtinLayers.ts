@@ -197,3 +197,5 @@ import './layers/usfsRecreation';
 import './layers/blmRecreation';
 
 import './layers/nationalWildlifeRefuges';
+
+import './layers/michiganTimberSales';
