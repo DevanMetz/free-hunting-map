@@ -85,6 +85,7 @@ registerLayers([
 ]);
 
 import './layers/land';
+import './layers/wilderness';
 import './layers/kansasWiha';
 import './layers/water';
 import './layers/terrain';
