@@ -199,3 +199,5 @@ import './layers/blmRecreation';
 import './layers/nationalWildlifeRefuges';
 
 import './layers/michiganTimberSales';
+
+import './layers/michiganCommercialForest';
