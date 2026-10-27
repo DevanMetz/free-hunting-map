@@ -26,11 +26,13 @@ async function main(): Promise<void> {
       local, import('./ui/app'), import('./map/builtinLayers'),
     ]);
     // Votes and settings are ready before the map installs its overlays.
-    await App.start(root, repo, settings);
-    // Keep background reconciliation from competing with the initial map and
-    // saved-item reads. Both services immediately flush once started.
-    startCommunityUploads(repo);
-    startCommunityHikes(repo);
+    try {
+      await App.start(root, repo, settings);
+    } finally {
+      // Start even if map initialization fails; both services flush immediately.
+      startCommunityUploads(repo);
+      startCommunityHikes(repo);
+    }
   }
   // Ask the browser not to evict our IndexedDB data under storage pressure.
   void navigator.storage?.persist?.();
