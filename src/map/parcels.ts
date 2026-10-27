@@ -28,15 +28,15 @@ export function tilesForBounds([w, s, e, n]: Bounds, z = 14): [number, number][]
   return result;
 }
 
-export function parcelQueryUrl(x: number, y: number, offset = 0): string {
+export function parcelQueryUrl(x: number, y: number, offset = 0, query = PARCELS_QUERY, fields = 'OWNERNME1,OWNERNME2,GISACRES,PARCELID,STATEID'): string {
   const params = new URLSearchParams({
     where: '1=1', geometry: tileBounds(14, x, y).map(v => v.toFixed(6)).join(','),
     geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
-    outFields: 'OWNERNME1,OWNERNME2,GISACRES,PARCELID,STATEID', returnGeometry: 'true',
+    outFields: fields, returnGeometry: 'true',
     outSR: '4326', geometryPrecision: '6', orderByFields: 'OBJECTID',
     resultOffset: String(offset), resultRecordCount: '2000', f: 'geojson',
   });
-  return `${PARCELS_QUERY}?${params}`;
+  return `${query}?${params}`;
 }
 
 export function mergeParcelFeatures(tiles: Iterable<Feature[]>): FeatureCollection {
@@ -56,7 +56,7 @@ export class ParcelLoader {
   private tiles = new globalThis.Map<string, Feature[]>();
   private pending = new Set<string>();
   private active = 0;
-  constructor(private map: Map) {
+  constructor(private map: Map, private source = 'parcels', private query = PARCELS_QUERY, private fields?: string, private extent?: Bounds) {
     map.on('moveend', () => { this.failedThisView.clear(); this.schedule(); });
     map.on('remove', () => clearTimeout(this.timer));
   }
@@ -66,9 +66,11 @@ export class ParcelLoader {
     this.timer = setTimeout(() => this.load(), 250);
   }
   private load(): void {
-    if (!this.enabled || this.map.getZoom() < 13 || !this.map.getSource('parcels')) return;
+    if (!this.enabled || this.map.getZoom() < 13 || !this.map.getSource(this.source)) return;
     const b = this.map.getBounds();
     for (const [x, y] of tilesForBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])) {
+      const bounds = tileBounds(14, x, y);
+      if (this.extent && (bounds[2] < this.extent[0] || bounds[0] > this.extent[2] || bounds[3] < this.extent[1] || bounds[1] > this.extent[3])) continue;
       const key = `${x}/${y}`;
       const cached = this.tiles.get(key);
       if (cached) { this.tiles.delete(key); this.tiles.set(key, cached); continue; }
@@ -95,7 +97,7 @@ export class ParcelLoader {
     const features: Feature[] = [];
     for (let page = 0; page < 5; page++) {
       if (!this.enabled || this.map.getZoom() < 13) throw new Error('Parcels paused');
-      const response = await fetch(parcelQueryUrl(x, y, page * 2000));
+      const response = await fetch(parcelQueryUrl(x, y, page * 2000, this.query, this.fields));
       if (!response.ok) throw new Error('Parcel request failed');
       const data = await response.json() as FeatureCollection & { exceededTransferLimit?: boolean; properties?: { exceededTransferLimit?: boolean } };
       if (!Array.isArray(data.features)) throw new Error('Invalid parcels');
@@ -105,6 +107,6 @@ export class ParcelLoader {
     return features;
   }
   refresh(): void {
-    this.map.getSource<GeoJSONSource>('parcels')?.setData(mergeParcelFeatures(this.tiles.values()));
+    this.map.getSource<GeoJSONSource>(this.source)?.setData(mergeParcelFeatures(this.tiles.values()));
   }
 }
