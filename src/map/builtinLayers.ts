@@ -244,3 +244,5 @@ import './layers/pennsylvaniaForestTrailAccess';
 import './layers/kentuckyElkRegulatedAreas';
 
 import './layers/kentuckyHuntingEntrances';
+
+import './layers/kentuckyBoatAccess';
