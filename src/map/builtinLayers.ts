@@ -246,3 +246,5 @@ import './layers/kentuckyElkRegulatedAreas';
 import './layers/kentuckyHuntingEntrances';
 
 import './layers/kentuckyBoatAccess';
+
+import './layers/kentuckyFishingAccess';
