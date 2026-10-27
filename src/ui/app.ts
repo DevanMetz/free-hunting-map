@@ -135,7 +135,11 @@ export class App implements AppContext {
     this.liveItems = items;
     this.liveCategories = categories;
     this.map.setItems(this.liveItems, categories);
-    if (!this.trailFinder && (await this.repo.listLidarRuns()).length) void this.getTrailFinder().catch(err => toast(String(err)));
+    // Restoring the trail finder is independent of displaying saved map items.
+    // Do not hold startup (and community reconciliation) on this extra read.
+    if (!this.trailFinder) void this.repo.listLidarRuns().then(runs => {
+      if (runs.length) return this.getTrailFinder();
+    }).catch(err => toast(String(err)));
   }
 
   private async applyPreferences(): Promise<void> {
