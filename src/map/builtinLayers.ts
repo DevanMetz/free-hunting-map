@@ -254,3 +254,4 @@ import './layers/northCarolinaGameParking';
 import './layers/northCarolinaGameCamping';
 
 import './layers/northCarolinaShootingRanges';
+import './layers/northCarolinaFishingAreas';
