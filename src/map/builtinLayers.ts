@@ -102,3 +102,5 @@ import './layers/coloradoBigGameUnits';
 import './layers/idahoGameUnits';
 
 import './layers/wyomingDeerAreas';
+
+import './layers/coloradoWalkIn';
