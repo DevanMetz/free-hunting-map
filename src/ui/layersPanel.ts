@@ -4,6 +4,7 @@ import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
 import { categoryState, layerRegistry, layerSetting, layerVariant, toggleCategory, type LayerDef } from '../map/layerRegistry';
 import type { AppContext } from './context';
 import { h, iconButton } from './dom';
+import { layerState, stateDistance } from './layerStates';
 
 export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailFinder?: () => void): void {
   let active: HTMLButtonElement | null = null;
@@ -86,6 +87,21 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
     activeButton.textContent = `Active (${count})`; clear.disabled = count === 0;
   });
 
+  let center = ctx.map.view().center;
+  const displayCategories = () => {
+    const all = layerRegistry.categories();
+    const ordinary = all.map(c => ({ ...c, layers: c.layers.filter(d => !layerState(d)) })).filter(c => c.layers.length);
+    const groups = new Map<string, { id: string; name: string; layers: LayerDef[]; distance: number }>();
+    for (const def of layerRegistry.layers()) {
+      const state = layerState(def);
+      if (!state) continue;
+      const id = `state-${state[0]}`;
+      let group = groups.get(id);
+      if (!group) { group = { id, name: state[1], layers: [], distance: stateDistance(state, center) }; groups.set(id, group); }
+      group.layers.push(def);
+    }
+    return [...ordinary.map(c => ({ ...c, distance: Infinity })), ...[...groups.values()].sort((a, b) => a.distance - b.distance || a.name.localeCompare(b.name))];
+  };
   let query = '';
   const search = h('input', { type: 'text', class: 'layer-search-input', placeholder: 'Search layers', 'aria-label': 'Search layers', oninput: () => applySearch(), onkeydown: (event: Event) => {
     if ((event as KeyboardEvent).key === 'Escape' && search.value) { event.stopPropagation(); clearSearch(); }
@@ -102,26 +118,39 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
     searchCollapsed.clear();
     searchClear.hidden = !search.value;
     let matches = 0;
-    for (const category of layerRegistry.categories()) {
+    for (const category of displayCategories()) {
       const entry = rendered.get(category.id);
       if (!entry) continue;
       let count = 0;
       for (const def of category.layers) {
         const row = searchRows.get(def.id);
-        const match = !query || [category.name, def.name, def.id.replace(/-/g, ' '), def.info ?? '', ...(def.variants?.map(v => v.label) ?? [])].some(value => value.toLowerCase().includes(query));
+        const match = !query || [category.name, layerRegistry.categories().find(c => c.id === def.category)?.name ?? '', def.name, def.id.replace(/-/g, ' '), def.info ?? '', ...(def.variants?.map(v => v.label) ?? [])].some(value => value.toLowerCase().includes(query));
         if (row) row.hidden = !match;
         if (match) count++;
       }
       entry.rows.parentElement!.hidden = count === 0;
       matches += count;
     }
+    if (query) { stateRows.hidden = false; stateDisclosure.setAttribute('aria-expanded', 'true'); otherRows.hidden = false; otherDisclosure.setAttribute('aria-expanded', 'true'); }
+    stateSection.hidden = !displayCategories().some(c => c.id.startsWith('state-') && !rendered.get(c.id)?.rows.parentElement?.hidden);
+    otherSection.hidden = ![...otherRows.children].some(el => !(el as HTMLElement).hidden);
     empty.hidden = !query || matches > 0;
     refresh();
   };
+  const stateRows = h('div', { class: 'state-layer-rows' });
+  const stateDisclosure = iconButton('next', 'State layers', () => { stateRows.hidden = !stateRows.hidden; stateDisclosure.setAttribute('aria-expanded', String(!stateRows.hidden)); }, 'category-disclosure');
+  stateDisclosure.setAttribute('aria-expanded', 'true');
+  const nearbyRows = h('div');
+  const otherRows = h('div', { hidden: true });
+  const otherDisclosure = iconButton('next', 'Other states', () => { otherRows.hidden = !otherRows.hidden; otherDisclosure.setAttribute('aria-expanded', String(!otherRows.hidden)); }, 'category-disclosure');
+  otherDisclosure.setAttribute('aria-expanded', 'false');
+  const otherSection = h('section', { class: 'layer-category' }, h('div', { class: 'layer-category-head' }, otherDisclosure, h('span', { class: 'category-name' }, 'Other states')), otherRows);
+  stateRows.append(nearbyRows, otherSection);
+  const stateSection = h('section', { class: 'layer-category', 'aria-label': 'State' }, h('div', { class: 'layer-category-head' }, stateDisclosure, h('span', { class: 'category-name' }, 'State')), stateRows);
   const rendered = new Map<string, { rows: HTMLElement; update: () => void }>();
   const renderedLayers = new Set<string>();
   const renderEntries = () => {
-    for (const category of layerRegistry.categories()) {
+    for (const category of displayCategories()) {
       let entry = rendered.get(category.id);
       if (!entry) {
         const rows = h('div', { id: `layer-category-${category.id}`, class: 'layer-category-rows' });
@@ -134,10 +163,13 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
         disclosure.setAttribute('aria-controls', rows.id);
         const name = h('span', { class: 'category-name' }, category.name);
         const master = h('button', { type: 'button', class: 'category-switch', role: 'checkbox', 'aria-label': `Toggle ${category.name}`, onclick: () => {
-          const defs = layerRegistry.layers().filter(d => d.category === category.id);
+          const defs = displayCategories().find(c => c.id === category.id)?.layers ?? [];
           const state = ctx.map.mapState;
-          const changes = toggleCategory(defs, state);
-          ctx.map.setCategoryRemembered(category.id, state.remembered[category.id] ?? []);
+          const key = defs[0]?.category;
+          if (!key) return;
+          const isolated = { ...state, remembered: { ...state.remembered, [key]: state.remembered[category.id] ?? [] } };
+          const changes = toggleCategory(defs, isolated);
+          ctx.map.setCategoryRemembered(category.id, isolated.remembered[key] ?? []);
           for (const [id, on] of Object.entries(changes)) set(layerRegistry.get(id)!, on);
           persist(); refresh();
         } });
@@ -145,8 +177,8 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
           h('div', { class: 'layer-category-head' }, disclosure, name, count, master), rows);
         const update = () => {
           const state = current;
-          const defs = layerRegistry.layers().filter(d => d.category === category.id);
-          rows.hidden = query ? searchCollapsed.has(category.id) : (state.collapsed[category.id] ?? category.id !== 'terrain');
+          const defs = displayCategories().find(c => c.id === category.id)?.layers ?? [];
+          rows.hidden = query ? searchCollapsed.has(category.id) : (state.collapsed[category.id] ?? (category.id.startsWith('state-') ? (displayCategories().find(c => c.id === category.id)?.distance ?? Infinity) > 2.5 : category.id !== 'terrain'));
           disclosure.setAttribute('aria-expanded', String(!rows.hidden));
           master.hidden = defs.every(d => d.action);
           master.setAttribute('aria-checked', categoryState(defs, state));
@@ -154,7 +186,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
           count.textContent = n ? String(n) : '';
         };
         entry = { rows, update }; rendered.set(category.id, entry); updates.push(update);
-        categories.append(section);
+        (category.id.startsWith('state-') ? nearbyRows : categories).append(section);
       }
       for (const def of category.layers) {
         if (renderedLayers.has(def.id)) continue;
@@ -196,11 +228,19 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
       }
     }
     // Category order remains stable even when a module registers after panel open.
-    for (const category of layerRegistry.categories()) categories.append(rendered.get(category.id)!.rows.parentElement!);
+    const ordered = displayCategories();
+    const closest = ordered.find(c => c.id.startsWith('state-'))?.id;
+    for (const category of ordered) {
+      const target = category.id.startsWith('state-') ? (category.id === closest || category.distance <= 2.5 ? nearbyRows : otherRows) : categories;
+      target.append(rendered.get(category.id)!.rows.parentElement!);
+    }
+    categories.prepend(stateSection);
     applySearch();
   };
   renderEntries();
   const unsubscribe = layerRegistry.subscribe(renderEntries);
+  const moved = () => { center = ctx.map.view().center; renderEntries(); };
+  ctx.map.map.on('moveend', moved);
   const sharing = h('input', { type: 'checkbox', role: 'switch', checked: true, disabled: true, 'aria-label': 'Share scan results', onchange: () => { void ctx.repo.setCommunitySharing(sharing.checked); } });
   void ctx.repo.communitySharing().then(on => { sharing.checked = on; sharing.disabled = false; }).catch(() => {});
   const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, labelControls, activeBar, activeList, categories, empty,
@@ -209,7 +249,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
       h('label', { class: 'layer-toggle' }, h('input', { type: 'checkbox', role: 'switch', checked: usageAllowed(), disabled: privacyBlocked(), onchange: (e: Event) => setUsageEnabled((e.target as HTMLInputElement).checked) }), 'Usage analytics'),
       h('nav', { class: 'policy-links', 'aria-label': 'Site' }, h('a', { href: '/features' }, 'Features'), h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'))));
   ctx.sheet.open('layers', 'Layers', root, () => {
-    unsubscribe(); close(); popover.remove();
+    unsubscribe(); ctx.map.map.off('moveend', moved); close(); popover.remove();
     document.removeEventListener('pointerdown', outside);
     document.removeEventListener('keydown', escape);
     window.removeEventListener('resize', close);
