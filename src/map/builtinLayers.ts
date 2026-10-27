@@ -153,6 +153,7 @@ import './layers/michiganElkUnits';
 import './layers/michiganBearUnits';
 import './layers/michiganWaterfowlUnits';
 import './layers/michiganPheasantUnits';
+import './layers/michiganSharpTailedGrouseUnits';
 import './layers/michiganParkHunting';
 
 import './layers/pennsylvaniaWildlifeUnits';
