@@ -215,5 +215,6 @@ import './layers/michiganFishingAccess';
 import './layers/michiganBoatingAccess';
 
 import './layers/oklahomaShootingRanges';
+import './layers/oklahomaCampingAreas';
 
 import './layers/oklahomaWildlifeAreas';

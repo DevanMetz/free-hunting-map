@@ -114,6 +114,8 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
+- **Oklahoma wildlife area camping sites:** [ODWC WILMA Features](https://www.wildlifedepartment.com/server/rest/services/PublicWILMA/WILMAFeatures/MapServer/4), public agency inventory; no explicit reuse license identified. Site availability and access may change. GeoJSON and production-origin CORS verified 2026-10-27.
+
 - **Oklahoma wildlife areas:** [Oklahoma Department of Wildlife Conservation WMA boundaries](https://www.arcgis.com/home/item.html?id=25e889952822414d8431fec19d68e289), October 20, 2026 snapshot. Some areas are still being added; boundaries are informational and do not establish access or ownership. The agency provides an informational-use disclaimer and no explicit reuse license. GeoJSON and CORS verified 2026-10-27.
 
 - **Idaho parcels:** [Public Idaho Parcels](https://www.arcgis.com/home/item.html?id=65a3f7c6d4ca404ba6ab677913953b35), from Idaho ITS and participating counties. County coverage and source dates vary. Published public-use terms disclaim accuracy and restrict use of personal information as mailing or telephone lists; no explicit reuse license identified. GeoJSON and production-origin CORS verified 2026-10-27.
