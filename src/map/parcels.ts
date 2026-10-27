@@ -28,13 +28,13 @@ export function tilesForBounds([w, s, e, n]: Bounds, z = 14): [number, number][]
   return result;
 }
 
-export function parcelQueryUrl(x: number, y: number, offset = 0, query = PARCELS_QUERY, fields = 'OWNERNME1,OWNERNME2,GISACRES,PARCELID,STATEID', orderField = 'OBJECTID'): string {
+export function parcelQueryUrl(x: number, y: number, offset = 0, query = PARCELS_QUERY, fields = 'OWNERNME1,OWNERNME2,GISACRES,PARCELID,STATEID', orderField = 'OBJECTID', pageSize = 2000): string {
   const params = new URLSearchParams({
     where: '1=1', geometry: tileBounds(14, x, y).map(v => v.toFixed(6)).join(','),
     geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
     outFields: fields, returnGeometry: 'true',
     outSR: '4326', geometryPrecision: '6', orderByFields: orderField,
-    resultOffset: String(offset), resultRecordCount: '2000', f: 'geojson',
+    resultOffset: String(offset), resultRecordCount: String(pageSize), f: 'geojson',
   });
   return `${query}?${params}`;
 }
@@ -56,7 +56,7 @@ export class ParcelLoader {
   private tiles = new globalThis.Map<string, Feature[]>();
   private pending = new Set<string>();
   private active = 0;
-  constructor(private map: Map, private source = 'parcels', private query = PARCELS_QUERY, private fields?: string, private extent?: Bounds, private orderField = 'OBJECTID') {
+  constructor(private map: Map, private source = 'parcels', private query = PARCELS_QUERY, private fields?: string, private extent?: Bounds, private orderField = 'OBJECTID', private pageSize = 2000) {
     map.on('moveend', () => { this.failedThisView.clear(); this.schedule(); });
     map.on('remove', () => clearTimeout(this.timer));
   }
@@ -95,9 +95,9 @@ export class ParcelLoader {
   }
   private async fetchTile(x: number, y: number): Promise<Feature[]> {
     const features: Feature[] = [];
-    for (let page = 0; page < 5; page++) {
+    for (let page = 0; page < Math.ceil(10000 / this.pageSize); page++) {
       if (!this.enabled || this.map.getZoom() < 13) throw new Error('Parcels paused');
-      const response = await fetch(parcelQueryUrl(x, y, page * 2000, this.query, this.fields, this.orderField));
+      const response = await fetch(parcelQueryUrl(x, y, page * this.pageSize, this.query, this.fields, this.orderField, this.pageSize));
       if (!response.ok) throw new Error('Parcel request failed');
       const data = await response.json() as FeatureCollection & { exceededTransferLimit?: boolean; properties?: { exceededTransferLimit?: boolean } };
       if (!Array.isArray(data.features)) throw new Error('Invalid parcels');
