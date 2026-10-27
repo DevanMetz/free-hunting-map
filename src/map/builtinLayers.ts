@@ -96,3 +96,5 @@ import './layers/nebraskaOfw';
 import './layers/montanaDistricts';
 
 import './layers/montanaBlockManagement';
+
+import './layers/coloradoBigGameUnits';
