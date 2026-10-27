@@ -123,3 +123,5 @@ import './layers/californiaDeerZones';
 import './layers/michiganDeerUnits';
 
 import './layers/pennsylvaniaWildlifeUnits';
+
+import './layers/virginiaWma';
