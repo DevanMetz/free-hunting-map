@@ -114,6 +114,7 @@ Organize browser checks: `TRAIL_URL=http://localhost:5180 FHM_SCREENSHOT_DIR=/wo
 
 ## Data sources
 
+- **Oregon parcels:** [Oregon Water Resources Department tax lots](https://gis.wrd.state.or.us/server/rest/services/tax/Tax_Lots_Public_View_WGS84/FeatureServer/2), from participating counties. Only selected counties permit public viewing; source dates and coverage vary. Public viewing permitted; no explicit reuse license identified. GeoJSON and production-origin CORS verified 2026-10-27.
 - **New York parcels:** [NYS Tax Parcels Public](https://www.arcgis.com/home/item.html?id=8af5cef967f8474a9f262684b8908737), from NYS Geospatial Services and contributing counties. Coverage is limited to participating counties; the May 2026 release contains 2025 assessment data and geometry accuracy varies. Public service, no explicit reuse license identified. GeoJSON and production-origin CORS verified 2026-10-27.
 - **Colorado parcels:** [State of Colorado public parcels](https://www.arcgis.com/home/item.html?id=55234e04218f47c9868900e439fcbd5a), aggregated from county and municipal data. Source dates and completeness vary; boundaries are informational. State terms prohibit resale of the dataset and allow application use with attribution. State of Colorado Public addresses were accessed on 2026-10-27 from https://gis.colorado.gov/public/rest/services/Address_and_Parcel. GeoJSON and production-origin CORS verified 2026-10-27.
 
