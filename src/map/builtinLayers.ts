@@ -123,6 +123,7 @@ import './layers/montanaBlockManagement';
 
 import './layers/coloradoBigGameUnits';
 import './layers/coloradoBighornUnits';
+import './layers/coloradoMountainGoatUnits';
 
 import './layers/idahoGameUnits';
 
