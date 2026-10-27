@@ -119,3 +119,5 @@ import './layers/utahCwmu';
 import './layers/texasWma';
 
 import './layers/californiaDeerZones';
+
+import './layers/michiganDeerUnits';
