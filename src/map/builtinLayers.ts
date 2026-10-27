@@ -115,3 +115,5 @@ import './layers/washingtonGameUnits';
 import './layers/nevadaHuntUnits';
 
 import './layers/utahCwmu';
+
+import './layers/texasWma';
