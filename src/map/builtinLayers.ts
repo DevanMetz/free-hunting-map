@@ -281,3 +281,4 @@ import './layers/nationalRefugeHuntUnits';
 import './layers/southDakotaBoatRamps';
 import './layers/southDakotaParkTrails';
 import './layers/southDakotaPrairieChicken';
+import './layers/southDakotaSharpTailedGrouse';
