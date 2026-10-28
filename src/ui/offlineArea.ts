@@ -1,4 +1,4 @@
-import { CUTS_TILES, NHD_TILES, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, roadTiles, type BasemapId } from '../map/sources';
+import { ASPECT_EXPORT, CUTS_TILES, HILLSHADE_EXPORT, NHD_TILES, NWI_EXPORT, SLOPE_EXPORT, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, roadTiles, type BasemapId } from '../map/sources';
 import type { LngLatBounds } from 'maplibre-gl';
 import { h } from './dom';
 
@@ -21,7 +21,13 @@ function tiles(bounds: LngLatBounds, minZoom: number, maxZoom: number, template:
     const xs = Math.min(n, x1 - x0 + 1);
     if (urls.length + xs * (y1 - y0 + 1) > LIMIT) return null;
     for (let x = x0; x < x0 + xs; x++) for (let y = y0; y <= y1; y++) {
-      urls.push(template.replace('{z}', String(z)).replace('{x}', String((x % n + n) % n)).replace('{y}', String(y)));
+      const tileX = (x % n + n) % n;
+      // Match MapLibre's EPSG:3857 tile bounding box exactly for runtime-cache hits.
+      const halfWorld = 20037508.342789244;
+      const extent = 2 * halfWorld / n;
+      const row = n - y - 1;
+      const bbox = `${-halfWorld + tileX * extent},${-halfWorld + row * extent},${-halfWorld + (tileX + 1) * extent},${-halfWorld + (row + 1) * extent}`;
+      urls.push(template.replace('{z}', String(z)).replace('{x}', String(tileX)).replace('{y}', String(y)).replace('{bbox-epsg-3857}', bbox));
     }
   }
   return urls;
@@ -33,6 +39,10 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     h('option', { value: 'basemap' }, 'Current basemap'),
     h('option', { value: 'trails' }, 'Public trails'),
     h('option', { value: 'water' }, 'Streams & lakes'),
+    h('option', { value: 'wetlands' }, 'Wetlands'),
+    h('option', { value: 'hillshade' }, 'Hillshade'),
+    h('option', { value: 'slope' }, 'Slope'),
+    h('option', { value: 'aspect' }, 'Aspect'),
     h('option', { value: 'cuts' }, 'Logging cuts'),
     h('option', { value: 'census' }, 'Census 4WD roads'),
     h('option', { value: 'osm' }, 'OSM tracks'),
@@ -48,6 +58,10 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     if (!navigator.onLine) { status.textContent = 'Connect to download an area.'; return; }
     const choice = source.value === 'trails' ? { name: 'Public trails', template: TRAILS_TILES, min: 6, max: 14 }
       : source.value === 'water' ? { name: 'Streams & lakes', template: NHD_TILES, min: 0, max: 16 }
+      : source.value === 'wetlands' ? { name: 'Wetlands', template: NWI_EXPORT, min: 11, max: 16 }
+      : source.value === 'hillshade' ? { name: 'Hillshade', template: HILLSHADE_EXPORT, min: 11, max: 17 }
+      : source.value === 'slope' ? { name: 'Slope', template: SLOPE_EXPORT, min: 10, max: 17 }
+      : source.value === 'aspect' ? { name: 'Aspect', template: ASPECT_EXPORT, min: 11, max: 17 }
       : source.value === 'cuts' ? { name: 'Logging cuts', template: CUTS_TILES, min: 5, max: 13 }
       : source.value === 'census' ? { name: 'Census 4WD roads', template: roadTiles('tiger-trails', 'v2'), min: 8, max: 14 }
       : source.value === 'osm' ? { name: 'OSM tracks', template: roadTiles('osm-tracks', 'v2'), min: 8, max: 14 }
