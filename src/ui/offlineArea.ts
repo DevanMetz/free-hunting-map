@@ -1,5 +1,6 @@
-import { ASPECT_EXPORT, CUTS_TILES, DEER_EXPORT, HILLSHADE_EXPORT, LIDAR_BOUNDS, LIDAR_TILES, NHD_TILES, NWI_EXPORT, SLOPE_EXPORT, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, WATER_HISTORY_TILES, roadTiles, type BasemapId } from '../map/sources';
+import { ASPECT_EXPORT, CUTS_TILES, DEER_EXPORT, HILLSHADE_EXPORT, HISTORIC_AERIAL_SERVICE, LIDAR_BOUNDS, LIDAR_TILES, NHD_TILES, NWI_EXPORT, SLOPE_EXPORT, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, WATER_HISTORY_TILES, WISCONSIN_BOUNDS, roadTiles, type BasemapId } from '../map/sources';
 import { PUBLIC_LANDS, publicLandExportUrl } from '../map/publicLands';
+import { rasterTiles } from '../map/layers/raster';
 import type { LngLatBounds } from 'maplibre-gl';
 import { h } from './dom';
 
@@ -54,6 +55,7 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     h('option', { value: 'lidar-chm' }, 'Canopy height'),
     h('option', { value: 'topo-early' }, 'Historic topo 1924–1958'),
     h('option', { value: 'topo-1970s' }, 'Historic topo 1969–1984'),
+    ...[2022, 2020, 2015, 2013, 2008, 2005].map(year => h('option', { value: `aerial-${year}` }, `Historic aerial ${year}`)),
     h('option', { value: 'cuts' }, 'Logging cuts'),
     h('option', { value: 'census' }, 'Census 4WD roads'),
     h('option', { value: 'osm' }, 'OSM tracks'),
@@ -72,6 +74,10 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     const lidarName = lidarNames[source.value];
     const bounds = getBounds();
     const historicTopo = source.value === 'topo-early' || source.value === 'topo-1970s';
+    const aerialYear = /^aerial-(2022|2020|2015|2013|2008|2005)$/.exec(source.value)?.[1];
+    if (aerialYear && (bounds.getEast() < WISCONSIN_BOUNDS[0] || bounds.getWest() > WISCONSIN_BOUNDS[2] || bounds.getNorth() < WISCONSIN_BOUNDS[1] || bounds.getSouth() > WISCONSIN_BOUNDS[3])) {
+      status.textContent = 'Move the map to Wisconsin.'; return;
+    }
     if (historicTopo && (bounds.getEast() < -91 || bounds.getWest() > -90.25 || bounds.getNorth() < 44.25 || bounds.getSouth() > 45.25)) {
       status.textContent = 'Move the map to the historic topo coverage area.'; return;
     }
@@ -79,7 +85,8 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
       status.textContent = 'Move the map to the lidar coverage area.'; return;
     }
     const land = PUBLIC_LANDS.find(item => source.value === `land-${item.id}`);
-    const choice = historicTopo ? { name: source.value === 'topo-early' ? 'Historic topo 1924–1958' : 'Historic topo 1969–1984', template: `/tiles/${source.value}/v1/{z}/{x}/{y}.webp`, min: 9, max: 15 }
+    const choice = aerialYear ? { name: `Historic aerial ${aerialYear}`, template: rasterTiles(`${HISTORIC_AERIAL_SERVICE}${aerialYear}_Leaf_On/ImageServer`, { format: 'jpgpng', transparent: 'true', interpolation: 'RSP_BilinearInterpolation' }), min: 0, max: 16 }
+      : historicTopo ? { name: source.value === 'topo-early' ? 'Historic topo 1924–1958' : 'Historic topo 1969–1984', template: `/tiles/${source.value}/v1/{z}/{x}/{y}.webp`, min: 9, max: 15 }
       : lidarName ? { name: lidarName, template: LIDAR_TILES[source.value]!, min: 8, max: source.value === 'lidar-chm' ? 15 : 16 }
       : land ? { name: land.label, template: publicLandExportUrl(land), min: 5, max: 16 }
       : source.value === 'deer' ? { name: 'Wisconsin deer units', template: DEER_EXPORT, min: 6, max: 16 }
