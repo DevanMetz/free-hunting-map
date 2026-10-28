@@ -12,6 +12,14 @@ const searchable = [
   { layer: 'west-virginia-wma-fill', fields: ['Name'] },
   { layer: 'south-carolina-wma-fill', fields: ['PropertyName'] },
   { layer: 'georgia-public-properties-fill', fields: ['PropName'] },
+  { layer: 'arkansas-wma-fill', fields: ['wma', 'fname', 'flabel'] },
+  { layer: 'iowa-public-hunting-fill', fields: ['AREA_NAME'] },
+  { layer: 'kentucky-public-hunting-fill', fields: ['AREANAME'] },
+  { layer: 'virginia-wma-fill', fields: ['WMA_NAME'] },
+  { layer: 'oklahoma-wildlife-areas-fill', fields: ['WMANAME'] },
+  { layer: 'tennessee-hunting-lands-fill', fields: ['NAME'] },
+  { layer: 'louisiana-managed-lands-fill', fields: ['NAME'] },
+  { layer: 'north-carolina-game-lands-fill', fields: ['GML_HAB'] },
 ] as const;
 
 export interface VisibleLandResult {
