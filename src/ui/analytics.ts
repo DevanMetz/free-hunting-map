@@ -1,3 +1,4 @@
+import { excludeDeviceSwitch } from './analyticsExclude';
 import { h } from './dom';
 import { loadGoogle } from './accountPanel';
 import './analytics.css';
@@ -15,6 +16,7 @@ export async function renderAnalytics(root: HTMLElement) {
     }
     if(!response.ok) { main.append(h('p',{},response.status===403?'Forbidden':'Unavailable')); return; }
     const data=await response.json();
+    main.append(excludeDeviceSwitch());
     main.append(h('div',{class:'metrics'},...['dau','wau','mau'].map(key=>h('div',{},h('strong',{},String(data[key]??0)),h('span',{},key.toUpperCase())))));
     const days=Array.from({length:30},(_,i)=>{const day=new Date(Date.now()-(29-i)*86400000).toISOString().slice(0,10); return data.days.find((d:any)=>d.day===day)??{day,users:0,pwa:0,browser:0,new:0,returning:0};});
     const max=Math.max(1,...days.map(d=>d.users));

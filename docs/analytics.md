@@ -14,6 +14,12 @@ Feature uses are action counts. Today’s feature users count distinct daily IDs
 
 The client keeps one pending open and at most 100 feature events for seven days in localStorage, flushing on boot, reconnect, a ten-second debounce and page hiding. Each batch uses its original day's ID. This analytics-only localStorage is an explicit exception to map-data IndexedDB conventions. DNT or GPC clears analytics state and prevents collection. “Usage analytics” defaults on; switching it off clears state and reloads to unload the Web Analytics beacon. The preference is device-local and never synced. The beacon loads only online on the two production hostnames.
 
+Headless browsers, bots, `navigator.webdriver` and `?fhm_bot=1` skip opens, feature events and the Web Analytics beacon. The URL flag persists as localStorage `fhm_analytics_exclude=bot`; `?fhm_bot=0` clears only that bot flag. The server also drops requests with missing or bot User-Agents before any analytics or rate-limit writes. Browser verification scripts include the bot flag.
+
+Authenticated admins can turn on “Exclude this device” to store `fhm_analytics_exclude=internal`. Opens and feature payloads then include `internal: true`; D1 retains them with `internal=1`, while Analytics Engine skips them. Turning the switch off removes the internal preference. DNT, GPC and the analytics opt-out still take precedence. Existing rows are unchanged.
+
+A read-only check found 62 sync failures across 35 daily IDs, with 60 failures joined to new-device opens; stored rows cannot identify the exact cause. Previously, any sync setup or request error counted as `sync` failure, including signed-out session discovery and network interruptions. Failures now count only during signed-in sync, excluding 401s, offline/network errors, aborted requests and cancelled runs; a confirmed signed-out session stops automatic retries until sign-in.
+
 ## Operations
 
 Apply migrations and query D1:
