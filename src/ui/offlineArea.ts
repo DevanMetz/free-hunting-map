@@ -139,6 +139,7 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
   const list = h('div', { class: 'offline-areas', role: 'region', 'aria-label': 'Saved areas' });
   const download = h('button', { type: 'button', class: 'btn', onclick: () => { void start(); } }, 'Download area');
   const cancel = h('button', { type: 'button', class: 'btn', hidden: true, onclick: () => controller?.abort() }, 'Cancel');
+  download.disabled = true; zoom.disabled = true; source.disabled = true;
 
   function renderAreas(): void {
     list.hidden = areas.length === 0;
@@ -149,10 +150,6 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     }));
   }
 
-  async function persist(): Promise<void> {
-    try { await repo.setMeta(AREAS, areas); } catch { /* tiles remain cached either way */ }
-  }
-
   async function forget(area: SavedArea): Promise<void> {
     if (busy) return;
     busy = true; download.disabled = true; zoom.disabled = true; source.disabled = true;
@@ -160,9 +157,17 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     const keep = new Set(areas.filter(item => item.id !== area.id).flatMap(item => tiles(item, item.min, item.max, item.template) ?? []));
     const drop = (tiles(area, area.min, area.max, area.template) ?? []).filter(url => !keep.has(url));
     status.textContent = `Removing ${area.name}`;
-    try { await evict(drop); } catch { /* the saved area still goes away */ }
-    areas = areas.filter(item => item.id !== area.id);
-    await persist();
+    const remaining = areas.filter(item => item.id !== area.id);
+    try {
+      await repo.setMeta(AREAS, remaining);
+    } catch {
+      status.textContent = 'Could not update saved areas.';
+      busy = false; download.disabled = false; zoom.disabled = false; source.disabled = false;
+      renderAreas();
+      return;
+    }
+    areas = remaining;
+    try { await evict(drop); } catch { /* cached tiles may remain until eviction */ }
     busy = false; download.disabled = false; zoom.disabled = false; source.disabled = false;
     status.textContent = '';
     renderAreas();
@@ -189,6 +194,7 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     busy = true; download.disabled = true; zoom.disabled = true; source.disabled = true; cancel.hidden = false;
     renderAreas();
     let completed = 0, failed = 0, next = 0;
+    let saveFailed = false;
     status.textContent = `Downloading ${choice.name}: 0 / ${urls.length}`;
     const worker = async () => {
       while (!signal.aborted && next < urls.length) {
@@ -200,17 +206,25 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     };
     await Promise.all(Array.from({ length: 4 }, worker));
     if (!signal.aborted && completed > failed) {
-      areas = [{ id: crypto.randomUUID(), name: choice.name, template: choice.template, min: choice.min, max: Math.min(Number(zoom.value), choice.max), ...view }, ...areas];
-      renderAreas();
-      await persist();
+      const updated = [{ id: crypto.randomUUID(), name: choice.name, template: choice.template, min: choice.min, max: Math.min(Number(zoom.value), choice.max), ...view }, ...areas];
+      try {
+        await repo.setMeta(AREAS, updated);
+        areas = updated;
+      } catch {
+        saveFailed = true;
+      }
     }
-    status.textContent = signal.aborted ? `Canceled: ${completed} / ${urls.length}` : failed ? `Downloaded ${completed - failed} / ${urls.length}. ${failed} failed.` : `Downloaded ${choice.name}: ${completed} tiles`;
+    status.textContent = signal.aborted ? `Canceled: ${completed} / ${urls.length}` : saveFailed ? 'Could not save area.' : failed ? `Downloaded ${completed - failed} / ${urls.length}. ${failed} failed.` : `Downloaded ${choice.name}: ${completed} tiles`;
     controller = undefined; busy = false; download.disabled = false; zoom.disabled = false; source.disabled = false; cancel.hidden = true;
     renderAreas();
     onStorage?.();
   }
 
-  if (typeof repo.getMeta === 'function') void repo.getMeta<unknown>(AREAS).then(value => { areas = savedAreas(value, allowed); renderAreas(); }).catch(() => {});
+  void repo.getMeta<unknown>(AREAS).then(value => {
+    areas = savedAreas(value, allowed);
+    download.disabled = false; zoom.disabled = false; source.disabled = false;
+    renderAreas();
+  }).catch(() => { status.textContent = 'Could not load saved areas. Reload and try again.'; });
   return {
     element: h('section', { class: 'offline-download', 'aria-label': 'Offline maps' }, h('div', { class: 'offline-download-controls' }, source, zoom, download, cancel), status, list),
     close: () => controller?.abort(),
