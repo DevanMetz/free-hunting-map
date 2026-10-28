@@ -2,10 +2,16 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 
 // These polygon layers load complete GeoJSON features for the current view.
 const searchable = [
-  { layer: 'montana-wma-fill', field: 'NAME' },
-  { layer: 'florida-wma-fill', field: 'NAME' },
-  { layer: 'texas-wma-fill', field: 'LoName' },
-  { layer: 'national-wildlife-refuges-fill', field: 'ORGNAME' },
+  { layer: 'montana-wma-fill', fields: ['NAME'] },
+  { layer: 'florida-wma-fill', fields: ['NAME'] },
+  { layer: 'texas-wma-fill', fields: ['LoName'] },
+  { layer: 'national-wildlife-refuges-fill', fields: ['ORGNAME'] },
+  { layer: 'ohio-dnr-lands-fill', fields: ['LANDS_NAME', 'ALT_NAME'] },
+  { layer: 'missouri-conservation-areas-fill', fields: ['OFF_Name', 'Area_Name'] },
+  { layer: 'alabama-wma-fill', fields: ['Name'] },
+  { layer: 'west-virginia-wma-fill', fields: ['Name'] },
+  { layer: 'south-carolina-wma-fill', fields: ['PropertyName'] },
+  { layer: 'georgia-public-properties-fill', fields: ['PropName'] },
 ] as const;
 
 export interface VisibleLandResult {
@@ -18,15 +24,15 @@ export function visibleLandSearch(map: MapLibreMap, query: string): VisibleLandR
   if (needle.length < 2) return [];
   const layers = searchable.filter(({ layer }) => map.getLayer(layer) && map.getLayoutProperty(layer, 'visibility') !== 'none');
   if (!layers.length) return [];
-  const fields = new Map<string, string>(layers.map(({ layer, field }) => [layer, field]));
+  const fields = new Map<string, readonly string[]>(layers.map(({ layer, fields }) => [layer, fields]));
   const results = new Map<string, VisibleLandResult>();
   for (const feature of map.queryRenderedFeatures({ layers: layers.map(({ layer }) => layer) })) {
-    const field = fields.get(feature.layer.id);
-    const value: unknown = field && feature.properties?.[field];
-    if (typeof value !== 'string') continue;
-    const name = value.trim();
+    const names = fields.get(feature.layer.id)?.map(field => feature.properties?.[field])
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0) ?? [];
+    const name = names[0]?.trim();
+    if (!name) continue;
     const key = `${feature.layer.id}:${name.toLocaleLowerCase()}`;
-    if (!name.toLocaleLowerCase().includes(needle) || results.has(key)) continue;
+    if (!names.some(value => value.toLocaleLowerCase().includes(needle)) || results.has(key)) continue;
     // Rendered polygon geometry can be clipped to a tile. A point on that fragment
     // keeps navigation on the visible feature instead of fitting misleading bounds.
     const geometry = feature.geometry;
