@@ -30,6 +30,7 @@ const searchable = [
   { layer: 'designated-wilderness-fill', fields: ['NAME'] },
   { layer: 'new-mexico-designated-areas-fill', fields: ['NAME'] },
   { layer: 'georgia-designated-areas-fill', fields: ['Name', 'PropName'] },
+  { layer: 'kentucky-elk-regulated-areas-fill', fields: ['Name'] },
 ] as const;
 
 export interface VisibleLandResult {
