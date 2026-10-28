@@ -52,6 +52,8 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     h('option', { value: 'lidar-hillshade' }, 'Lidar hillshade'),
     h('option', { value: 'lidar-slope' }, 'Lidar slope'),
     h('option', { value: 'lidar-chm' }, 'Canopy height'),
+    h('option', { value: 'topo-early' }, 'Historic topo 1924–1958'),
+    h('option', { value: 'topo-1970s' }, 'Historic topo 1969–1984'),
     h('option', { value: 'cuts' }, 'Logging cuts'),
     h('option', { value: 'census' }, 'Census 4WD roads'),
     h('option', { value: 'osm' }, 'OSM tracks'),
@@ -69,11 +71,16 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     const lidarNames: Record<string, string> = { 'lidar-lrm': 'Local relief', 'lidar-openness': 'Openness', 'lidar-hillshade': 'Lidar hillshade', 'lidar-slope': 'Lidar slope', 'lidar-chm': 'Canopy height' };
     const lidarName = lidarNames[source.value];
     const bounds = getBounds();
+    const historicTopo = source.value === 'topo-early' || source.value === 'topo-1970s';
+    if (historicTopo && (bounds.getEast() < -91 || bounds.getWest() > -90.25 || bounds.getNorth() < 44.25 || bounds.getSouth() > 45.25)) {
+      status.textContent = 'Move the map to the historic topo coverage area.'; return;
+    }
     if (lidarName && (bounds.getEast() < LIDAR_BOUNDS[0] || bounds.getWest() > LIDAR_BOUNDS[2] || bounds.getNorth() < LIDAR_BOUNDS[1] || bounds.getSouth() > LIDAR_BOUNDS[3])) {
       status.textContent = 'Move the map to the lidar coverage area.'; return;
     }
     const land = PUBLIC_LANDS.find(item => source.value === `land-${item.id}`);
-    const choice = lidarName ? { name: lidarName, template: LIDAR_TILES[source.value]!, min: 8, max: source.value === 'lidar-chm' ? 15 : 16 }
+    const choice = historicTopo ? { name: source.value === 'topo-early' ? 'Historic topo 1924–1958' : 'Historic topo 1969–1984', template: `/tiles/${source.value}/v1/{z}/{x}/{y}.webp`, min: 9, max: 15 }
+      : lidarName ? { name: lidarName, template: LIDAR_TILES[source.value]!, min: 8, max: source.value === 'lidar-chm' ? 15 : 16 }
       : land ? { name: land.label, template: publicLandExportUrl(land), min: 5, max: 16 }
       : source.value === 'deer' ? { name: 'Wisconsin deer units', template: DEER_EXPORT, min: 6, max: 16 }
       : source.value === 'trails' ? { name: 'Public trails', template: TRAILS_TILES, min: 6, max: 14 }
@@ -91,6 +98,7 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
       : { name: basemap === 'topo' ? 'Topo' : 'Satellite', template: basemap === 'topo' ? USGS_TOPO_TILES : USGS_IMAGERY_TILES, min: 0, max: 16 };
     const urls = tiles(bounds, choice.min, Math.min(Number(zoom.value), choice.max), choice.template);
     if (!urls) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }
+    if (!urls.length) { status.textContent = 'Choose more detail for this layer.'; return; }
     if (source.value === 'water-history' && urls.length > 200) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }
     controller = new AbortController();
     const signal = controller.signal;
