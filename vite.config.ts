@@ -29,7 +29,6 @@ const tileCache = (name: string, urlPattern: RegExp, maxEntries: number) => ({
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(version) },
-  // MapLibre alone is ~1 MB minified; it is precached once, so a single chunk is fine.
   worker: { format: 'es' },
   server: { port: 5180, strictPort: true, proxy: { '/api': {
     target: 'http://localhost:8787',
@@ -41,7 +40,13 @@ export default defineConfig({
       });
     },
   }, '/tiles': { target: 'http://localhost:8787', changeOrigin: true } } },
-  build: { chunkSizeWarningLimit: 1600 },
+  build: {
+    chunkSizeWarningLimit: 1600,
+    rollupOptions: { output: { manualChunks(id) {
+      // Keep the large map engine cacheable across changes to application code.
+      if (id.includes('/node_modules/maplibre-gl/')) return 'maplibre';
+    } } },
+  },
   plugins: [
     {
       name: 'static-content',
