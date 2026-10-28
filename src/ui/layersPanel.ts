@@ -3,7 +3,7 @@ import { LABEL_SCALES } from '../map/labels';
 import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
 import { categoryState, layerRegistry, layerSetting, layerVariant, orderedLayers, toggleCategory, type LayerDef } from '../map/layerRegistry';
 import type { AppContext } from './context';
-import { h, iconButton } from './dom';
+import { h, iconButton, toast } from './dom';
 import { layerState, stateDistance } from './layerStates';
 import { offlineArea } from './offlineArea';
 
@@ -279,8 +279,15 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   const basemapChanged = () => refresh();
   ctx.map.map.on('moveend', moved);
   ctx.map.map.on('style.load', basemapChanged);
-  const sharing = h('input', { type: 'checkbox', role: 'switch', checked: true, disabled: true, 'aria-label': 'Share scan results', onchange: () => { void ctx.repo.setCommunitySharing(sharing.checked); } });
-  void ctx.repo.communitySharing().then(on => { sharing.checked = on; sharing.disabled = false; }).catch(() => {});
+  const sharing = h('input', { type: 'checkbox', role: 'switch', disabled: true, 'aria-label': 'Share scan results', onchange: () => {
+    const next = sharing.checked;
+    sharing.disabled = true;
+    void ctx.repo.setCommunitySharing(next).catch(() => {
+      sharing.checked = !next;
+      toast('Could not save scan sharing preference');
+    }).finally(() => { sharing.disabled = false; });
+  } });
+  void ctx.repo.communitySharing().then(on => { sharing.checked = on; sharing.disabled = false; }).catch(() => { toast('Could not load scan sharing preference'); });
   const storage = h('div', { class: 'storage-usage', role: 'status' });
   const refreshStorage = () => {
     if (!navigator.storage?.estimate) return;
