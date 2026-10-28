@@ -1,4 +1,4 @@
-import { USGS_IMAGERY_TILES, USGS_TOPO_TILES, type BasemapId } from '../map/sources';
+import { NHD_TILES, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, type BasemapId } from '../map/sources';
 import type { LngLatBounds } from 'maplibre-gl';
 import { h } from './dom';
 
@@ -9,10 +9,10 @@ const latY = (lat: number, n: number): number => {
 };
 
 /** Enumerate a bounded visible area, avoiding world-wrap duplicates. */
-function tiles(bounds: LngLatBounds, maxZoom: number, template: string): string[] | null {
+function tiles(bounds: LngLatBounds, minZoom: number, maxZoom: number, template: string): string[] | null {
   const urls: string[] = [];
   const west = bounds.getWest(), east = bounds.getEast();
-  for (let z = 0; z <= maxZoom; z++) {
+  for (let z = minZoom; z <= maxZoom; z++) {
     const n = 2 ** z;
     const x0 = Math.floor((west + 180) / 360 * n);
     const x1 = Math.floor((east + 180) / 360 * n);
@@ -29,35 +29,40 @@ function tiles(bounds: LngLatBounds, maxZoom: number, template: string): string[
 
 export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => BasemapId): { element: HTMLElement; close: () => void } {
   let controller: AbortController | undefined;
+  const source = h('select', { 'aria-label': 'Download layer' },
+    h('option', { value: 'basemap' }, 'Current basemap'),
+    h('option', { value: 'trails' }, 'Public trails'),
+    h('option', { value: 'water' }, 'Streams & lakes'));
   const zoom = h('select', { 'aria-label': 'Download detail' }, ...[12, 13, 14, 15, 16].map(z => h('option', { value: z, ...(z === 14 ? { selected: true } : {}) }, `Zoom ${z}`)));
   const status = h('div', { role: 'status', class: 'offline-download-status' });
-  const download = h('button', { type: 'button', class: 'btn', onclick: () => { void start(); } }, 'Download basemap area');
+  const download = h('button', { type: 'button', class: 'btn', onclick: () => { void start(); } }, 'Download area');
   const cancel = h('button', { type: 'button', class: 'btn', hidden: true, onclick: () => controller?.abort() }, 'Cancel');
   async function start(): Promise<void> {
     const basemap = getBasemap();
-    if (basemap === 'streets') { status.textContent = 'Choose Topo or Satellite to download.'; return; }
+    if (source.value === 'basemap' && basemap === 'streets') { status.textContent = 'Choose Topo or Satellite to download.'; return; }
     if (!navigator.serviceWorker?.controller) { status.textContent = 'Offline storage is not ready. Reload and try again.'; return; }
     if (!navigator.onLine) { status.textContent = 'Connect to download an area.'; return; }
-    const urls = tiles(getBounds(), Number(zoom.value), basemap === 'topo' ? USGS_TOPO_TILES : USGS_IMAGERY_TILES);
+    const choice = source.value === 'trails' ? { name: 'Public trails', template: TRAILS_TILES, min: 6, max: 14 }
+      : source.value === 'water' ? { name: 'Streams & lakes', template: NHD_TILES, min: 0, max: 16 }
+      : { name: basemap === 'topo' ? 'Topo' : 'Satellite', template: basemap === 'topo' ? USGS_TOPO_TILES : USGS_IMAGERY_TILES, min: 0, max: 16 };
+    const urls = tiles(getBounds(), choice.min, Math.min(Number(zoom.value), choice.max), choice.template);
     if (!urls) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }
     controller = new AbortController();
     const signal = controller.signal;
-    download.disabled = true; zoom.disabled = true; cancel.hidden = false;
+    download.disabled = true; zoom.disabled = true; source.disabled = true; cancel.hidden = false;
     let completed = 0, failed = 0, next = 0;
-    status.textContent = `Downloading ${BASEMAP_NAME[basemap]}: 0 / ${urls.length}`;
+    status.textContent = `Downloading ${choice.name}: 0 / ${urls.length}`;
     const worker = async () => {
       while (!signal.aborted && next < urls.length) {
         const url = urls[next++]!;
         try { const response = await fetch(url, { signal }); if (!response.ok) failed++; }
         catch { if (!signal.aborted) failed++; }
-        if (!signal.aborted) { completed++; status.textContent = `Downloading ${BASEMAP_NAME[basemap]}: ${completed} / ${urls.length}`; }
+        if (!signal.aborted) { completed++; status.textContent = `Downloading ${choice.name}: ${completed} / ${urls.length}`; }
       }
     };
     await Promise.all(Array.from({ length: 4 }, worker));
-    status.textContent = signal.aborted ? `Canceled: ${completed} / ${urls.length}` : failed ? `Downloaded ${completed - failed} / ${urls.length}. ${failed} failed.` : `Downloaded ${BASEMAP_NAME[basemap]}: ${completed} tiles`;
-    controller = undefined; download.disabled = false; zoom.disabled = false; cancel.hidden = true;
+    status.textContent = signal.aborted ? `Canceled: ${completed} / ${urls.length}` : failed ? `Downloaded ${completed - failed} / ${urls.length}. ${failed} failed.` : `Downloaded ${choice.name}: ${completed} tiles`;
+    controller = undefined; download.disabled = false; zoom.disabled = false; source.disabled = false; cancel.hidden = true;
   }
-  return { element: h('section', { class: 'offline-download', 'aria-label': 'Offline maps' }, h('div', { class: 'offline-download-controls' }, download, zoom, cancel), status), close: () => controller?.abort() };
+  return { element: h('section', { class: 'offline-download', 'aria-label': 'Offline maps' }, h('div', { class: 'offline-download-controls' }, source, zoom, download, cancel), status), close: () => controller?.abort() };
 }
-
-const BASEMAP_NAME = { topo: 'Topo', satellite: 'Satellite' } as const;
