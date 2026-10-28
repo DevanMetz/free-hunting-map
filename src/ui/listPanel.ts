@@ -4,13 +4,13 @@ import { categoryOf, effectiveColor, effectiveIcon, isVisible, itemType, type It
 import { matchRanges, searchItems } from '../organize/search';
 import type { Category, Item } from '../types';
 import type { AppContext } from './context';
-import { h, iconButton } from './dom';
+import { h, iconButton, toast } from './dom';
 import { displayName } from './itemDisplay';
 import { categoryDialog, deleteCategoryDialog, moveDialog } from './categoryControls';
 
 export function openListPanel(ctx: AppContext): void {
   let items: Item[] = [], categories: Category[] = [], type: ItemType | undefined, categoryId: string | undefined;
-  let selecting = false, searched = false, version = 0, closed = false;
+  let selecting = false, searched = false, deleting = false, version = 0, closed = false;
   const selected = new Set<string>(), collapsed = new Set<string>();
   const search = h('input', { type: 'search', class: 'field', placeholder: 'Search', 'aria-label': 'Search saved items', autocomplete: 'off' });
   const filters = h('div', { class: 'organize-filters' });
@@ -59,10 +59,21 @@ export function openListPanel(ctx: AppContext): void {
       iconButton('eyeOff', 'Hide selected', () => void setHidden([...selected], true)),
       iconButton('eye', 'Show selected', () => void setHidden([...selected], false)),
       iconButton('trash', 'Delete selected', () => void (async () => {
-        if (!selected.size || !confirm(`Delete ${selected.size} items?`)) return;
-        for (const id of selected) await ctx.repo.remove(id);
-        selected.clear(); await refresh();
+        if (deleting || !selected.size || !confirm(`Delete ${selected.size} items?`)) return;
+        const ids = [...selected];
+        deleting = true;
+        render();
+        try {
+          for (const id of ids) { await ctx.repo.remove(id); selected.delete(id); }
+          await refresh();
+        } catch {
+          toast('Could not delete all selected items');
+        } finally {
+          deleting = false;
+          if (!closed) render();
+        }
       })(), 'danger'));
+    (bulk.lastElementChild as HTMLButtonElement).disabled = deleting || !selected.size;
     if (search.value.trim()) groups.replaceChildren(h('ul', { class: 'item-list', 'aria-label': 'Search results' }, ...result.map(row)));
     else {
       const visibleGroups: (Category | undefined)[] = [...categories, undefined].filter(c => categoryId === undefined || (c?.id ?? '') === categoryId);
