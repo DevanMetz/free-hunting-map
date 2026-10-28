@@ -4,7 +4,8 @@ import { voteCommunity, overrideCommunity } from './communityVotes';
 import { communityTile, uploadCommunity, deleteCommunity } from './community';
 import { serveTiles } from './tiles';
 import { BOT_UA } from '../src/usageSchema';
-import { recordUsage, usageReport } from './usage';
+import { recordUsage } from './usage';
+import { usageReport } from './usageReport';
 import { verifyGoogleToken } from './token';
 import { ApiError, sync } from './sync';
 export interface Env { DB: D1Database; TILES?: R2Bucket; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; COMMUNITY_ADMIN_TOKEN?: string; USAGE?: AnalyticsEngineDataset }
@@ -61,7 +62,7 @@ export default {
         const account = await user(request,env);
         if (!account) throw new ApiError(401,'Sign in required');
         if (!account.email || !(env.ADMIN_EMAILS ?? 'metzdevan@gmail.com').split(',').map(v=>v.trim().toLowerCase()).includes(account.email.toLowerCase())) throw new ApiError(403,'Forbidden');
-        return json(await usageReport(env.DB));
+        return json(await usageReport(env.DB,url.searchParams));
       }
       if (request.method === 'GET' && url.pathname === '/api/community/export') return await exportCommunity(request,env.DB,env.TILES,env.COMMUNITY_ADMIN_TOKEN);
       if (request.method !== 'POST') return json({ error:'Not found' },404);
