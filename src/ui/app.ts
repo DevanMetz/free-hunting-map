@@ -3,7 +3,7 @@ import { useFeature } from '../usage';
 import type { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
-import { layerRegistry, layerSetting, type IdentifyResult } from '../map/layerRegistry';
+import { layerRegistry, layerSetting } from '../map/layerRegistry';
 import { pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { TrackRecorder } from '../map/recorder';
@@ -289,33 +289,24 @@ export class App implements AppContext {
       (def.minzoom === undefined || this.map.map.getZoom() >= def.minzoom) &&
       (def.maxzoom === undefined || this.map.map.getZoom() < def.maxzoom));
     if (!enabled.length) return;
-    for (const def of enabled.filter(d => d.identifyPresentation === 'sheet')) {
-      const result = await def.identify!(...at, request.signal, this.map.map, e.point).catch(() => null);
-      if (request.signal.aborted) return;
-      if (result && layerSetting(this.map.mapState, def).on) {
-        const panel = await import('./identifyPanel').catch(() => null);
-        if (request.signal.aborted || !layerSetting(this.map.mapState, def).on) return;
-        if (!panel) { toast('Could not open details'); return; }
-        panel.openIdentifyPanel(this.sheet, def.id, result);
-        this.syncToolbar();
-        return;
-      }
-    }
     const content = h('div', { class: 'inspect-content' });
     const sections = new Map<number, HTMLElement>();
-    const append = (order: number, result: IdentifyResult | null) => {
-      if (!result) return;
-      sections.set(order, h('section', {}, result.title ? h('strong', {}, result.title) : null,
-        ...result.rows.map(([label, value]) => h('div', {}, label ? `${label}: ${value}` : value))));
-      content.replaceChildren(...[...sections].sort(([a], [b]) => a - b).map(([, section]) => section));
-      if (!popup.isOpen()) popup.setLngLat(at).setDOMContent(content).addTo(this.map.map);
-    };
-    const popup = new Popup({ closeButton: true, className: 'inspect-popup', maxWidth: '280px' });
+    const popup = new Popup({ closeButton: true, className: 'inspect-popup', maxWidth: '320px' });
     this.inspectPopup = popup;
     popup.on('close', () => request.abort());
-    enabled.filter(d => d.identifyPresentation !== 'sheet').forEach((def, order) => {
-      void def.identify!(...at, request.signal, this.map.map, e.point).then(result => {
-        if (!request.signal.aborted && this.inspectPopup === popup && layerSetting(this.map.mapState, def).on) append(order, result);
+    enabled.forEach((def, order) => {
+      void def.identify!(...at, request.signal, this.map.map, e.point).then(async result => {
+        if (!result || request.signal.aborted || this.inspectPopup !== popup || !layerSetting(this.map.mapState, def).on) return;
+        const { identifyContent } = await import('./identifyPanel');
+        if (request.signal.aborted || this.inspectPopup !== popup || !layerSetting(this.map.mapState, def).on) return;
+        sections.set(order, h('section', {}, result.title ? h('strong', {}, result.title) : null, identifyContent(result)));
+        content.replaceChildren(...[...sections].sort(([a], [b]) => a - b).map(([, section]) => section));
+        if (!popup.isOpen()) {
+          popup.setLngLat(at).setDOMContent(content).addTo(this.map.map);
+          const close = popup.getElement()?.querySelector<HTMLButtonElement>('.maplibregl-popup-close-button');
+          close?.setAttribute('aria-label', 'Close');
+          close?.setAttribute('title', 'Close');
+        }
       }).catch(() => {});
     });
   }

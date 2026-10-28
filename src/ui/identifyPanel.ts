@@ -6,7 +6,7 @@ import type { IdentifyResult } from '../map/layerRegistry';
 import type { Sheet } from './sheet';
 import { h } from './dom';
 
-export function openIdentifyPanel(sheet: Sheet, key: string, result: IdentifyResult): void {
+export function identifyContent(result: IdentifyResult): HTMLElement {
   const content=h('div', {}, h('dl', { class: 'identify-details' },
     ...result.rows.flatMap(([label, value]) => [h('dt', {}, label), h('dd', {}, value)])));
   for (const link of result.links ?? []) if (/^https:\/\//.test(link.url)) {
@@ -36,5 +36,9 @@ export function openIdentifyPanel(sheet: Sheet, key: string, result: IdentifyRes
     void hikes.reported(hikeId).then(reported=>{report.disabled=reported;if(reported)report.textContent='Reported';});
     content.append(report);
   }
-  sheet.open(key, result.title ?? '', content);
+  return content;
+}
+
+export function openIdentifyPanel(sheet: Sheet, key: string, result: IdentifyResult): void {
+  sheet.open(key, result.title ?? '', identifyContent(result));
 }
