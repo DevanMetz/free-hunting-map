@@ -1,5 +1,4 @@
 import { addProtocol } from 'maplibre-gl';
-import { filterCutsPixels } from './cutsFilter';
 
 // Fetch the original URL so the existing service-worker cache remains authoritative.
 addProtocol('cuts', async (request, abort) => {
@@ -15,6 +14,7 @@ addProtocol('cuts', async (request, abort) => {
     const bitmap = await createImageBitmap(await response.blob());
     try { context.drawImage(bitmap, 0, 0); } finally { bitmap.close(); }
     const image = context.getImageData(0, 0, 256, 256);
+    const { filterCutsPixels } = await import('./cutsFilter');
     filterCutsPixels(image.data, +match[1]!);
     context.putImageData(image, 0, 0);
   }
