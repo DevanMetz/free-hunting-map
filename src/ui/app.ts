@@ -30,6 +30,9 @@ export class App implements AppContext {
   private tool: Tool | null = null;
   private recorder: TrackRecorder;
   private recording: Track | null = null;
+  private recordingSave: Promise<void> = Promise.resolve();
+  private recordingBusy = false;
+  private stoppedCoords: LngLat[] | null = null;
   private wakeLock: WakeLockSentinel | null = null;
   private readonly buttons = new Map<string, HTMLButtonElement>();
   private readonly recChip: HTMLElement;
@@ -287,7 +290,7 @@ export class App implements AppContext {
 
   private syncToolbar(): void {
     for (const [key, btn] of this.buttons) {
-      const active = key === 'record' ? this.recorder.active : this.sheet.current === key || this.tool?.key === key.replace('tool:', '');
+      const active = key === 'record' ? this.recorder.active || this.stoppedCoords !== null : this.sheet.current === key || this.tool?.key === key.replace('tool:', '');
       btn.classList.toggle('active', Boolean(active));
       btn.setAttribute('aria-pressed', String(Boolean(active)));
     }
@@ -350,45 +353,84 @@ export class App implements AppContext {
   }
 
   private async toggleRecording(): Promise<void> {
-    if (this.recorder.active) {
-      const coords = this.recorder.stop();
-      const track = this.recording;
-      this.recording = null;
-      void this.wakeLock?.release().catch(() => {});
-      this.wakeLock = null;
-      this.recChip.hidden = true;
-      this.setRecordIcon(false);
-      if (track) {
-        if (coords.length < 2) await this.repo.remove(track.id);
-        else {
-          const saved = await this.repo.update(track, { coords: [...coords] });
-          this.openItem(saved);
+    if (this.recordingBusy) return;
+    this.recordingBusy = true;
+    const button = this.buttons.get('record');
+    if (button) button.disabled = true;
+    try {
+      if (this.recorder.active || this.stoppedCoords) {
+        if (this.recorder.active) {
+          this.stoppedCoords = [...this.recorder.stop()];
+          void this.wakeLock?.release().catch(() => {});
+          this.wakeLock = null;
         }
+        const coords = this.stoppedCoords!;
+        const track = this.recording;
+        await this.recordingSave;
+        if (track) {
+          if (coords.length < 2) await this.repo.remove(track.id);
+          else {
+            const saved = await this.repo.update(track, { coords });
+            this.openItem(saved);
+          }
+        }
+        this.recording = null;
+        this.stoppedCoords = null;
+        this.recChip.hidden = true;
+        this.setRecordIcon(false);
+        this.syncToolbar();
+        return;
       }
+      if (!('geolocation' in navigator)) return toast('GPS unavailable');
+      const name = `Track ${new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+      this.recording = await this.repo.create<Track>({ kind: 'track', name, note: '', coords: [], recorded: true });
+      try {
+        this.recorder.start();
+      } catch {
+        this.stoppedCoords = [];
+        throw new Error('Could not start GPS');
+      }
+      useFeature('track_record');
+      if (this.map.geolocate._watchState === 'OFF') this.map.geolocate.trigger();
+      this.recChip.hidden = false;
+      this.recChip.textContent = shortDistance(0);
+      this.setRecordIcon(true);
       this.syncToolbar();
-      return;
+      const track = this.recording;
+      void navigator.wakeLock?.request('screen').then(lock => {
+        if (this.recorder.active && this.recording === track) this.wakeLock = lock;
+        else void lock.release().catch(() => {});
+      }).catch(() => {});
+    } catch (err) {
+      if (this.stoppedCoords) {
+        this.setRecordIcon(true);
+        this.syncToolbar();
+        toast('Could not save recording. Tap stop to retry.');
+      } else toast(err instanceof Error && err.message === 'Could not start GPS' ? err.message : 'Could not start recording');
+    } finally {
+      this.recordingBusy = false;
+      if (button) button.disabled = false;
     }
-    if (!('geolocation' in navigator)) return toast('GPS unavailable');
-    const name = `Track ${new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
-    this.recording = await this.repo.create<Track>({ kind: 'track', name, note: '', coords: [], recorded: true });
-    this.recorder.start(); useFeature('track_record');
-    if (this.map.geolocate._watchState === 'OFF') this.map.geolocate.trigger();
-    this.wakeLock = await navigator.wakeLock?.request('screen').catch(() => null) ?? null;
-    this.recChip.hidden = false;
-    this.recChip.textContent = shortDistance(0);
-    this.setRecordIcon(true);
-    this.syncToolbar();
   }
 
   private setRecordIcon(recording: boolean): void {
     const b = this.buttons.get('record');
-    if (b) b.innerHTML = UI_ICONS[recording ? 'stop' : 'record'];
+    if (b) {
+      b.innerHTML = UI_ICONS[recording ? 'stop' : 'record'];
+      const label = recording ? 'Stop GPS recording' : 'Record GPS track';
+      b.setAttribute('aria-label', label);
+      b.title = label;
+    }
   }
 
-  private async onRecordedPoint(coords: LngLat[]): Promise<void> {
+  private onRecordedPoint(coords: LngLat[]): void {
     this.recChip.textContent = shortDistance(pathLength(coords));
-    if (this.recording && coords.length % RECORD_SAVE_EVERY === 0) {
-      this.recording = await this.repo.update(this.recording, { coords: [...coords] });
+    const track = this.recording;
+    if (track && coords.length % RECORD_SAVE_EVERY === 0) {
+      const snapshot = [...coords];
+      this.recordingSave = this.recordingSave.then(async () => {
+        await this.repo.update(track, { coords: snapshot });
+      }).catch(() => { toast('Could not save recording'); });
     }
   }
 
