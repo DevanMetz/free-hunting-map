@@ -8,20 +8,25 @@ import './styles.css';
 async function main(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) throw new Error('#app missing');
-  // Register the offline shell while the map and local data are loading. This
-  // also leaves registration independent of map initialization failures.
-  let controlled = !!navigator.serviceWorker?.controller;
-  navigator.serviceWorker?.addEventListener('controllerchange', () => {
-    if (controlled) location.reload();
-    controlled = true;
-  });
-  registerSW({ immediate: true, onRegisteredSW(_url, registration) {
-    const update = () => { if (navigator.onLine) void registration?.update().catch(() => {}); };
-    window.addEventListener('online', update);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
-    window.setInterval(update, 60 * 60 * 1000);
-  } });
-  if (location.pathname === '/admin/analytics') await (await import('./ui/analytics')).renderAnalytics(root);
+  // Register independently of map initialization failures.
+  const registerOfflineShell = () => {
+    let controlled = !!navigator.serviceWorker?.controller;
+    navigator.serviceWorker?.addEventListener('controllerchange', () => {
+      if (controlled) location.reload();
+      controlled = true;
+    });
+    registerSW({ immediate: true, onRegisteredSW(_url, registration) {
+      const update = () => { if (navigator.onLine) void registration?.update().catch(() => {}); };
+      window.addEventListener('online', update);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
+      window.setInterval(update, 60 * 60 * 1000);
+    } });
+  };
+  if (location.pathname === '/admin/analytics') {
+    const analytics = import('./ui/analytics');
+    registerOfflineShell();
+    await (await analytics).renderAnalytics(root);
+  }
   else {
     // Fetch the map UI while IndexedDB opens, rather than serializing its large
     // MapLibre and layer dependencies behind local storage initialization.
@@ -37,6 +42,9 @@ async function main(): Promise<void> {
       ]);
       return { repo, settings, items };
     });
+    // Start the critical downloads and IndexedDB open before service worker
+    // registration can schedule competing network and cache work.
+    registerOfflineShell();
     // Analytics reads browser storage and starts network requests. Launch the
     // map's critical downloads and IndexedDB open before doing that work.
     startUsage();
