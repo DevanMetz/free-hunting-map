@@ -388,7 +388,11 @@ export class App implements AppContext {
         this.recorder.start();
       } catch {
         this.stoppedCoords = [];
-        throw new Error('Could not start GPS');
+        await this.repo.remove(this.recording.id);
+        this.recording = null;
+        this.stoppedCoords = null;
+        toast('Could not start GPS');
+        return;
       }
       useFeature('track_record');
       if (this.map.geolocate._watchState === 'OFF') this.map.geolocate.trigger();
@@ -401,12 +405,12 @@ export class App implements AppContext {
         if (this.recorder.active && this.recording === track) this.wakeLock = lock;
         else void lock.release().catch(() => {});
       }).catch(() => {});
-    } catch (err) {
+    } catch {
       if (this.stoppedCoords) {
         this.setRecordIcon(true);
         this.syncToolbar();
         toast('Could not save recording. Tap stop to retry.');
-      } else toast(err instanceof Error && err.message === 'Could not start GPS' ? err.message : 'Could not start recording');
+      } else toast('Could not start recording');
     } finally {
       this.recordingBusy = false;
       if (button) button.disabled = false;
