@@ -23,7 +23,7 @@ const tileCache = (name: string, urlPattern: RegExp, maxEntries: number) => ({
   options: {
     cacheName: name,
     expiration: { maxEntries, maxAgeSeconds: 90 * DAY, purgeOnQuotaError: true },
-    cacheableResponse: { statuses: [0, 200] },
+    cacheableResponse: { statuses: [0, 200, 204] },
   },
 });
 

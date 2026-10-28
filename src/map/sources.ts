@@ -109,3 +109,6 @@ export const WISCONSIN_BOUNDS: [number, number, number, number] = [-92.89, 42.49
 export const CUTS_TILES = '/tiles/cuts/v1/{z}/{x}/{y}.webp';
 export const CUTS_BOUNDS: [number, number, number, number] = [-124.85, 24.4, -66.85, 49.4];
 export const CUTS_ATTR = '<a href="https://developers.google.com/earth-engine/datasets/catalog/UMD_hansen_global_forest_change_2025_v1_13">Hansen/UMD/Google/USGS/NASA Global Forest Change, CC BY 4.0</a>';
+
+/** Versioned road inventory tile URL shared by map sources and offline downloads. */
+export const roadTiles = (archive: string, version: string): string => `/tiles/${archive}/${version}/{z}/{x}/{y}.mvt`;

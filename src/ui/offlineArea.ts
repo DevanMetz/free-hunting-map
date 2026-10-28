@@ -1,4 +1,4 @@
-import { NHD_TILES, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, type BasemapId } from '../map/sources';
+import { CUTS_TILES, NHD_TILES, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, roadTiles, type BasemapId } from '../map/sources';
 import type { LngLatBounds } from 'maplibre-gl';
 import { h } from './dom';
 
@@ -32,7 +32,11 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
   const source = h('select', { 'aria-label': 'Download layer' },
     h('option', { value: 'basemap' }, 'Current basemap'),
     h('option', { value: 'trails' }, 'Public trails'),
-    h('option', { value: 'water' }, 'Streams & lakes'));
+    h('option', { value: 'water' }, 'Streams & lakes'),
+    h('option', { value: 'cuts' }, 'Logging cuts'),
+    h('option', { value: 'census' }, 'Census 4WD roads'),
+    h('option', { value: 'osm' }, 'OSM tracks'),
+    h('option', { value: 'closed' }, 'Closed forest roads'));
   const zoom = h('select', { 'aria-label': 'Download detail' }, ...[12, 13, 14, 15, 16].map(z => h('option', { value: z, ...(z === 14 ? { selected: true } : {}) }, `Zoom ${z}`)));
   const status = h('div', { role: 'status', class: 'offline-download-status' });
   const download = h('button', { type: 'button', class: 'btn', onclick: () => { void start(); } }, 'Download area');
@@ -44,6 +48,10 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     if (!navigator.onLine) { status.textContent = 'Connect to download an area.'; return; }
     const choice = source.value === 'trails' ? { name: 'Public trails', template: TRAILS_TILES, min: 6, max: 14 }
       : source.value === 'water' ? { name: 'Streams & lakes', template: NHD_TILES, min: 0, max: 16 }
+      : source.value === 'cuts' ? { name: 'Logging cuts', template: CUTS_TILES, min: 5, max: 13 }
+      : source.value === 'census' ? { name: 'Census 4WD roads', template: roadTiles('tiger-trails', 'v2'), min: 8, max: 14 }
+      : source.value === 'osm' ? { name: 'OSM tracks', template: roadTiles('osm-tracks', 'v2'), min: 8, max: 14 }
+      : source.value === 'closed' ? { name: 'Closed forest roads', template: roadTiles('usfs-closed-roads', 'v1'), min: 8, max: 14 }
       : { name: basemap === 'topo' ? 'Topo' : 'Satellite', template: basemap === 'topo' ? USGS_TOPO_TILES : USGS_IMAGERY_TILES, min: 0, max: 16 };
     const urls = tiles(getBounds(), choice.min, Math.min(Number(zoom.value), choice.max), choice.template);
     if (!urls) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }

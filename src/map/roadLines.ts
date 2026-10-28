@@ -1,3 +1,4 @@
+import { roadTiles } from './sources';
 import type { FilterSpecification, LineLayerSpecification } from 'maplibre-gl';
 import type { IdentifyResult, LayerDef } from './layerRegistry';
 import { trailAt } from './trails';
@@ -22,7 +23,7 @@ export function roadLineDef(options: RoadOptions): LayerDef {
     cacheRoute: new RegExp(`/tiles/${archive}/v\\d+/\\d+/\\d+/\\d+\\.mvt$`), cacheStrategy: 'CacheFirst',
     layerIds,
     install(map, ctx) {
-      if (!map.getSource(id)) map.addSource(id, { type: 'vector', tiles: [`/tiles/${archive}/${version}/{z}/{x}/{y}.mvt`], minzoom: 8, maxzoom: 14, attribution });
+      if (!map.getSource(id)) map.addSource(id, { type: 'vector', tiles: [roadTiles(archive, version)], minzoom: 8, maxzoom: 14, attribution });
       classes.forEach((c, i) => {
         const rgb = c.color.slice(1).match(/../g)!.map(hex => parseInt(hex, 16));
         const light = rgb[0]! * 0.299 + rgb[1]! * 0.587 + rgb[2]! * 0.114 > 150;
