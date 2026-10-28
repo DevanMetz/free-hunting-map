@@ -1,4 +1,4 @@
-import { ASPECT_EXPORT, CUTS_TILES, DEER_EXPORT, HILLSHADE_EXPORT, NHD_TILES, NWI_EXPORT, SLOPE_EXPORT, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, WATER_HISTORY_TILES, roadTiles, type BasemapId } from '../map/sources';
+import { ASPECT_EXPORT, CUTS_TILES, DEER_EXPORT, HILLSHADE_EXPORT, LIDAR_BOUNDS, LIDAR_TILES, NHD_TILES, NWI_EXPORT, SLOPE_EXPORT, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, WATER_HISTORY_TILES, roadTiles, type BasemapId } from '../map/sources';
 import { PUBLIC_LANDS, publicLandExportUrl } from '../map/publicLands';
 import type { LngLatBounds } from 'maplibre-gl';
 import { h } from './dom';
@@ -47,6 +47,11 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     h('option', { value: 'hillshade' }, 'Hillshade'),
     h('option', { value: 'slope' }, 'Slope'),
     h('option', { value: 'aspect' }, 'Aspect'),
+    h('option', { value: 'lidar-lrm' }, 'Local relief'),
+    h('option', { value: 'lidar-openness' }, 'Openness'),
+    h('option', { value: 'lidar-hillshade' }, 'Lidar hillshade'),
+    h('option', { value: 'lidar-slope' }, 'Lidar slope'),
+    h('option', { value: 'lidar-chm' }, 'Canopy height'),
     h('option', { value: 'cuts' }, 'Logging cuts'),
     h('option', { value: 'census' }, 'Census 4WD roads'),
     h('option', { value: 'osm' }, 'OSM tracks'),
@@ -61,8 +66,15 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     if (source.value === 'basemap' && basemap === 'streets') { status.textContent = 'Choose Topo or Satellite to download.'; return; }
     if (!navigator.serviceWorker?.controller) { status.textContent = 'Offline storage is not ready. Reload and try again.'; return; }
     if (!navigator.onLine) { status.textContent = 'Connect to download an area.'; return; }
+    const lidarNames: Record<string, string> = { 'lidar-lrm': 'Local relief', 'lidar-openness': 'Openness', 'lidar-hillshade': 'Lidar hillshade', 'lidar-slope': 'Lidar slope', 'lidar-chm': 'Canopy height' };
+    const lidarName = lidarNames[source.value];
+    const bounds = getBounds();
+    if (lidarName && (bounds.getEast() < LIDAR_BOUNDS[0] || bounds.getWest() > LIDAR_BOUNDS[2] || bounds.getNorth() < LIDAR_BOUNDS[1] || bounds.getSouth() > LIDAR_BOUNDS[3])) {
+      status.textContent = 'Move the map to the lidar coverage area.'; return;
+    }
     const land = PUBLIC_LANDS.find(item => source.value === `land-${item.id}`);
-    const choice = land ? { name: land.label, template: publicLandExportUrl(land), min: 5, max: 16 }
+    const choice = lidarName ? { name: lidarName, template: LIDAR_TILES[source.value]!, min: 8, max: source.value === 'lidar-chm' ? 15 : 16 }
+      : land ? { name: land.label, template: publicLandExportUrl(land), min: 5, max: 16 }
       : source.value === 'deer' ? { name: 'Wisconsin deer units', template: DEER_EXPORT, min: 6, max: 16 }
       : source.value === 'trails' ? { name: 'Public trails', template: TRAILS_TILES, min: 6, max: 14 }
       : source.value === 'water' ? { name: 'Streams & lakes', template: NHD_TILES, min: 0, max: 16 }
@@ -77,7 +89,7 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
       : source.value === 'county' ? { name: 'County forest roads', template: roadTiles('wi-forest-roads', 'v1'), min: 8, max: 14 }
       : source.value === 'closed' ? { name: 'Closed forest roads', template: roadTiles('usfs-closed-roads', 'v1'), min: 8, max: 14 }
       : { name: basemap === 'topo' ? 'Topo' : 'Satellite', template: basemap === 'topo' ? USGS_TOPO_TILES : USGS_IMAGERY_TILES, min: 0, max: 16 };
-    const urls = tiles(getBounds(), choice.min, Math.min(Number(zoom.value), choice.max), choice.template);
+    const urls = tiles(bounds, choice.min, Math.min(Number(zoom.value), choice.max), choice.template);
     if (!urls) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }
     if (source.value === 'water-history' && urls.length > 200) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }
     controller = new AbortController();
