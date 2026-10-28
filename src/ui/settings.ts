@@ -22,15 +22,18 @@ export function loadSettings(saved: LegacySettings = {}): Settings {
     layers: {}, layerOrder: Array.isArray(saved.layerOrder) ? [...new Set(saved.layerOrder.filter((id): id is string => typeof id === 'string' && id.length <= 120))].slice(0, 1000) : [], collapsed: { ...saved.collapsed },
     remembered: Object.fromEntries(Object.entries(saved.remembered ?? {}).map(([id, ids]) => [id, [...ids]])),
   };
-  const legacy = {
-    ...Object.fromEntries(PUBLIC_LANDS.map(c => [`padus-${c.id}`, saved.publicLand ? saved.publicLand[c.id] === true : saved.publicLands === true])),
-    'public-trails': saved.trails === true,
-    hillshade: saved.hillshade === true, parcels: saved.parcels === true,
-    'water-nhd': saved.water === true, 'water-nwi': saved.water === true, 'deer-units': saved.deerUnits === true,
-  };
+  const legacy: Record<string, boolean> = {};
+  if (saved.publicLand || typeof saved.publicLands === 'boolean') {
+    for (const category of PUBLIC_LANDS) legacy[`padus-${category.id}`] = saved.publicLand ? saved.publicLand[category.id] === true : saved.publicLands === true;
+  }
+  if (typeof saved.trails === 'boolean') legacy['public-trails'] = saved.trails;
+  if (typeof saved.hillshade === 'boolean') legacy.hillshade = saved.hillshade;
+  if (typeof saved.parcels === 'boolean') legacy.parcels = saved.parcels;
+  if (typeof saved.water === 'boolean') { legacy['water-nhd'] = saved.water; legacy['water-nwi'] = saved.water; }
+  if (typeof saved.deerUnits === 'boolean') legacy['deer-units'] = saved.deerUnits;
   for (const def of layerRegistry.layers()) if (!def.action) state.layers[def.id] = {
     ...(def.variants ? { variant: layerVariant(def)!.id } : {}),
-    on: legacy[def.id as keyof typeof legacy] ?? def.defaultOn ?? false, opacity: def.defaultOpacity,
+    on: legacy[def.id] ?? def.defaultOn ?? false, opacity: def.defaultOpacity,
   };
   for (const [id, value] of Object.entries(saved.layers ?? {})) {
     if (value && typeof value.on === 'boolean') state.layers[id] = {

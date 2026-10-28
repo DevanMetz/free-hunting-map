@@ -9,9 +9,9 @@ import { PUBLIC_LANDS } from '../map/publicLands';
 import { registerLayer } from '../map/layerRegistry';
 vi.mock('../usage', () => ({ useFeature: vi.fn(), privacyBlocked: () => false, usageAllowed: () => true, setUsageEnabled: vi.fn() }));
 afterEach(() => document.body.replaceChildren());
-function setup() {
+function setup(saved?: Parameters<typeof loadSettings>[0]) {
   const root = document.createElement('section'); document.body.append(root);
-  const sheet = new Sheet(root), state = loadSettings(), persist = vi.fn();
+  const sheet = new Sheet(root), state = loadSettings(saved), persist = vi.fn();
   const map = {
     get mapState() { return structuredClone(state); },
     setLayer(id: string, on: boolean) { state.layers[id] = { on, opacity: state.layers[id]?.opacity ?? 1 }; },
@@ -23,7 +23,7 @@ function setup() {
   openLayersPanel(ctx, persist, vi.fn()); return { root, sheet, state, persist, ctx };
 }
 it('updates rows in place, lazily reveals controls, and remembers mixed category choices', () => {
-  const { root, state, sheet } = setup();
+  const { root, state, sheet } = setup({ layers: Object.fromEntries(PUBLIC_LANDS.map(c => [`padus-${c.id}`, { on: false, opacity: 1 }])) });
   const row = root.querySelector('[data-layer="padus-usfs"]')!;
   expect(row.querySelector('input[type=range]')).toBeNull();
   const input = row.querySelector<HTMLInputElement>('input')!; input.checked = true; input.dispatchEvent(new Event('change'));

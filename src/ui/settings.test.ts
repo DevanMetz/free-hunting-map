@@ -1,10 +1,13 @@
 import { expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, loadSettings } from './settings';
 import { PUBLIC_LANDS, publicLandDefaults } from '../map/publicLands';
-it('defaults both community layers on and other overlays off with fresh state per load', () => {
-  const state = loadSettings(); expect(Object.entries(state.layers).filter(([id]) => !['my-items', 'community-trails', 'community-hikes'].includes(id)).every(([, v]) => !v.on)).toBe(true);
-  expect(state.layers['community-trails']!.on).toBe(true);
-  expect(state.layers['community-hikes']!.on).toBe(true);
+it('defaults community layers and public land on, with other overlays off and fresh state per load', () => {
+  const state = loadSettings();
+  const defaultsOn = new Set(['my-items', 'community-trails', 'community-hikes', ...PUBLIC_LANDS.map(c => `padus-${c.id}`)]);
+  expect(Object.entries(state.layers).filter(([id]) => !defaultsOn.has(id)).every(([, v]) => !v.on)).toBe(true);
+  for (const id of defaultsOn) expect(state.layers[id]!.on).toBe(true);
+  expect(loadSettings({ layers: { 'padus-usfs': { on: false, opacity: 1 } } }).layers['padus-usfs']!.on).toBe(false);
+  expect(loadSettings({ publicLands: false }).layers['padus-blm']!.on).toBe(false);
   state.layers.hillshade!.on = true; expect(loadSettings().layers.hillshade!.on).toBe(false);
   expect(DEFAULT_SETTINGS.layers).toEqual({});
 });

@@ -46,7 +46,7 @@ const result = (lines: string[]): IdentifyResult | null => lines.length ? { titl
 registerLayers([
   ...PUBLIC_LANDS.map(c => ({
     id: `padus-${c.id}`, category: 'land' as const, name: c.label, swatch: c.color, info: c.info,
-    defaultOpacity: 1, minzoom: 5, attribution: PADUS_ATTR, cacheRoute: CACHE_ROUTES.padus,
+    defaultOn: true, defaultOpacity: 1, minzoom: 5, attribution: PADUS_ATTR, cacheRoute: CACHE_ROUTES.padus,
     source: { kind: 'raster' as const, tiles: [publicLandExportUrl(c)], tileSize: 256, minzoom: 5 },
     identify: async (lng: number, lat: number, signal: AbortSignal) => result(await (await import('./inspect')).identifyPublicLand(lng, lat, [c.id], signal)),
   })),
