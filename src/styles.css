@@ -36,10 +36,15 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
   background: var(--panel);
   box-shadow: 0 -2px 12px #0006;
   z-index: 5;
 }
+.toolbar::-webkit-scrollbar { display: none; }
+.toolbar > .icon-btn { flex: 0 0 var(--tap); }
 /* Outrank MapLibre's control positioning regardless of CSS import order. */
 #map .maplibregl-ctrl-bottom-left, #map .maplibregl-ctrl-bottom-right { bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
 @media (min-width: 760px) {
@@ -52,6 +57,7 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
     flex-direction: column;
     gap: 6px;
     padding: 6px;
+    overflow: visible;
     border-radius: var(--radius);
     box-shadow: 0 4px 18px #0007;
   }
@@ -260,6 +266,13 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
 .maplibregl-ctrl-group button + button { border-top-color: var(--line) !important; }
 .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
 .maplibregl-ctrl-top-left { top: env(safe-area-inset-top); left: env(safe-area-inset-left); }
+#map .maplibregl-ctrl-group button { width: var(--tap); height: var(--tap); }
+@media (max-width: 759px) {
+  #map .maplibregl-ctrl-top-left {
+    top: auto;
+    bottom: calc(var(--bar-h) + env(safe-area-inset-bottom) + 36px);
+  }
+}
 
 .inspect-popup .maplibregl-popup-content {
   background: var(--panel);
