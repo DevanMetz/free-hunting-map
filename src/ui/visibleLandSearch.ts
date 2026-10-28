@@ -27,6 +27,9 @@ const searchable = [
   { layer: 'montana-access-programs-fill', fields: ['LABEL'] },
   { layer: 'national-refuge-hunt-units-fill', fields: ['Hunt_Unit_Name', 'Organization_Name'] },
   { layer: 'utah-cwmu-fill', fields: ['Boundary_Name'] },
+  { layer: 'designated-wilderness-fill', fields: ['NAME'] },
+  { layer: 'new-mexico-designated-areas-fill', fields: ['NAME'] },
+  { layer: 'georgia-designated-areas-fill', fields: ['Name', 'PropName'] },
 ] as const;
 
 export interface VisibleLandResult {
