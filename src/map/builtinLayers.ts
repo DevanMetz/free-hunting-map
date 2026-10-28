@@ -277,3 +277,5 @@ import './layers/kentuckyWmaCampgrounds';
 import './layers/kentuckyWmaTrailheads';
 
 import './layers/nationalRefugeHuntUnits';
+
+import './layers/southDakotaBoatRamps';
