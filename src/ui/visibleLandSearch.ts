@@ -20,6 +20,12 @@ const searchable = [
   { layer: 'tennessee-hunting-lands-fill', fields: ['NAME'] },
   { layer: 'louisiana-managed-lands-fill', fields: ['NAME'] },
   { layer: 'north-carolina-game-lands-fill', fields: ['GML_HAB'] },
+  { layer: 'colorado-public-properties-fill', fields: ['PropName'] },
+  { layer: 'michigan-wildlife-properties-fill', fields: ['OfficialWLDProjectAreaName'] },
+  { layer: 'michigan-park-hunting-fill', fields: ['Facility'] },
+  { layer: 'montana-block-management-fill', fields: ['BMANAME'] },
+  { layer: 'national-refuge-hunt-units-fill', fields: ['Hunt_Unit_Name', 'Organization_Name'] },
+  { layer: 'utah-cwmu-fill', fields: ['Boundary_Name'] },
 ] as const;
 
 export interface VisibleLandResult {
