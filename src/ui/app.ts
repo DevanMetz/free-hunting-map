@@ -11,6 +11,7 @@ import type { Repo } from '../storage/repo';
 import type { Category, Item, LngLat, Track } from '../types';
 import type { AppContext } from './context';
 import { mountBasemapSwitch } from './basemapSwitch';
+import { mountQuickLook } from './quickLook';
 import { copyText, h, iconButton, toast } from './dom';
 import { UI_ICONS } from './icons';
 import { Sheet } from './sheet';
@@ -57,6 +58,7 @@ export class App implements AppContext {
     const controls = mapEl.querySelector<HTMLElement>('.maplibregl-ctrl-top-left');
     if (controls) mountBasemapSwitch(this, controls, () => this.persistSettings());
     root.append(this.buildCoordChip());
+    mountQuickLook(this, root, () => this.openLazyPanel('conditions', 'Conditions', () => import('./conditionsPanel').then(m => () => m.openConditionsPanel(this))));
     this.recorder = new TrackRecorder(
       (coords) => void this.onRecordedPoint(coords),
       (err) => toast(err.message || 'GPS error'),
