@@ -1,5 +1,6 @@
 import { layerRegistry, registerLayers, type IdentifyResult, type LayerDef } from '../layerRegistry';
 import { attributeResult, mapImage, queryPoint, text, type Attributes } from './arcgis';
+import { WATER_HISTORY_TILES } from '../sources';
 
 const NHD = 'https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer';
 const WBD = 'https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer';
@@ -46,7 +47,7 @@ registerLayers([
     legend: [{ color: '#efbfcf', label: '25%' }, { color: '#bf7fbf', label: '50%' },
       { color: '#6f3fcf', label: '75%' }, { color: '#0000ff', label: '100%' }],
     source: { kind: 'raster', tileSize: 256, maxzoom: 13,
-      tiles: ['https://storage.googleapis.com/water-world/tiles2024/occurrence/{z}/{x}/{y}.png'] },
+      tiles: [WATER_HISTORY_TILES] },
   },
   {
     id: 'water-springs', category: 'water', name: 'Springs & seeps', swatch: '#73b2ff', minzoom: 12, maxzoom: 20, defaultOpacity: 1,
