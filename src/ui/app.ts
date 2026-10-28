@@ -4,7 +4,7 @@ import type { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
 import { layerRegistry, layerSetting } from '../map/layerRegistry';
-import { pathLength, shortDistance } from '../map/geo';
+import { formatLatLng, pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
@@ -49,6 +49,7 @@ export class App implements AppContext {
     root.append(mapEl, toolbar, offlineChip, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
     this.sheet = new Sheet(sheetEl);
     this.map = new HuntMap(mapEl, settings, settings.view);
+    root.append(this.buildCoordChip());
     this.recorder = new TrackRecorder(
       (coords) => void this.onRecordedPoint(coords),
       (err) => toast(err.message || 'GPS error'),
@@ -58,6 +59,7 @@ export class App implements AppContext {
       if (!document.querySelector('[data-lidar-drawing]')) this.onMapClick(e);
     });
     this.map.map.on('moveend', () => this.persistSettings());
+    this.map.map.on('move', () => this.scheduleCoordChip());
     for (const layer of [LAYER_WAYPOINTS, LAYER_TRACKS]) {
       this.map.map.on('mouseenter', layer, () => (this.map.map.getCanvas().style.cursor = 'pointer'));
       this.map.map.on('mouseleave', layer, () => (this.map.map.getCanvas().style.cursor = ''));
@@ -171,6 +173,30 @@ export class App implements AppContext {
     for (const [id, collapsed] of Object.entries(saved.collapsed)) this.map.setCategoryCollapsed(id, collapsed);
     for (const [id, ids] of Object.entries(saved.remembered)) this.map.setCategoryRemembered(id, ids);
     this.map.setTypeVisibility(saved);
+  }
+
+  private coordFrame = 0;
+  private readonly coordChip = h('button', { type: 'button', class: 'coord-chip', title: 'Coordinates' });
+
+  private buildCoordChip(): HTMLButtonElement {
+    this.buttons.set('goto', this.coordChip);
+    this.coordChip.addEventListener('click', () => this.openLazyPanel('goto', 'Coordinates', () => import('./goTo').then(m => () => m.openGoTo(this))));
+    this.updateCoordChip();
+    return this.coordChip;
+  }
+
+  private scheduleCoordChip(): void {
+    if (this.coordFrame) return;
+    this.coordFrame = requestAnimationFrame(() => {
+      this.coordFrame = 0;
+      this.updateCoordChip();
+    });
+  }
+
+  private updateCoordChip(): void {
+    const label = formatLatLng(this.map.view().center);
+    this.coordChip.textContent = label;
+    this.coordChip.setAttribute('aria-label', `Coordinates ${label}`);
   }
 
   private buildToolbar(): HTMLElement {
@@ -295,6 +321,10 @@ export class App implements AppContext {
     if (!enabled.length) return;
     const content = h('div', { class: 'inspect-content' });
     const sections = new Map<number, HTMLElement>();
+    const coordText = formatLatLng(at);
+    const coords = h('div', { class: 'inspect-coords' }, h('span', { class: 'mono' }, coordText), iconButton('copy', 'Copy coordinates', () => {
+      void navigator.clipboard?.writeText(coordText).then(() => toast('Copied')).catch(() => toast('Could not copy'));
+    }));
     const popup = new Popup({ closeButton: true, className: 'inspect-popup', maxWidth: '320px' });
     this.inspectPopup = popup;
     popup.on('close', () => request.abort());
@@ -304,7 +334,7 @@ export class App implements AppContext {
         const { identifyContent } = await import('./identifyPanel');
         if (request.signal.aborted || this.inspectPopup !== popup || !layerSetting(this.map.mapState, def).on) return;
         sections.set(order, h('section', {}, result.title ? h('strong', {}, result.title) : null, identifyContent(result)));
-        content.replaceChildren(...[...sections].sort(([a], [b]) => a - b).map(([, section]) => section));
+        content.replaceChildren(coords, ...[...sections].sort(([a], [b]) => a - b).map(([, section]) => section));
         if (!popup.isOpen()) {
           popup.setLngLat(at).setDOMContent(content).addTo(this.map.map);
           const close = popup.getElement()?.querySelector<HTMLButtonElement>('.maplibregl-popup-close-button');

@@ -16,6 +16,7 @@ Built because pins dropped on one phone in the woods never showed up on another 
 - **Tracks:** draw by tapping, or record from GPS (screen wake-lock while recording; points saved as you go).
 - **Measure:** polyline distance in mi / ft / km.
 - **GPS locate:** MapLibre GeolocateControl.
+- **Coordinates:** the map shows the center latitude and longitude. Open that readout to copy it or paste a location — decimal degrees, degrees and minutes, degrees minutes seconds, or a Google or Apple Maps link — and go there.
 - **Conditions for the map center:** temperature, wind speed/direction arrow/gusts, next 8 hours (Open-Meteo); sunrise/sunset, civil twilight (approximation of legal shooting light — legal hours vary by state), moon phase, illumination, moonrise/set (computed on device with `suncalc`). Last forecast is cached and shown offline with its "as of" time.
 - **Offline sharing:**
   - Export/import **GPX** and **GeoJSON** (uses the Web Share API when available, e.g. AirDrop / Quick Share, which work without internet).
