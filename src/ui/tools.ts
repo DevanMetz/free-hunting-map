@@ -15,12 +15,19 @@ export interface Tool {
 
 export function waypointTool(ctx: AppContext, done: () => void): Tool {
   let icon: WaypointIcon = 'pin';
+  let active = true;
+  let saving = false;
 
   const drop = async (coord: LngLat): Promise<void> => {
-    const wp = await ctx.repo.create<Waypoint>({ kind: 'waypoint', name: '', note: '', icon, coord: roundCoord(coord) });
-    done();
-    useFeature('marker_add');
-    ctx.openItem(wp);
+    if (!active || saving) return;
+    saving = true;
+    try {
+      const wp = await ctx.repo.create<Waypoint>({ kind: 'waypoint', name: '', note: '', icon, coord: roundCoord(coord) });
+      useFeature('marker_add');
+      if (active) { done(); ctx.openItem(wp); }
+    } catch {
+      toast('Could not save pin');
+    } finally { saving = false; }
   };
 
   const dropHere = (): void => {
@@ -42,13 +49,15 @@ export function waypointTool(ctx: AppContext, done: () => void): Tool {
   return {
     key: 'waypoint',
     onMapClick: (at) => void drop(at),
-    stop: () => {},
+    stop: () => { active = false; },
   };
 }
 
 /** Polyline tool used for both drawing tracks and measuring. */
 export function lineTool(ctx: AppContext, kind: 'track' | 'measure', done: () => void): Tool {
   const coords: LngLat[] = [];
+  let active = true;
+  let saving = false;
   const color = kind === 'measure' ? '#ffd54f' : '#ff7043';
   const readout = h('div', { class: 'readout', 'aria-live': 'polite' });
 
@@ -63,15 +72,21 @@ export function lineTool(ctx: AppContext, kind: 'track' | 'measure', done: () =>
   };
 
   const undo = (): void => {
+    if (saving) return;
     coords.pop();
     update();
   };
 
   const save = async (): Promise<void> => {
+    if (saving || !active) return;
     if (coords.length < 2) return toast('Add at least 2 points');
-    const track = await ctx.repo.create<Track>({ kind: 'track', name: '', note: '', coords: [...coords], recorded: false });
-    done();
-    ctx.openItem(track);
+    saving = true;
+    try {
+      const track = await ctx.repo.create<Track>({ kind: 'track', name: '', note: '', coords: [...coords], recorded: false });
+      if (active) { done(); ctx.openItem(track); }
+    } catch {
+      toast('Could not save track');
+    } finally { saving = false; }
   };
 
   const actions =
@@ -93,9 +108,10 @@ export function lineTool(ctx: AppContext, kind: 'track' | 'measure', done: () =>
   return {
     key: kind,
     onMapClick: (at) => {
+      if (saving) return;
       coords.push(roundCoord(at));
       update();
     },
-    stop: () => ctx.map.setSketch([]),
+    stop: () => { active = false; ctx.map.setSketch([]); },
   };
 }
