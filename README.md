@@ -6,7 +6,7 @@ Built because pins dropped on one phone in the woods never showed up on another 
 
 ## Features
 
-- **Basemaps:** USGS Topo, USGS Imagery (satellite), OpenFreeMap streets (vector).
+- **Basemaps:** USGS Topo, USGS Imagery (satellite), OpenFreeMap streets (vector). A button on the map cycles them. Layers still lists all three.
 - **Labels overlay** (Topo and Satellite): place, road, trail, peak and water names from OpenFreeMap vector tiles; toggle under Layers.
 - **Hillshade overlay:** USGS 3DEP lidar-derived terrain shading, available under Layers.
 - **Public land overlays:** USGS PAD-US 4.1 toggles for USFS, BLM, NPS, FWS, state wildlife, state parks, state trust, DOD and other public land. A new map shows them on Topo. Tap land for its manager and designation.

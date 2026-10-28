@@ -68,6 +68,9 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
   background-position: center;
   background-size: 24px 24px;
 }
+#map .basemap-switch { border-radius: 10px; overflow: hidden; }
+#map .basemap-switch button { padding: 0; }
+#map .basemap-switch img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
 @media (min-width: 760px) {
   .toolbar {
     left: auto;

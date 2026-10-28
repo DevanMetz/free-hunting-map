@@ -276,7 +276,9 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   renderEntries();
   const unsubscribe = layerRegistry.subscribe(renderEntries);
   const moved = () => { center = ctx.map.view().center; renderEntries(); };
+  const basemapChanged = () => refresh();
   ctx.map.map.on('moveend', moved);
+  ctx.map.map.on('style.load', basemapChanged);
   const sharing = h('input', { type: 'checkbox', role: 'switch', checked: true, disabled: true, 'aria-label': 'Share scan results', onchange: () => { void ctx.repo.setCommunitySharing(sharing.checked); } });
   void ctx.repo.communitySharing().then(on => { sharing.checked = on; sharing.disabled = false; }).catch(() => {});
   const storage = h('div', { class: 'storage-usage', role: 'status' });
@@ -297,7 +299,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
       h('label', { class: 'layer-toggle' }, h('input', { type: 'checkbox', role: 'switch', checked: usageAllowed(), disabled: privacyBlocked(), onchange: (e: Event) => setUsageEnabled((e.target as HTMLInputElement).checked) }), 'Usage analytics'),
       h('nav', { class: 'policy-links', 'aria-label': 'Site' }, h('a', { href: '/features' }, 'Features'), h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'))));
   ctx.sheet.open('layers', 'Layers', root, () => {
-    offline.close(); unsubscribe(); ctx.map.map.off('moveend', moved); close(); popover.remove();
+    offline.close(); unsubscribe(); ctx.map.map.off('moveend', moved); ctx.map.map.off('style.load', basemapChanged); close(); popover.remove();
     document.removeEventListener('pointerdown', outside);
     document.removeEventListener('keydown', escape);
     window.removeEventListener('resize', close);

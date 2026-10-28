@@ -10,6 +10,7 @@ import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
 import type { Category, Item, LngLat, Track } from '../types';
 import type { AppContext } from './context';
+import { mountBasemapSwitch } from './basemapSwitch';
 import { h, iconButton, toast } from './dom';
 import { UI_ICONS } from './icons';
 import { Sheet } from './sheet';
@@ -49,6 +50,8 @@ export class App implements AppContext {
     root.append(mapEl, toolbar, offlineChip, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
     this.sheet = new Sheet(sheetEl);
     this.map = new HuntMap(mapEl, settings, settings.view);
+    const controls = mapEl.querySelector<HTMLElement>('.maplibregl-ctrl-top-left');
+    if (controls) mountBasemapSwitch(this, controls, () => this.persistSettings());
     root.append(this.buildCoordChip());
     this.recorder = new TrackRecorder(
       (coords) => void this.onRecordedPoint(coords),
