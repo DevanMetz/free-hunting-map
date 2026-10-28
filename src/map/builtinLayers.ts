@@ -279,3 +279,4 @@ import './layers/kentuckyWmaTrailheads';
 import './layers/nationalRefugeHuntUnits';
 
 import './layers/southDakotaBoatRamps';
+import './layers/southDakotaParkTrails';
