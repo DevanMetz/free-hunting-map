@@ -1,4 +1,5 @@
-import { ASPECT_EXPORT, CUTS_TILES, HILLSHADE_EXPORT, NHD_TILES, NWI_EXPORT, SLOPE_EXPORT, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, roadTiles, type BasemapId } from '../map/sources';
+import { ASPECT_EXPORT, CUTS_TILES, DEER_EXPORT, HILLSHADE_EXPORT, NHD_TILES, NWI_EXPORT, SLOPE_EXPORT, TRAILS_TILES, USGS_IMAGERY_TILES, USGS_TOPO_TILES, roadTiles, type BasemapId } from '../map/sources';
+import { PUBLIC_LANDS, publicLandExportUrl } from '../map/publicLands';
 import type { LngLatBounds } from 'maplibre-gl';
 import { h } from './dom';
 
@@ -40,6 +41,8 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     h('option', { value: 'trails' }, 'Public trails'),
     h('option', { value: 'water' }, 'Streams & lakes'),
     h('option', { value: 'wetlands' }, 'Wetlands'),
+    ...PUBLIC_LANDS.map(land => h('option', { value: `land-${land.id}` }, land.label)),
+    h('option', { value: 'deer' }, 'Wisconsin deer units'),
     h('option', { value: 'hillshade' }, 'Hillshade'),
     h('option', { value: 'slope' }, 'Slope'),
     h('option', { value: 'aspect' }, 'Aspect'),
@@ -56,7 +59,10 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     if (source.value === 'basemap' && basemap === 'streets') { status.textContent = 'Choose Topo or Satellite to download.'; return; }
     if (!navigator.serviceWorker?.controller) { status.textContent = 'Offline storage is not ready. Reload and try again.'; return; }
     if (!navigator.onLine) { status.textContent = 'Connect to download an area.'; return; }
-    const choice = source.value === 'trails' ? { name: 'Public trails', template: TRAILS_TILES, min: 6, max: 14 }
+    const land = PUBLIC_LANDS.find(item => source.value === `land-${item.id}`);
+    const choice = land ? { name: land.label, template: publicLandExportUrl(land), min: 5, max: 16 }
+      : source.value === 'deer' ? { name: 'Wisconsin deer units', template: DEER_EXPORT, min: 6, max: 16 }
+      : source.value === 'trails' ? { name: 'Public trails', template: TRAILS_TILES, min: 6, max: 14 }
       : source.value === 'water' ? { name: 'Streams & lakes', template: NHD_TILES, min: 0, max: 16 }
       : source.value === 'wetlands' ? { name: 'Wetlands', template: NWI_EXPORT, min: 11, max: 16 }
       : source.value === 'hillshade' ? { name: 'Hillshade', template: HILLSHADE_EXPORT, min: 11, max: 17 }
