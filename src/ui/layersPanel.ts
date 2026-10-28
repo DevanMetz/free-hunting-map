@@ -280,14 +280,16 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   const sharing = h('input', { type: 'checkbox', role: 'switch', checked: true, disabled: true, 'aria-label': 'Share scan results', onchange: () => { void ctx.repo.setCommunitySharing(sharing.checked); } });
   void ctx.repo.communitySharing().then(on => { sharing.checked = on; sharing.disabled = false; }).catch(() => {});
   const storage = h('div', { class: 'storage-usage', role: 'status' });
-  if (navigator.storage?.estimate) {
+  const refreshStorage = () => {
+    if (!navigator.storage?.estimate) return;
     void navigator.storage.estimate().then(({ usage }) => {
       if (usage === undefined) return;
       const mb = usage / 1024 / 1024;
       storage.textContent = `Storage used: ${mb < 1 ? '<1 MB' : mb < 1024 ? `${Math.round(mb)} MB` : `${(mb / 1024).toFixed(1)} GB`}`;
     }).catch(() => {});
-  }
-  const offline = offlineArea(() => ctx.map.map.getBounds(), () => ctx.map.mapState.basemap);
+  };
+  refreshStorage();
+  const offline = offlineArea(() => ctx.map.map.getBounds(), () => ctx.map.mapState.basemap, ctx.repo, refreshStorage);
   const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, offline.element, labelControls, activeBar, activeList, categories, empty,
     h('footer', { class: 'layers-footer' },
       storage,
