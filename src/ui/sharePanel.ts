@@ -172,7 +172,8 @@ function openScanner(ctx: AppContext): void {
   let stop: (() => void) | null = null;
   let done = false;
 
-  const body = h('div', { class: 'scan-view' }, video, h('div', { class: 'meter' }, bar), progress);
+  const retry = h('button', { type: 'button', class: 'btn', hidden: true }, 'Retry');
+  const body = h('div', { class: 'scan-view' }, video, h('div', { class: 'meter' }, bar), progress, retry);
   ctx.sheet.open('share-scan', 'Scan', body, () => stop?.());
 
   const onText = (text: string): void => {
@@ -184,10 +185,19 @@ function openScanner(ctx: AppContext): void {
     } else if (r.status === 'complete') {
       done = true;
       bar.style.width = '100%';
-      void ctx.repo.importItems(r.items, 'qr').then((res) => {
-        toast(`${res.changed} new / ${res.received}`);
-        ctx.sheet.close();
-      });
+      const save = (): void => {
+        retry.hidden = true;
+        progress.textContent = '';
+        void ctx.repo.importItems(r.items, 'qr').then((res) => {
+          toast(`${res.changed} new / ${res.received}`);
+          if (body.isConnected) ctx.sheet.close();
+        }).catch(() => {
+          progress.textContent = 'Import failed';
+          retry.hidden = false;
+        });
+      };
+      retry.onclick = save;
+      save();
     } else if (r.status === 'error') {
       progress.textContent = r.message;
     }
