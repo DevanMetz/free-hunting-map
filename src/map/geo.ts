@@ -156,6 +156,7 @@ export function locationFromSearch(search: string): { center: LngLat; zoom: numb
   if (!raw) return null;
   const center = parseLatLng(raw);
   if (!center) return null;
-  const zoom = Number(params.get('z'));
+  const rawZoom = params.get('z');
+  const zoom = rawZoom === null || rawZoom.trim() === '' ? 15 : Number(rawZoom);
   return { center, zoom: Number.isFinite(zoom) ? Math.min(22, Math.max(0, zoom)) : 15 };
 }
