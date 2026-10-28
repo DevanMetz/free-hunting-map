@@ -148,3 +148,14 @@ export function parseLatLng(input: string): LngLat | null {
   if (HEMISPHERE.test(text)) return parseHemisphere(text);
   return parseDecimalPair(text);
 }
+
+/** `?ll=lat,lng` and optional `z`. Other flags, including `fhm_bot`, are left alone. */
+export function locationFromSearch(search: string): { center: LngLat; zoom: number } | null {
+  const params = new URLSearchParams(search);
+  const raw = params.get('ll');
+  if (!raw) return null;
+  const center = parseLatLng(raw);
+  if (!center) return null;
+  const zoom = Number(params.get('z'));
+  return { center, zoom: Number.isFinite(zoom) ? Math.min(22, Math.max(0, zoom)) : 15 };
+}

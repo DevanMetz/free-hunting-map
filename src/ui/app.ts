@@ -4,7 +4,7 @@ import type { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
 import { layerRegistry, layerSetting } from '../map/layerRegistry';
-import { formatLatLng, pathLength, shortDistance } from '../map/geo';
+import { formatLatLng, locationFromSearch, pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
@@ -49,7 +49,8 @@ export class App implements AppContext {
     window.addEventListener('offline', updateConnection);
     root.append(mapEl, toolbar, offlineChip, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
     this.sheet = new Sheet(sheetEl);
-    this.map = new HuntMap(mapEl, settings, settings.view);
+    const linked = locationFromSearch(location.search);
+    this.map = new HuntMap(mapEl, settings, linked ?? settings.view);
     const controls = mapEl.querySelector<HTMLElement>('.maplibregl-ctrl-top-left');
     if (controls) mountBasemapSwitch(this, controls, () => this.persistSettings());
     root.append(this.buildCoordChip());

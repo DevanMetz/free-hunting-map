@@ -35,6 +35,9 @@ export function openGoTo(ctx: AppContext): void {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) ctx.map.map.jumpTo({ center: parsed, zoom });
     else ctx.map.map.flyTo({ center: parsed, zoom });
   };
+  const copyText = (text: string): void => {
+    void navigator.clipboard?.writeText(text).then(() => toast('Copied')).catch(() => toast('Could not copy'));
+  };
   const copy = (): void => {
     const parsed = readLocation(input.value);
     const text = parsed ? formatLatLng(parsed) : '';
@@ -42,7 +45,17 @@ export function openGoTo(ctx: AppContext): void {
       toast('Could not read coordinates');
       return;
     }
-    void navigator.clipboard?.writeText(text).then(() => toast('Copied')).catch(() => toast('Could not copy'));
+    copyText(text);
+  };
+  const copyLink = (): void => {
+    const parsed = readLocation(input.value);
+    if (!parsed) {
+      toast('Could not read coordinates');
+      return;
+    }
+    const zoom = Math.round(ctx.map.map.getZoom());
+    const ll = `${parsed[1].toFixed(5)},${parsed[0].toFixed(5)}`;
+    copyText(`${location.origin}/?ll=${encodeURIComponent(ll)}&z=${zoom}`);
   };
   let selectOnFocus = true;
   input.addEventListener('focus', () => {
@@ -54,7 +67,7 @@ export function openGoTo(ctx: AppContext): void {
     'form',
     { class: 'form', onsubmit: (event: Event) => { event.preventDefault(); go(); } },
     input,
-    h('div', { class: 'actions' }, iconButton('copy', 'Copy coordinates', copy), h('button', { type: 'submit', class: 'btn primary' }, 'Go')),
+    h('div', { class: 'actions' }, h('div', { class: 'row' }, iconButton('copy', 'Copy coordinates', copy), iconButton('share', 'Copy map link', copyLink)), h('button', { type: 'submit', class: 'btn primary' }, 'Go')),
   ));
   input.focus();
 }
