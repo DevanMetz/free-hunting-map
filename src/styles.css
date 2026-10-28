@@ -497,3 +497,8 @@ input[type='color'] { min-width: 44px; width: 44px; height: 44px; padding: 3px; 
 .item-editor:has(> .hike-share-open) > .item-identity,
 .item-editor:has(> .hike-share-open) > .item-details,
 .item-editor:has(> .hike-share-open) > .actions { display: none; }
+
+.offline-download-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.offline-download-controls .btn, .offline-download-controls select { min-height: 44px; }
+.offline-download-status:empty { display: none; }
+.offline-download-status { margin-top: 6px; }

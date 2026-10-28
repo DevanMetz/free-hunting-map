@@ -5,6 +5,7 @@ import { categoryState, layerRegistry, layerSetting, layerVariant, orderedLayers
 import type { AppContext } from './context';
 import { h, iconButton } from './dom';
 import { layerState, stateDistance } from './layerStates';
+import { offlineArea } from './offlineArea';
 
 export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailFinder?: () => void): void {
   let active: HTMLButtonElement | null = null;
@@ -286,14 +287,15 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
       storage.textContent = `Storage used: ${mb < 1 ? '<1 MB' : mb < 1024 ? `${Math.round(mb)} MB` : `${(mb / 1024).toFixed(1)} GB`}`;
     }).catch(() => {});
   }
-  const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, labelControls, activeBar, activeList, categories, empty,
+  const offline = offlineArea(() => ctx.map.map.getBounds(), () => ctx.map.mapState.basemap);
+  const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, offline.element, labelControls, activeBar, activeList, categories, empty,
     h('footer', { class: 'layers-footer' },
       storage,
       h('label', { class: 'layer-toggle' }, sharing, 'Share scan results'),
       h('label', { class: 'layer-toggle' }, h('input', { type: 'checkbox', role: 'switch', checked: usageAllowed(), disabled: privacyBlocked(), onchange: (e: Event) => setUsageEnabled((e.target as HTMLInputElement).checked) }), 'Usage analytics'),
       h('nav', { class: 'policy-links', 'aria-label': 'Site' }, h('a', { href: '/features' }, 'Features'), h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'))));
   ctx.sheet.open('layers', 'Layers', root, () => {
-    unsubscribe(); ctx.map.map.off('moveend', moved); close(); popover.remove();
+    offline.close(); unsubscribe(); ctx.map.map.off('moveend', moved); close(); popover.remove();
     document.removeEventListener('pointerdown', outside);
     document.removeEventListener('keydown', escape);
     window.removeEventListener('resize', close);
