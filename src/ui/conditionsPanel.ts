@@ -16,7 +16,7 @@ export function openConditionsPanel(ctx: AppContext): void {
     if (ctx.sheet.current !== 'conditions') return;
     // Sun/moon are computed locally, so they always reflect the current map center.
     const tz = weather && haversine([weather.lng, weather.lat], center) < 200_000 ? weather.timezone : undefined;
-    const refresh = iconButton('refresh', 'Refresh', () => void load(), 'small');
+    const refresh = iconButton('refresh', 'Refresh', () => void load());
     body.replaceChildren(
       weather ? weatherBlock(weather, stale, refresh) : h('div', { class: 'row center empty' }, 'Weather unavailable offline', refresh),
       astroBlock(lat, lng, tz),

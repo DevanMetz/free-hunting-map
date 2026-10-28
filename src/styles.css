@@ -79,7 +79,6 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
 .icon-btn:hover, .account-sign-in-control:hover .icon-btn { background: var(--panel-2); }
 .icon-btn.active { background: var(--accent); color: #111; }
 .icon-btn.danger { color: var(--danger); }
-.icon-btn.small { width: 36px; height: 36px; }
 .toolbar .icon-btn[aria-label='Record GPS track'].active { background: var(--danger); color: #fff; animation: pulse 1.6s infinite; }
 @keyframes pulse { 50% { opacity: 0.65; } }
 
@@ -172,7 +171,7 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
 .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9rem; color: var(--muted); }
 
 .btn {
-  min-height: 40px;
+  min-height: var(--tap);
   padding: 0 16px;
   border-radius: 10px;
   border: 1px solid var(--line);
@@ -181,6 +180,10 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
   font-weight: 600;
 }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #111; }
+.btn:focus-visible, .basemap-thumb:focus-visible, .category-name:focus-visible, .category-switch:focus-visible,
+.item-row:focus-visible, .maplibregl-ctrl-group button:focus-visible, .maplibregl-ctrl-attrib-button:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
 
 .icon-picker { display: flex; gap: 6px; flex-wrap: wrap; }
 .icon-choice {
@@ -282,7 +285,7 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
 .maplibregl-ctrl-group button + button { border-top-color: var(--line) !important; }
 .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
 .maplibregl-ctrl-top-left { top: env(safe-area-inset-top); left: env(safe-area-inset-left); }
-#map .maplibregl-ctrl-group button { width: var(--tap); height: var(--tap); }
+#map .maplibregl-ctrl-group button, #map .maplibregl-ctrl-attrib-button { width: var(--tap); height: var(--tap); }
 @media (max-width: 759px) {
   #map .maplibregl-ctrl-top-left {
     top: auto;
@@ -418,9 +421,9 @@ canvas[data-lidar-drawing] { touch-action: none; }
 .organize-filters { display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; overscroll-behavior-x: contain; }
 .organize-filters::-webkit-scrollbar { display: none; }
 .organize-filters { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
-.type-chip { display: flex; flex: none; align-items: center; height: 44px; border: 1px solid var(--line); border-radius: 22px; background: var(--bg); }
+.type-chip { display: flex; flex: none; align-items: center; min-height: 44px; border: 1px solid var(--line); border-radius: 22px; background: var(--bg); }
 .type-chip .chip { align-self: stretch; padding: 0 0 0 14px; border-radius: 22px 0 0 22px; color: inherit; font: inherit; }
-.type-chip .icon-btn { width: 40px; height: 42px; border-radius: 0 22px 22px 0; flex: none; }
+.type-chip .icon-btn { width: 44px; height: 44px; border-radius: 0 22px 22px 0; flex: none; }
 .type-chip .icon-btn svg { width: 18px; height: 18px; }
 .type-chip.active { background: var(--accent); border-color: var(--accent); color: #111; }
 .type-chip.active .icon-btn { color: #111; }

@@ -97,7 +97,7 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
         h('span', { class: 'account-dot', 'aria-hidden': 'true' }));
       menu.append(identity, h('div', { class: 'account-actions' }, status, logout, remove), h('nav', { class: 'policy-links', 'aria-label': 'Policies' },
         h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms')));
-      root.onkeydown = event => { if (event.key === 'Escape') { dismiss(); avatar.focus(); } };
+      root.onkeydown = event => { if (event.key === 'Escape') { event.stopPropagation(); dismiss(); avatar.focus(); } };
       root.append(avatar, menu);
       return;
     }

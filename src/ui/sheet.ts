@@ -16,7 +16,14 @@ export class Sheet {
     this.titleEl = h('h2', { class: 'sheet-title' });
     this.body = h('div', { class: 'sheet-body' });
     root.append(h('header', { class: 'sheet-head' }, this.titleEl, iconButton('close', 'Close', () => this.close())), this.body);
+    document.addEventListener('keydown', this.onEscape);
   }
+
+  private readonly onEscape = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || event.defaultPrevented || !this.root.isConnected || this.root.hidden) return;
+    if (document.querySelector('dialog[open], .land-info:not([hidden])')) return;
+    this.close();
+  };
 
   open(key: string, title: string, content: HTMLElement, onClose?: () => void): void {
     this.runOnClose();
@@ -39,11 +46,13 @@ export class Sheet {
   }
 
   close(): void {
+    const returnFocus = this.root.contains(document.activeElement);
     this.runOnClose();
     this.current = null;
     this.root.hidden = true;
     this.body.replaceChildren();
     document.dispatchEvent(new Event('sheet-closed'));
+    if (returnFocus) document.querySelector<HTMLElement>('#map canvas')?.focus();
   }
 
   private runOnClose(): void {
