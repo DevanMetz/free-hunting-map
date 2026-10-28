@@ -24,6 +24,7 @@ const searchable = [
   { layer: 'michigan-wildlife-properties-fill', fields: ['OfficialWLDProjectAreaName'] },
   { layer: 'michigan-park-hunting-fill', fields: ['Facility'] },
   { layer: 'montana-block-management-fill', fields: ['BMANAME'] },
+  { layer: 'montana-access-programs-fill', fields: ['LABEL'] },
   { layer: 'national-refuge-hunt-units-fill', fields: ['Hunt_Unit_Name', 'Organization_Name'] },
   { layer: 'utah-cwmu-fill', fields: ['Boundary_Name'] },
 ] as const;
