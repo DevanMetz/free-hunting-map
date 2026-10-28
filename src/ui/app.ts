@@ -11,7 +11,7 @@ import type { Repo } from '../storage/repo';
 import type { Category, Item, LngLat, Track } from '../types';
 import type { AppContext } from './context';
 import { mountBasemapSwitch } from './basemapSwitch';
-import { h, iconButton, toast } from './dom';
+import { copyText, h, iconButton, toast } from './dom';
 import { UI_ICONS } from './icons';
 import { Sheet } from './sheet';
 import type { Tool } from './tools';
@@ -327,7 +327,7 @@ export class App implements AppContext {
     const sections = new Map<number, HTMLElement>();
     const coordText = formatLatLng(at);
     const coords = h('div', { class: 'inspect-coords' }, h('span', { class: 'mono' }, coordText), iconButton('copy', 'Copy coordinates', () => {
-      void navigator.clipboard?.writeText(coordText).then(() => toast('Copied')).catch(() => toast('Could not copy'));
+      void copyText(coordText);
     }));
     const popup = new Popup({ closeButton: true, className: 'inspect-popup', maxWidth: '320px' });
     this.inspectPopup = popup;

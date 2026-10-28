@@ -7,7 +7,7 @@ import { displayName, iconPicker } from './itemDisplay';
 import { formatDistance, formatLatLng, pathLength } from '../map/geo';
 import { type Item, type WaypointIcon } from '../types';
 import type { AppContext } from './context';
-import { h, iconButton, toast } from './dom';
+import { copyText, h, iconButton } from './dom';
 
 export function openItemPanel(ctx: AppContext, item: Item): void {
   let categoryId = item.categoryId;
@@ -59,7 +59,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
   };
 
   const copy = (): void => {
-    void navigator.clipboard?.writeText(info).then(() => toast('Copied'));
+    void copyText(info);
   };
 
   const title = (): string => item.kind === 'track' ? 'Track' : icon === 'trailcam' ? 'Trail cam' : 'Waypoint';

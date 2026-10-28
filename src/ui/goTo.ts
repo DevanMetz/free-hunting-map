@@ -2,7 +2,7 @@ import { formatLatLng, parseLatLng } from '../map/geo';
 import { coordinatesFromUrl } from '../share/takeout/coordinates';
 import type { LngLat } from '../types';
 import type { AppContext } from './context';
-import { h, iconButton, toast } from './dom';
+import { copyText, h, iconButton, toast } from './dom';
 
 export function readLocation(input: string): LngLat | null {
   const fromUrl = coordinatesFromUrl(input);
@@ -35,9 +35,6 @@ export function openGoTo(ctx: AppContext): void {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) ctx.map.map.jumpTo({ center: parsed, zoom });
     else ctx.map.map.flyTo({ center: parsed, zoom });
   };
-  const copyText = (text: string): void => {
-    void navigator.clipboard?.writeText(text).then(() => toast('Copied')).catch(() => toast('Could not copy'));
-  };
   const copy = (): void => {
     const parsed = readLocation(input.value);
     const text = parsed ? formatLatLng(parsed) : '';
@@ -45,7 +42,7 @@ export function openGoTo(ctx: AppContext): void {
       toast('Could not read coordinates');
       return;
     }
-    copyText(text);
+    void copyText(text);
   };
   const copyLink = (): void => {
     const parsed = readLocation(input.value);
@@ -55,7 +52,7 @@ export function openGoTo(ctx: AppContext): void {
     }
     const zoom = Math.round(ctx.map.map.getZoom());
     const ll = `${parsed[1].toFixed(5)},${parsed[0].toFixed(5)}`;
-    copyText(`${location.origin}/?ll=${encodeURIComponent(ll)}&z=${zoom}`);
+    void copyText(`${location.origin}/?ll=${encodeURIComponent(ll)}&z=${zoom}`);
   };
   let selectOnFocus = true;
   input.addEventListener('focus', () => {

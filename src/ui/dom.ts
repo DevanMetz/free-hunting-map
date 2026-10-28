@@ -50,3 +50,13 @@ export function fmtTime(d: Date | null, timeZone?: string): string {
 export function fmtDateTime(ms: number): string {
   return new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
+
+export async function copyText(text: string): Promise<void> {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(text);
+    toast('Copied');
+  } catch {
+    toast('Could not copy');
+  }
+}
