@@ -52,6 +52,18 @@ async function main(): Promise<void> {
     // Votes and settings are ready before the map installs its overlays.
     try {
       await App.start(root, repo, settings, items);
+    } catch (err) {
+      console.error('Map could not start:', err);
+      const message = document.createElement('div');
+      message.className = 'startup-error';
+      message.setAttribute('role', 'alert');
+      message.textContent = 'Map unavailable. Reload to try again.';
+      const reload = document.createElement('button');
+      reload.className = 'btn';
+      reload.textContent = 'Reload';
+      reload.addEventListener('click', () => location.reload());
+      message.append(reload);
+      root.replaceChildren(message);
     } finally {
       flushVotes();
       // Start even if map initialization fails; both services flush immediately.
