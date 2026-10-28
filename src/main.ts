@@ -21,11 +21,12 @@ async function main(): Promise<void> {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
     window.setInterval(update, 60 * 60 * 1000);
   } });
-  if (location.pathname !== '/admin/analytics') startUsage();
   if (location.pathname === '/admin/analytics') await (await import('./ui/analytics')).renderAnalytics(root);
   else {
     // Fetch the map UI while IndexedDB opens, rather than serializing its large
     // MapLibre and layer dependencies behind local storage initialization.
+    const appCode = import('./ui/app');
+    const layers = import('./map/builtinLayers');
     const local = Repo.open().then(async repo => {
       const items = Promise.all([repo.list(), repo.categories()] as const);
       // The UI may still be downloading when an IndexedDB read fails.
@@ -36,9 +37,10 @@ async function main(): Promise<void> {
       ]);
       return { repo, settings, items };
     });
-    const [{ repo, settings, items }, { App }] = await Promise.all([
-      local, import('./ui/app'), import('./map/builtinLayers'),
-    ]);
+    // Analytics reads browser storage and starts network requests. Launch the
+    // map's critical downloads and IndexedDB open before doing that work.
+    startUsage();
+    const [{ repo, settings, items }, { App }] = await Promise.all([local, appCode, layers]);
     // Votes and settings are ready before the map installs its overlays.
     try {
       await App.start(root, repo, settings, items);
