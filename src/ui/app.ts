@@ -42,7 +42,11 @@ export class App implements AppContext {
     const sheetEl = h('section', { id: 'sheet', class: 'sheet', hidden: true, 'aria-live': 'polite' });
     this.recChip = h('div', { class: 'rec-chip', hidden: true, role: 'status' });
     const toolbar = this.buildToolbar();
-    root.append(mapEl, toolbar, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
+    const offlineChip = h('div', { class: 'offline-chip', role: 'status', hidden: navigator.onLine }, 'Offline');
+    const updateConnection = () => { offlineChip.hidden = navigator.onLine; };
+    window.addEventListener('online', updateConnection);
+    window.addEventListener('offline', updateConnection);
+    root.append(mapEl, toolbar, offlineChip, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
     this.sheet = new Sheet(sheetEl);
     this.map = new HuntMap(mapEl, settings, settings.view);
     this.recorder = new TrackRecorder(
