@@ -49,6 +49,25 @@ body[data-tool] #map .maplibregl-canvas-container { cursor: crosshair; }
 .toolbar > .icon-btn { flex: 0 0 var(--tap); }
 /* Outrank MapLibre's control positioning regardless of CSS import order. */
 #map .maplibregl-ctrl-bottom-left, #map .maplibregl-ctrl-bottom-right { bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
+/* The open source line stays in the corner. Leave the left edge for zoom, locate, and the scale. */
+#map .maplibregl-ctrl-bottom-right { left: 120px; }
+#map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+  box-sizing: border-box;
+  max-width: calc(100% - 10px);
+  overflow-wrap: anywhere;
+}
+#map .maplibregl-ctrl-attrib.maplibregl-compact { min-height: 44px; }
+#map .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) {
+  min-width: 44px;
+  padding: 0;
+  border-radius: 10px;
+}
+#map .maplibregl-ctrl-attrib.maplibregl-compact-show { padding-right: 48px; }
+#map .maplibregl-ctrl-attrib-button {
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 24px 24px;
+}
 @media (min-width: 760px) {
   .toolbar {
     left: auto;
