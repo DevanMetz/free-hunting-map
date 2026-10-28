@@ -13,7 +13,7 @@ import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
 import { UI_ICONS } from './icons';
 import { Sheet } from './sheet';
-import { lineTool, waypointTool, type Tool } from './tools';
+import type { Tool } from './tools';
 
 const RECORD_SAVE_EVERY = 5;
 
@@ -227,15 +227,16 @@ export class App implements AppContext {
   }
 
   private toggleTool(key: Tool['key']): void {
-    if (this.tool?.key === key) {
-      this.sheet.close();
-      return;
-    }
-    this.setTool(null);
-    const done = (): void => this.setTool(null);
-    this.tool = key === 'waypoint' ? waypointTool(this, done) : lineTool(this, key, done);
-    document.body.dataset.tool = key;
-    this.syncToolbar();
+    const title = key === 'waypoint' ? 'Drop pin' : key === 'track' ? 'Draw track' : 'Measure';
+    this.openLazyPanel(`tool:${key}`, title, async () => {
+      const { waypointTool, lineTool } = await import('./tools');
+      return () => {
+        const done = (): void => this.setTool(null);
+        this.tool = key === 'waypoint' ? waypointTool(this, done) : lineTool(this, key, done);
+        document.body.dataset.tool = key;
+        this.syncToolbar();
+      };
+    });
   }
 
   private setTool(tool: Tool | null): void {
