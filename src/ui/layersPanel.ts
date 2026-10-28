@@ -278,8 +278,17 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   ctx.map.map.on('moveend', moved);
   const sharing = h('input', { type: 'checkbox', role: 'switch', checked: true, disabled: true, 'aria-label': 'Share scan results', onchange: () => { void ctx.repo.setCommunitySharing(sharing.checked); } });
   void ctx.repo.communitySharing().then(on => { sharing.checked = on; sharing.disabled = false; }).catch(() => {});
+  const storage = h('div', { class: 'storage-usage', role: 'status' });
+  if (navigator.storage?.estimate) {
+    void navigator.storage.estimate().then(({ usage }) => {
+      if (usage === undefined) return;
+      const mb = usage / 1024 / 1024;
+      storage.textContent = `Storage used: ${mb < 1 ? '<1 MB' : mb < 1024 ? `${Math.round(mb)} MB` : `${(mb / 1024).toFixed(1)} GB`}`;
+    }).catch(() => {});
+  }
   const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, labelControls, activeBar, activeList, categories, empty,
     h('footer', { class: 'layers-footer' },
+      storage,
       h('label', { class: 'layer-toggle' }, sharing, 'Share scan results'),
       h('label', { class: 'layer-toggle' }, h('input', { type: 'checkbox', role: 'switch', checked: usageAllowed(), disabled: privacyBlocked(), onchange: (e: Event) => setUsageEnabled((e.target as HTMLInputElement).checked) }), 'Usage analytics'),
       h('nav', { class: 'policy-links', 'aria-label': 'Site' }, h('a', { href: '/features' }, 'Features'), h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'))));
