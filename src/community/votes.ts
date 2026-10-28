@@ -45,5 +45,6 @@ export let communityVotes:CommunityVotes|undefined;
 export async function startCommunityVotes(repo:Repo){
   communityVotes=new CommunityVotes(repo);await communityVotes.load();
   const flush=()=>{void communityVotes?.flush();};
-  window.addEventListener('online',flush);window.setInterval(flush,60_000);flush();
+  window.addEventListener('online',flush);window.setInterval(flush,60_000);
+  return flush;
 }

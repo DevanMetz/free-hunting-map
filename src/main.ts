@@ -36,11 +36,11 @@ async function main(): Promise<void> {
       const items = Promise.all([repo.list(), repo.categories()] as const);
       // The UI may still be downloading when an IndexedDB read fails.
       void items.catch(() => {});
-      const [settings] = await Promise.all([
+      const [settings, flushVotes] = await Promise.all([
         repo.getMeta<Partial<Settings>>('settings'),
         startCommunityVotes(repo),
       ]);
-      return { repo, settings, items };
+      return { repo, settings, items, flushVotes };
     });
     // Start the critical downloads and IndexedDB open before service worker
     // registration can schedule competing network and cache work.
@@ -48,11 +48,12 @@ async function main(): Promise<void> {
     // Analytics reads browser storage and starts network requests. Launch the
     // map's critical downloads and IndexedDB open before doing that work.
     startUsage();
-    const [{ repo, settings, items }, { App }] = await Promise.all([local, appCode, layers]);
+    const [{ repo, settings, items, flushVotes }, { App }] = await Promise.all([local, appCode, layers]);
     // Votes and settings are ready before the map installs its overlays.
     try {
       await App.start(root, repo, settings, items);
     } finally {
+      flushVotes();
       // Start even if map initialization fails; both services flush immediately.
       void import('./community/queue').then(({ startCommunityUploads }) => startCommunityUploads(repo))
         .catch(err => console.error('Community uploads could not start:', err));
