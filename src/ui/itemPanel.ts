@@ -7,7 +7,7 @@ import { displayName, iconPicker } from './itemDisplay';
 import { formatDistance, formatLatLng, pathLength } from '../map/geo';
 import { type Item, type WaypointIcon } from '../types';
 import type { AppContext } from './context';
-import { copyText, h, iconButton } from './dom';
+import { copyText, h, iconButton, toast } from './dom';
 
 export function openItemPanel(ctx: AppContext, item: Item): void {
   let categoryId = item.categoryId;
@@ -42,20 +42,30 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
           return `${d.imperial} · ${d.metric}`;
         })();
 
+  let busy = false;
   const save = async (): Promise<void> => {
-    const current = await ctx.repo.get(item.id);
-    if (!current || current.deleted) return;
-    const common = { name: name.value.trim(), note: note.value.trim(), categoryId, color };
-    const patch = item.kind === 'waypoint' ? { ...common, icon, iconOverride, ...(icon === 'trailcam' ? { fov: sanitizeFov(fov), camera: camera.value.trim(), setAt: setAt.value ? new Date(`${setAt.value}T12:00:00`).getTime() : undefined, checkedAt: checkedAt.value ? new Date(`${checkedAt.value}T12:00:00`).getTime() : undefined } : {}) } : common;
-    await ctx.repo.update(current, patch);
-    if (categoryId !== item.categoryId) useFeature('category_move');
-    ctx.sheet.close();
+    if (busy) return;
+    busy = true;
+    try {
+      const current = await ctx.repo.get(item.id);
+      if (!current || current.deleted) return;
+      const common = { name: name.value.trim(), note: note.value.trim(), categoryId, color };
+      const patch = item.kind === 'waypoint' ? { ...common, icon, iconOverride, ...(icon === 'trailcam' ? { fov: sanitizeFov(fov), camera: camera.value.trim(), setAt: setAt.value ? new Date(`${setAt.value}T12:00:00`).getTime() : undefined, checkedAt: checkedAt.value ? new Date(`${checkedAt.value}T12:00:00`).getTime() : undefined } : {}) } : common;
+      await ctx.repo.update(current, patch);
+      if (categoryId !== item.categoryId) useFeature('category_move');
+      if (body.isConnected) ctx.sheet.close();
+    } catch { toast('Could not save item'); }
+    finally { busy = false; }
   };
 
   const remove = async (): Promise<void> => {
-    if (!confirm(`Delete ${displayName(item)}?`)) return;
-    await ctx.repo.remove(item.id);
-    ctx.sheet.close();
+    if (busy || !confirm(`Delete ${displayName(item)}?`)) return;
+    busy = true;
+    try {
+      await ctx.repo.remove(item.id);
+      if (body.isConnected) ctx.sheet.close();
+    } catch { toast('Could not delete item'); }
+    finally { busy = false; }
   };
 
   const copy = (): void => {
