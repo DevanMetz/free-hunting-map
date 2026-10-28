@@ -350,7 +350,9 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
 .rec-chip:not([hidden]) ~ .coord-chip { top: calc(env(safe-area-inset-top) + 54px); }
 .offline-chip:not([hidden]) ~ .rec-chip:not([hidden]) ~ .coord-chip { top: calc(env(safe-area-inset-top) + 96px); }
 .coord-chip.active { background: var(--accent); color: #111; }
-.go-to-input { font-family: ui-monospace, Menlo, Consolas, monospace; }
+.go-to-results { display: grid; gap: 4px; max-height: 40vh; overflow-y: auto; }
+.go-to-results:empty { display: none; }
+.go-to-results .btn { text-align: left; }
 .inspect-content .identify-details { gap: 4px 12px; margin: 4px 0; }
 .inspect-content strong { display: block; white-space: pre-line; }
 .inspect-content section + section { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }

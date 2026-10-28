@@ -3,6 +3,7 @@ import { coordinatesFromUrl } from '../share/takeout/coordinates';
 import type { LngLat } from '../types';
 import type { AppContext } from './context';
 import { copyText, h, iconButton, toast } from './dom';
+import { visibleLandSearch } from './visibleLandSearch';
 
 export function readLocation(input: string): LngLat | null {
   const fromUrl = coordinatesFromUrl(input);
@@ -20,9 +21,22 @@ export function openGoTo(ctx: AppContext): void {
     autocapitalize: 'off',
     autocorrect: 'off',
     enterkeyhint: 'go',
-    'aria-label': 'Latitude, longitude',
+    'aria-label': 'Coordinates or visible land name',
     value: formatLatLng(ctx.map.view().center),
   });
+  const results = h('div', { class: 'go-to-results' });
+  const search = (): void => {
+    results.replaceChildren();
+    if (readLocation(input.value)) return;
+    for (const result of visibleLandSearch(ctx.map.map, input.value)) {
+      results.append(h('button', { type: 'button', class: 'btn', onclick: () => {
+        ctx.sheet.close();
+        ctx.map.map.easeTo({ center: result.center, zoom: Math.max(ctx.map.map.getZoom(), 12),
+          duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800 });
+      } }, result.name));
+    }
+  };
+  input.addEventListener('input', search);
   const go = (): void => {
     const parsed = readLocation(input.value);
     if (!parsed) {
@@ -60,10 +74,11 @@ export function openGoTo(ctx: AppContext): void {
     selectOnFocus = false;
     input.select();
   });
-  ctx.sheet.open('goto', 'Coordinates', h(
+  ctx.sheet.open('goto', 'Search land or coordinates', h(
     'form',
     { class: 'form', onsubmit: (event: Event) => { event.preventDefault(); go(); } },
     input,
+    results,
     h('div', { class: 'actions' }, h('div', { class: 'row' }, iconButton('copy', 'Copy coordinates', copy), iconButton('share', 'Copy map link', copyLink)), h('button', { type: 'submit', class: 'btn primary' }, 'Go')),
   ));
   input.focus();

@@ -189,7 +189,7 @@ export class App implements AppContext {
 
   private buildCoordChip(): HTMLButtonElement {
     this.buttons.set('goto', this.coordChip);
-    this.coordChip.addEventListener('click', () => this.openLazyPanel('goto', 'Coordinates', () => import('./goTo').then(m => () => m.openGoTo(this))));
+    this.coordChip.addEventListener('click', () => this.openLazyPanel('goto', 'Search land or coordinates', () => import('./goTo').then(m => () => m.openGoTo(this))));
     this.updateCoordChip();
     return this.coordChip;
   }
