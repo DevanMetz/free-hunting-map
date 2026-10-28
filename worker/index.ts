@@ -3,6 +3,7 @@ import { exportCommunity } from './communityExport';
 import { voteCommunity, overrideCommunity } from './communityVotes';
 import { communityTile, uploadCommunity, deleteCommunity } from './community';
 import { serveTiles } from './tiles';
+import { BOT_UA } from '../src/usageSchema';
 import { recordUsage, usageReport } from './usage';
 import { verifyGoogleToken } from './token';
 import { ApiError, sync } from './sync';
@@ -65,6 +66,8 @@ export default {
       if (request.method === 'GET' && url.pathname === '/api/community/export') return await exportCommunity(request,env.DB,env.TILES,env.COMMUNITY_ADMIN_TOKEN);
       if (request.method !== 'POST') return json({ error:'Not found' },404);
       if (['/api/ping','/api/events'].includes(url.pathname)) {
+        const ua=request.headers.get('User-Agent');
+        if (!ua || BOT_UA.test(ua)) return new Response(null,{status:204});
         const events=url.pathname==='/api/events';
         const input=await body(request,events?8192:1024);
         await rate(env.DB,`ping:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`,30);

@@ -1,3 +1,4 @@
+const botUrl = value => { const url = new URL(value); url.searchParams.set('fhm_bot', '1'); return url.href; };
 // npm run build && node scripts/capture-screenshots.mjs
 // Uses only the real built app, real network tiles and the app's file import UI.
 // Optional: FHM_CAPTURE_URL=https://freehuntingmap.com (no local server started).
@@ -55,7 +56,7 @@ try {
       trailResponses.push({ source: 'https://freehuntingmap.com' + new URL(response.url()).pathname, status: response.status(), bytes });
     }
   });
-  await page.goto(base, { waitUntil: 'networkidle' });
+  await page.goto(botUrl(base), { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: 'Share', exact: true }).click();
   await page.locator('input[type=file]').setInputFiles({ name: 'demo-scouting.geojson', mimeType: 'application/geo+json', buffer: Buffer.from(JSON.stringify(demo)) });
   await page.getByText('5 new / 5', { exact: true }).waitFor();

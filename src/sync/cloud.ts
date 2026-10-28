@@ -5,6 +5,7 @@ import { sanitizeRecord } from './records';
 export interface CloudUser { id: string; name?: string; email?: string; picture?: string }
 export type SyncState = 'signed-out' | 'synced' | 'syncing' | 'offline' | 'error';
 type Fetcher = typeof fetch;
+class TransportError extends Error {}
 
 /** A session cookie is the only credential. Data and retry state live in Repo. */
 export class CloudSync extends EventTarget {
@@ -14,6 +15,7 @@ export class CloudSync extends EventTarget {
   private running: Promise<void> | undefined;
   private epoch = 0;
   private deleting = false;
+  private sessionChecked = false;
   private timer: ReturnType<typeof setInterval> | undefined;
   private wakeTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly wake = () => {
@@ -48,12 +50,15 @@ export class CloudSync extends EventTarget {
     const res = await this.request(`/api/${path}`, {
       credentials: 'same-origin', cache: 'no-store',
       ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-    });
+    }).catch(() => { throw new TransportError('Cloud sync transport unavailable'); });
     if (!res.ok) {
-      if (res.status === 401) { this.user = null; this.state = 'signed-out'; this.emit(); }
+      if (res.status === 401) { this.sessionChecked = true; this.user = null; this.state = 'signed-out'; this.emit(); }
       throw new Error(`Cloud sync: ${res.status}`);
     }
-    return res.json();
+    return res.json().catch(error => {
+      if (error instanceof TypeError || (error instanceof Error && error.name === 'AbortError')) throw new TransportError('Cloud sync response interrupted');
+      throw error;
+    });
   }
   async signIn(credential: string): Promise<void> {
     if (this.deleting) throw new Error('Account deletion in progress');
@@ -73,6 +78,7 @@ export class CloudSync extends EventTarget {
   }
   async signOut(): Promise<void> {
     this.epoch++;
+    this.sessionChecked = true;
     this.user = null;
     this.state = 'signed-out';
     await this.repo.setMeta('cloud.logout', true);
@@ -113,9 +119,11 @@ export class CloudSync extends EventTarget {
   }
   private async run(): Promise<void> {
     const epoch = this.epoch;
+    let syncing = false;
     if (!this.online()) { this.state = this.user ? 'offline' : 'signed-out'; this.emit(); return; }
     try {
       if (await this.repo.getMeta<boolean>('cloud.logout')) { await this.finishLogout(); return; }
+      if (this.sessionChecked && !this.user) return;
       const config = await this.json('config');
       if (epoch !== this.epoch) return;
       this.googleClientId = typeof config.googleClientId === 'string' ? config.googleClientId : null;
@@ -123,9 +131,12 @@ export class CloudSync extends EventTarget {
       this.emit();
       const me = await this.json('me');
       if (epoch !== this.epoch) return;
+      this.sessionChecked = true;
       this.user = me.user;
       if (!this.user) { this.state = 'signed-out'; this.emit(); return; }
       await this.repo.bindSyncAccount(this.user.id);
+      if (epoch !== this.epoch || !this.user) return;
+      syncing = true;
       this.state = 'syncing'; this.emit();
       let cursor = await this.repo.getMeta<number>('cloud.cursor') ?? 0;
       for (;;) {
@@ -139,6 +150,7 @@ export class CloudSync extends EventTarget {
           if (batch.length >= 50 || bytes + size > 6_000_000) break;
           batch.push(entry); bytes += size;
         }
+        if (epoch !== this.epoch || !this.user) return;
         const result = await this.json('sync', { cursor, changes: batch.map(e => e.item) });
         if (epoch !== this.epoch) return;
         if (!Number.isSafeInteger(result.cursor) || result.cursor < cursor || !Array.isArray(result.changes)) throw new Error('Invalid sync response');
@@ -151,9 +163,9 @@ export class CloudSync extends EventTarget {
         if (!result.hasMore && !(await this.repo.pending()).length) break;
       }
       this.state = 'synced'; useFeature('sync','ok');
-    } catch {
-      useFeature('sync','fail');
+    } catch (error) {
       if (epoch !== this.epoch) return;
+      if (syncing && this.user && this.online() && !(error instanceof TransportError) && !(error instanceof Error && error.name === 'AbortError')) useFeature('sync','fail');
       this.state = this.user ? (this.online() ? 'error' : 'offline') : 'signed-out';
     }
     this.emit();

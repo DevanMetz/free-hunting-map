@@ -1,4 +1,4 @@
-import { periods, type Feature } from './usageSchema';
+import { BOT_UA, periods, type Feature } from './usageSchema';
 declare const __APP_VERSION__: string;
 const prefix = 'fhm.usage.';
 const keys = ['identity','last','pending','events','features'];
@@ -10,7 +10,18 @@ const seen = new Set<string>();
 const read = <T>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(prefix+key) ?? 'null') ?? fallback; } catch { return fallback; } };
 const write = (key: string, value: unknown) => localStorage.setItem(prefix+key,JSON.stringify(value));
 export function privacyBlocked() { return navigator.doNotTrack === '1' || (navigator as Navigator & {globalPrivacyControl?: boolean}).globalPrivacyControl === true; }
-export function usageAllowed() { try { return !privacyBlocked() && read('enabled',true); } catch { return false; } }
+export function analyticsExcluded() {
+  const bot = new URLSearchParams(location.search).get('fhm_bot');
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem('fhm_analytics_exclude');
+    if (bot === '1') { localStorage.setItem('fhm_analytics_exclude','bot'); stored = 'bot'; }
+    else if (bot === '0' && stored === 'bot') { localStorage.removeItem('fhm_analytics_exclude'); stored = null; }
+  } catch { /* URL and browser detection still work without storage. */ }
+  return bot === '1' || navigator.webdriver === true || BOT_UA.test(navigator.userAgent) || stored === 'bot';
+}
+function internalDevice() { return localStorage.getItem('fhm_analytics_exclude') === 'internal'; }
+export function usageAllowed() { try { return !analyticsExcluded() && !privacyBlocked() && read('enabled',true); } catch { return false; } }
 function clear() { for (const key of keys) localStorage.removeItem(prefix+key); seen.clear(); clearTimeout(timer); document.getElementById('usage-beacon')?.remove(); }
 export function setUsageEnabled(enabled: boolean) { try { write('enabled',enabled); if (!usageAllowed()) { clear(); /* Unload any already executing beacon listeners. */ location.reload(); } else beacon(); } catch { /* Storage unavailable. */ } }
 function identity(day: string) {
@@ -32,7 +43,7 @@ export async function flushUsage(keepalive = false) {
     beacon(); busy = true;
     const pending = read<Open|null>('pending',null);
     if (pending) {
-      const response = await fetch('/api/ping',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify(pending),keepalive});
+      const response = await fetch('/api/ping',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({...pending,internal:internalDevice()}),keepalive});
       if (response.ok || response.status === 400) { if (read<Open|null>('pending',null)?.id === pending.id) localStorage.removeItem(prefix+'pending'); }
     }
     const events = queue(); write('events',events);
@@ -40,7 +51,7 @@ export async function flushUsage(keepalive = false) {
     const first = events[0];
     if (first && usageAllowed()) {
       const batch = events.filter(e=>e.id===first.id).slice(0,60);
-      const response = await fetch('/api/events',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:first.id,installed:first.installed,version:__APP_VERSION__,events:batch.map(({f,o,day,fw,fm})=>({f,o,day,fw,fm}))}),keepalive});
+      const response = await fetch('/api/events',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({internal:internalDevice(),id:first.id,installed:first.installed,version:__APP_VERSION__,events:batch.map(({f,o,day,fw,fm})=>({f,o,day,fw,fm}))}),keepalive});
       if (response.ok || response.status===400) { const current=queue(); let remaining=batch.length; write('events',current.filter(e=>{ if(e.id===first.id && remaining>0) { remaining--; return false; } return true; })); }
     }
   } catch { /* Analytics must never affect the map. */ }

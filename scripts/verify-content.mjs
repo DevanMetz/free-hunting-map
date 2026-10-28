@@ -1,3 +1,4 @@
+const botUrl = value => { const url = new URL(value); url.searchParams.set('fhm_bot', '1'); return url.href; };
 // Run after npm run build. Starts and stops its own preview on port 4182.
 // Verifies clean URLs offline and saves content review screenshots outside git.
 import { chromium } from '@playwright/test';
@@ -21,7 +22,7 @@ try {
   browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
-  await page.goto(base, { waitUntil: 'networkidle' });
+  await page.goto(botUrl(base), { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: 'Layers', exact: true }).waitFor();
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
@@ -33,7 +34,7 @@ try {
   for (const offline of [true, false]) {
     await context.setOffline(offline);
     for (const [path, heading] of [['/features', 'Free Hunting Map'], ['/public-land/wisconsin', 'Wisconsin public hunting land'], ['/guides/', 'Map and scouting guides'], ['/guides/offline-maps', 'Using offline hunting maps in the woods'], ['/faq', 'Frequently asked questions'], ['/', null]]) {
-      const response = await page.goto(base + path, { waitUntil: 'networkidle' });
+      const response = await page.goto(botUrl(base + path), { waitUntil: 'networkidle' });
       if (!response?.ok()) throw new Error(`${offline ? 'Offline' : 'Online'} ${path}: ${response?.status()}`);
       if (heading) await page.getByRole('heading', { level: 1 }).filter({ hasText: heading }).waitFor();
       else await page.getByRole('button', { name: 'Layers', exact: true }).waitFor();
@@ -45,7 +46,7 @@ try {
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
     for (const path of ['/features', '/guides/offline-maps', '/public-land/wisconsin']) {
-      await page.goto(base + path, { waitUntil: 'networkidle' });
+      await page.goto(botUrl(base + path), { waitUntil: 'networkidle' });
       // Bring lazy images through the viewport, then return to the top.
       await page.evaluate(async () => {
         for (let y = 0; y < document.body.scrollHeight; y += innerHeight) { scrollTo(0, y); await new Promise(r => setTimeout(r, 80)); }
@@ -58,7 +59,7 @@ try {
   const noJs = await browser.newContext({ javaScriptEnabled: false });
   const staticPage = await noJs.newPage();
   for (const path of ['/features', '/guides/', '/guides/offline-maps', '/public-land/wisconsin', '/faq']) {
-    const response = await staticPage.goto(base + path);
+    const response = await staticPage.goto(botUrl(base + path));
     if (!response?.ok() || !await staticPage.getByRole('heading', { level: 1 }).isVisible()) throw new Error(`Content unavailable without JavaScript: ${path}`);
     records.push({ path, javaScript: false, status: response.status(), title: await staticPage.title() });
   }

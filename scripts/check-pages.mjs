@@ -1,3 +1,4 @@
+const botUrl = value => { const url = new URL(value); url.searchParams.set('fhm_bot', '1'); return url.href; };
 // npm run build && node scripts/check-pages.mjs [--external] [--browser]
 // Checks files rather than trusting the SPA server's 200 fallback.
 import { readdir, readFile, stat, writeFile, mkdir } from 'node:fs/promises';
@@ -69,7 +70,7 @@ if (process.argv.includes('--external')) {
         if (!result) return;
         const page = await browser.newPage();
         try {
-          const response = await page.goto(result.url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+          const response = await page.goto(botUrl(result.url), { waitUntil: 'domcontentloaded', timeout: 25000 });
           result.curlStatus = result.status;
           result.status = response?.status() ?? 0;
           result.title = await page.title();
