@@ -56,7 +56,7 @@ export class App implements AppContext {
     root.append(mapEl, toolbar, offlineChip, this.recChip, sheetEl, h('div', { id: 'toast', role: 'status' }));
     this.sheet = new Sheet(sheetEl);
     const linked = locationFromSearch(location.search);
-    this.map = new HuntMap(mapEl, settings, linked ?? settings.view);
+    this.map = new HuntMap(mapEl, settings, linked ?? settings.view, !!linked);
     this.windPlume = new WindPlume(this.map.map, this.map.geolocate, repo, settings.windPlume);
     const controls = mapEl.querySelector<HTMLElement>('.maplibregl-ctrl-top-left');
     if (controls) mountBasemapSwitch(this, controls, () => this.persistSettings());

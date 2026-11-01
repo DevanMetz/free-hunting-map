@@ -56,7 +56,7 @@ export class HuntMap {
   private readonly parcelLoader: ParcelLoader;
   private sketch: { line: LngLat[]; color: string } = { line: [], color: '#ffd54f' };
 
-  constructor(container: HTMLElement, state: MapState, view: MapView) {
+  constructor(container: HTMLElement, state: MapState, view: MapView, linkedView = false) {
     this.state = state;
     this.map = new MLMap({
       container,
@@ -75,10 +75,55 @@ export class HuntMap {
     });
     this.map.addControl(this.geolocate, 'top-left');
     new HeadingIndicator(this.map, this.geolocate);
+    this.startLocation(linkedView);
     this.map.addControl(new ScaleControl({ unit: 'imperial' }), 'bottom-left');
     this.map.on('style.load', () => { this.styleReady = true; this.styleVersion++; this.installed.clear(); void this.installOverlays(); });
     const unsubscribe = layerRegistry.subscribe(() => this.syncLayers());
     this.map.on('remove', unsubscribe);
+  }
+
+  private startLocation(linkedView: boolean): void {
+    const map = this.map;
+    const control = this.geolocate;
+    let centerOnFix = !linkedView;
+    const cancelCenter = () => { centerOnFix = false; };
+    // Only real gestures cancel the pending first fix, not startup camera changes.
+    for (const event of ['dragstart', 'zoomstart', 'rotatestart', 'pitchstart'] as const) {
+      map.on(event, e => { if (e.originalEvent) cancelCenter(); });
+    }
+    const button = map.getContainer().querySelector<HTMLButtonElement>('.maplibregl-ctrl-geolocate');
+    button?.addEventListener('click', cancelCenter, true);
+
+    map.once('load', () => {
+      void (async () => {
+        if (!navigator.geolocation || !button) return;
+        try {
+          if (navigator.permissions && (await navigator.permissions.query({ name: 'geolocation' })).state === 'denied') return;
+        } catch { /* Permissions API is optional. */ }
+        // MapLibre finishes control setup asynchronously, independently of map load.
+        if (!control._setup) await new Promise<void>(resolve => {
+          const observer = new MutationObserver(() => {
+            if (control._setup) { observer.disconnect(); resolve(); }
+          });
+          observer.observe(button, { attributes: true });
+          map.once('remove', () => { observer.disconnect(); resolve(); });
+        });
+        if (!control._setup || button.disabled || control._watchState !== 'OFF') return;
+        control.once('error', cancelCenter);
+        control.once('geolocate', e => {
+          if (!centerOnFix) return;
+          const options = { center: [e.coords.longitude, e.coords.latitude] as [number, number], zoom: Math.max(map.getZoom(), 15) };
+          if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) map.jumpTo(options);
+          else map.easeTo(options);
+        });
+        control.trigger();
+        // Keep the watch and marker active without letting MapLibre move the camera.
+        // A later locate-button tap then recenters instead of switching the watch off.
+        control._watchState = 'BACKGROUND';
+        button.classList.remove('maplibregl-ctrl-geolocate-active');
+        button.classList.add('maplibregl-ctrl-geolocate-background');
+      })().catch(() => {});
+    });
   }
 
   get mapState(): MapState {
