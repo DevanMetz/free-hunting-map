@@ -9,7 +9,7 @@ const names: [string, string][] = [
 export const lidarLayers: LayerDef[] = names.map(([id, name]) => ({
   id, name, category: 'terrain', defaultOpacity: id === 'lidar-chm' ? 0.7 : 0.85,
   attribution: 'USGS 3DEP lidar',
-  source: { kind: 'raster', tiles: [LIDAR_TILES[id]!], tileSize: 256, minzoom: 8, maxzoom: id === 'lidar-chm' ? 15 : 16, bounds: LIDAR_BOUNDS },
+  source: { kind: 'raster', tiles: [LIDAR_TILES[id]!], tileSize: 256, minzoom: 9, maxzoom: id === 'lidar-chm' ? 15 : 16, bounds: LIDAR_BOUNDS },
   cacheRoute: LIDAR_CACHE,
   cacheStrategy: 'CacheFirst',
   legend: id === 'lidar-lrm' ? [

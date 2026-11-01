@@ -12,7 +12,7 @@ it('registers bounded, versioned lidar rasters first in terrain with immutable c
   expect(new Set(ids).size).toBe(ids.length);
   expect(layerRegistry.categories().find(c => c.id === 'terrain')?.layers.slice(0, lidarLayers.length)).toEqual(lidarLayers);
   for (const def of lidarLayers) {
-    expect(def.source).toEqual({ kind: 'raster', tiles: [`/tiles/${def.id}/v1/{z}/{x}/{y}.webp`], tileSize: 256, minzoom: 8, maxzoom: def.id === 'lidar-chm' ? 15 : 16, bounds: LIDAR_BOUNDS });
+    expect(def.source).toEqual({ kind: 'raster', tiles: [`/tiles/${def.id}/v2/{z}/{x}/{y}.webp`], tileSize: 256, minzoom: 9, maxzoom: def.id === 'lidar-chm' ? 15 : 16, bounds: LIDAR_BOUNDS });
     expect(def.cacheRoute?.test(`https://freehuntingmap.com/tiles/${def.id}/v1/12/100/200.webp`)).toBe(true);
     expect(def.cacheStrategy).toBe('CacheFirst');
     expect(def.defaultOn).toBeUndefined();
