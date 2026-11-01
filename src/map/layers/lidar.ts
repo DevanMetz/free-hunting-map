@@ -1,7 +1,7 @@
 import { registerLayers, type LayerDef } from '../layerRegistry';
 import { LIDAR_BOUNDS, LIDAR_TILES } from '../sources';
 
-const LIDAR_CACHE = /\/tiles\/lidar-(?:lrm|openness|hillshade|slope|chm)\/v[1-9]\d*\/\d+\/\d+\/\d+\.webp$/;
+const LIDAR_CACHE = /\/tiles\/lidar-(?:lrm|openness|hillshade|slope|chm)\/v[1-9]\d*\/\d+\/\d+\/\d+\.webp(?:\?b=[\w-]+)?$/;
 const names: [string, string][] = [
   ['lidar-lrm', 'Local relief'], ['lidar-openness', 'Openness'], ['lidar-hillshade', 'Lidar hillshade'], ['lidar-slope', 'Lidar slope'],
   ['lidar-chm', 'Canopy height'],

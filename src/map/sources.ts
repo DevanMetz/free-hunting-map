@@ -101,9 +101,11 @@ export const ASPECT_EXPORT = terrainExport('Aspect Map');
 export const LIDAR_VERSION = 'v2';
 /** Published lidar: Clark County (v1) and z9 block b9-130-188 (Muskego / SE Waukesha). Union bbox. */
 export const LIDAR_BOUNDS: [number, number, number, number] = [-90.991, 42.553, -87.890, 45.136];
+/** Bump when a block is published so service-worker caches drop empty (204) tiles saved before it existed. */
+export const LIDAR_BLOCKS = '130-188';
 export const LIDAR_TILES = Object.fromEntries(
   ['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'].map(name =>
-    [name, `/tiles/${name}/${LIDAR_VERSION}/{z}/{x}/{y}.webp`]),
+    [name, `/tiles/${name}/${LIDAR_VERSION}/{z}/{x}/{y}.webp?b=${LIDAR_BLOCKS}`]),
 );
 export const HISTORIC_AERIAL_SERVICE = 'https://dnrmaps.wi.gov/arcgis_image/rest/services/DW_Imagery/EN_Image_Basemap_';
 export const WISCONSIN_BOUNDS: [number, number, number, number] = [-92.89, 42.49, -86.25, 47.31];
