@@ -11,8 +11,8 @@ export interface AppContext {
   sync?: CloudSync;
   map: HuntMap;
   sheet: Sheet;
-  /** Latest live items (kept in sync with the repo). */
   setWindPlume(on: boolean): void;
+  /** Latest live items (kept in sync with the repo). */
   items(): Item[];
   categories(): Category[];
   visibility(): TypeVisibility;
