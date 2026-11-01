@@ -1,4 +1,5 @@
 import { wedge } from './fov';
+import { HeadingIndicator } from './heading';
 import { effectiveColor, effectiveIcon, isVisible, type TypeVisibility } from '../organize/model';
 import {
   GeolocateControl,
@@ -72,6 +73,7 @@ export class HuntMap {
       showAccuracyCircle: true,
     });
     this.map.addControl(this.geolocate, 'top-left');
+    new HeadingIndicator(this.map, this.geolocate);
     this.map.addControl(new ScaleControl({ unit: 'imperial' }), 'bottom-left');
     this.map.on('style.load', () => { this.styleReady = true; this.styleVersion++; this.installed.clear(); void this.installOverlays(); });
     const unsubscribe = layerRegistry.subscribe(() => this.syncLayers());

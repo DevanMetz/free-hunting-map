@@ -571,3 +571,16 @@ input[type='color'] { min-width: 44px; width: 44px; height: 44px; padding: 3px; 
 .offline-chip:not([hidden]) ~ .quick-look, .rec-chip:not([hidden]) ~ .quick-look { top: calc(env(safe-area-inset-top) + 102px); }
 .offline-chip:not([hidden]) ~ .rec-chip:not([hidden]) ~ .quick-look { top: calc(env(safe-area-inset-top) + 144px); }
 .quick-look:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.fhm-heading-cone {
+  position: absolute;
+  left: -38px;
+  top: -38px;
+  width: 91px;
+  height: 91px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle closest-side, transparent 0 9px, rgba(29, 161, 242, 0.55) 9px, rgba(29, 161, 242, 0) 100%);
+  clip-path: polygon(50% 50%, 21% 0, 79% 0);
+}
+.maplibregl-user-location-dot-stale .fhm-heading-cone { display: none !important; }
