@@ -31,6 +31,7 @@ const SRC_SKETCH = 'ohm-sketch';
 
 export interface MapState extends LayerPreferences, TypeVisibility {
   basemap: BasemapId;
+  windPlume: boolean;
   labels: boolean;
   labelScale: number;
 }
@@ -175,6 +176,8 @@ export class HuntMap {
 
   private layerIds(def: LayerDef): string[] { return def.layerIds ?? (def.source ? [def.id] : []); }
   private dataLayerIds(): Set<string> { return new Set(layerRegistry.layers().flatMap(def => this.layerIds(def))); }
+
+  setWindPlume(on: boolean): void { this.state.windPlume = on; }
 
   setLabels(on: boolean): void {
     this.state.labels = on;

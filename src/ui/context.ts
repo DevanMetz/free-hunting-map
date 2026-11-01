@@ -12,6 +12,7 @@ export interface AppContext {
   map: HuntMap;
   sheet: Sheet;
   /** Latest live items (kept in sync with the repo). */
+  setWindPlume(on: boolean): void;
   items(): Item[];
   categories(): Category[];
   visibility(): TypeVisibility;

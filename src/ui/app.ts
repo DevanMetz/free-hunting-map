@@ -6,6 +6,7 @@ import { Popup, type MapMouseEvent } from 'maplibre-gl';
 import { layerRegistry, layerSetting } from '../map/layerRegistry';
 import { formatLatLng, locationFromSearch, pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
+import { WindPlume } from '../map/windPlume';
 import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
 import type { Category, Item, LngLat, Track } from '../types';
@@ -23,6 +24,7 @@ export class App implements AppContext {
   readonly sheet: Sheet;
   sync?: CloudSync;
   readonly map: HuntMap;
+  private readonly windPlume: WindPlume;
   private trailFinder: Promise<import('../lidar/lab').TrailFinder> | undefined;
   private liveItems: Item[] = [];
   private liveCategories: Category[] = [];
@@ -55,6 +57,7 @@ export class App implements AppContext {
     this.sheet = new Sheet(sheetEl);
     const linked = locationFromSearch(location.search);
     this.map = new HuntMap(mapEl, settings, linked ?? settings.view);
+    this.windPlume = new WindPlume(this.map.map, this.map.geolocate, repo, settings.windPlume);
     const controls = mapEl.querySelector<HTMLElement>('.maplibregl-ctrl-top-left');
     if (controls) mountBasemapSwitch(this, controls, () => this.persistSettings());
     root.append(this.buildCoordChip());
@@ -110,6 +113,8 @@ export class App implements AppContext {
       console.error('Account sync could not start:', err);
     }
   }
+
+  setWindPlume(on: boolean): void { this.map.setWindPlume(on); this.windPlume.setEnabled(on); }
 
   items(): Item[] {
     return this.liveItems;
@@ -171,6 +176,7 @@ export class App implements AppContext {
     if (version !== this.preferenceVersion) return;
     const current = this.map.mapState;
     if (current.basemap !== saved.basemap) this.map.setBasemap(saved.basemap);
+    this.setWindPlume(saved.windPlume);
     this.map.setLabels(saved.labels);
     this.map.setLabelScale(saved.labelScale);
     for (const [id, value] of Object.entries(saved.layers)) {
