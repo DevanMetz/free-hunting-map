@@ -7,7 +7,7 @@ import { sanitizeRecord, portablePreferences, type SyncRecord, type HikeRecord }
 import { sanitizeItem } from '../sync/validate';
 import { legacyTakeoutCategory } from './takeoutMigration';
 import { contentId, uuid } from '../sync/ids';
-import { openHuntDB, type HuntDB, type OutboxEntry, type LidarRun } from './db';
+import { openHuntDB, type HuntDB, type OutboxEntry, type LidarRun, type RecordingPoint } from './db';
 
 export interface ImportResult {
   received: number;
@@ -42,6 +42,30 @@ export class Repo extends EventTarget {
     const repo = new Repo(db, deviceId, new HybridClock(Date.now, maxSeen));
     await repo.migrateTakeoutCategories();
     return repo;
+  }
+
+  async beginRecording(trackId: string): Promise<void> {
+    await this.db.put('meta', { trackId, started: Date.now(), paused: false }, 'active-recording');
+  }
+
+  async activeRecording(): Promise<{ trackId: string; started: number; paused: boolean } | undefined> {
+    return this.db.get('meta', 'active-recording') as Promise<{ trackId: string; started: number; paused: boolean } | undefined>;
+  }
+
+  async appendRecordingPoint(point: RecordingPoint): Promise<void> {
+    await this.db.put('recordingPoints', point);
+  }
+
+  async recordingPoints(trackId: string): Promise<RecordingPoint[]> {
+    return this.db.getAll('recordingPoints', IDBKeyRange.bound([trackId, 0], [trackId, Number.MAX_SAFE_INTEGER]));
+  }
+
+  async clearRecording(trackId: string, retainPoints = false): Promise<void> {
+    const tx = this.db.transaction(['recordingPoints', 'meta'], 'readwrite');
+    if (!retainPoints) await tx.objectStore('recordingPoints').delete(IDBKeyRange.bound([trackId, 0], [trackId, Number.MAX_SAFE_INTEGER]));
+    const active = await tx.objectStore('meta').get('active-recording') as { trackId?: string } | undefined;
+    if (active?.trackId === trackId) await tx.objectStore('meta').delete('active-recording');
+    await tx.done;
   }
 
   async hikeShare(trackId: string): Promise<HikeRecord | undefined> {
@@ -242,6 +266,7 @@ export class Repo extends EventTarget {
       if (share.trackId === id && share.shared) await this.saveHikeShare({ ...share, shared: false });
     }
     await this.writeLocal({ ...item, deleted: true, updatedAt: this.clock.now(), deviceId: this.deviceId });
+    if (item.kind === 'track') await this.clearRecording(id);
   }
 
   /** Merge items from another device/file. Safe to repeat. */

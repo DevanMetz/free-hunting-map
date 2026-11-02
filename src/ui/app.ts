@@ -9,6 +9,7 @@ import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { WindPlume } from '../map/windPlume';
 import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
+import type { RecordingPoint } from '../storage/db';
 import type { Category, Item, LngLat, Track } from '../types';
 import type { AppContext } from './context';
 import { mountBasemapSwitch } from './basemapSwitch';
@@ -18,7 +19,7 @@ import { UI_ICONS } from './icons';
 import { Sheet } from './sheet';
 import type { Tool } from './tools';
 
-const RECORD_SAVE_EVERY = 5;
+const RECORD_SAVE_INTERVAL = 30_000;
 
 export class App implements AppContext {
   readonly sheet: Sheet;
@@ -35,6 +36,8 @@ export class App implements AppContext {
   private recording: Track | null = null;
   private recordingSave: Promise<void> = Promise.resolve();
   private recordingBusy = false;
+  private pendingPoints: RecordingPoint[] = [];
+  private lastRecordingSnapshot = 0;
   private stoppedCoords: LngLat[] | null = null;
   private wakeLock: WakeLockSentinel | null = null;
   private readonly buttons = new Map<string, HTMLButtonElement>();
@@ -63,7 +66,7 @@ export class App implements AppContext {
     root.append(this.buildCoordChip());
     mountQuickLook(this, root, () => this.openLazyPanel('conditions', 'Conditions', () => import('./conditionsPanel').then(m => () => m.openConditionsPanel(this))));
     this.recorder = new TrackRecorder(
-      (coords) => void this.onRecordedPoint(coords),
+      (coords, pos) => this.onRecordedPoint(coords, pos),
       (err) => toast(err.message || 'GPS error'),
     );
 
@@ -79,11 +82,14 @@ export class App implements AppContext {
     repo.addEventListener('change', () => void this.reloadItems());
     repo.addEventListener('preferences', () => void this.applyPreferences());
     document.addEventListener('sheet-closed', () => this.syncToolbar());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.queueRecordingSave(true); });
+    window.addEventListener('pagehide', () => this.queueRecordingSave(true));
   }
 
   static async start(root: HTMLElement, repo: Repo, saved?: Partial<Settings>, initialItems?: Promise<[Item[], Category[]]>): Promise<App> {
     const app = new App(repo, loadSettings(saved), root);
     await app.reloadItems(initialItems);
+    await app.resumeRecording();
     void app.startAccount(root);
     return app;
   }
@@ -375,6 +381,7 @@ export class App implements AppContext {
         const coords = this.stoppedCoords!;
         const track = this.recording;
         await this.recordingSave;
+        await this.flushRecordingPoints();
         if (track) {
           if (coords.length < 2) await this.repo.remove(track.id);
           else {
@@ -382,6 +389,7 @@ export class App implements AppContext {
             this.openItem(saved);
           }
         }
+        if (track) await this.repo.clearRecording(track.id, coords.length >= 2);
         this.recording = null;
         this.stoppedCoords = null;
         this.recChip.hidden = true;
@@ -393,10 +401,12 @@ export class App implements AppContext {
       const name = `Track ${new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
       this.recording = await this.repo.create<Track>({ kind: 'track', name, note: '', coords: [], recorded: true });
       try {
+        await this.repo.beginRecording(this.recording.id);
         this.recorder.start();
       } catch {
         this.stoppedCoords = [];
         await this.repo.remove(this.recording.id);
+        await this.repo.clearRecording(this.recording.id);
         this.recording = null;
         this.stoppedCoords = null;
         toast('Could not start GPS');
@@ -435,15 +445,63 @@ export class App implements AppContext {
     }
   }
 
-  private onRecordedPoint(coords: LngLat[]): void {
+  private async resumeRecording(): Promise<void> {
+    try {
+      const active = await this.repo.activeRecording();
+      if (!active) return;
+      const track = await this.repo.get(active.trackId);
+      const points = await this.repo.recordingPoints(active.trackId);
+      if (!track || track.deleted || track.kind !== 'track') {
+        await this.repo.clearRecording(active.trackId);
+        return;
+      }
+      const coords = points.map(point => point.coord);
+      if (coords.length < 2) {
+        await this.repo.remove(track.id);
+        await this.repo.clearRecording(track.id);
+        return;
+      }
+      this.recording = track;
+      this.recorder.start(coords);
+      this.recChip.hidden = false;
+      this.recChip.textContent = shortDistance(pathLength(coords));
+      this.setRecordIcon(true);
+      this.syncToolbar();
+      void navigator.wakeLock?.request('screen').then(lock => {
+        if (this.recorder.active && this.recording === track) this.wakeLock = lock;
+        else void lock.release().catch(() => {});
+      }).catch(() => {});
+      this.queueRecordingSave(true);
+    } catch {
+      toast('Could not resume recording');
+    }
+  }
+
+  private onRecordedPoint(coords: LngLat[], pos: GeolocationPosition): void {
     this.recChip.textContent = shortDistance(pathLength(coords));
     const track = this.recording;
-    if (track && coords.length % RECORD_SAVE_EVERY === 0) {
-      const snapshot = [...coords];
-      this.recordingSave = this.recordingSave.then(async () => {
-        await this.repo.update(track, { coords: snapshot });
-      }).catch(() => { toast('Could not save recording'); });
+    if (!track) return;
+    this.pendingPoints.push({ trackId: track.id, index: coords.length - 1, coord: coords[coords.length - 1]!,
+      t: pos.timestamp, acc: pos.coords.accuracy, alt: pos.coords.altitude, altAcc: pos.coords.altitudeAccuracy });
+    this.queueRecordingSave(Date.now() - this.lastRecordingSnapshot >= RECORD_SAVE_INTERVAL);
+  }
+
+  private async flushRecordingPoints(): Promise<void> {
+    while (this.pendingPoints.length) {
+      await this.repo.appendRecordingPoint(this.pendingPoints[0]!);
+      this.pendingPoints.shift();
     }
+  }
+
+  private queueRecordingSave(snapshot: boolean): void {
+    const track = this.recording;
+    if (!track) return;
+    const coords = snapshot ? [...this.recorder.coords] : null;
+    if (snapshot) this.lastRecordingSnapshot = Date.now();
+    this.recordingSave = this.recordingSave.then(async () => {
+      await this.flushRecordingPoints();
+      if (coords && coords.length >= 2) await this.repo.update(track, { coords });
+    }).catch(() => { toast('Could not save recording'); });
   }
 
   private persistTimer = 0;

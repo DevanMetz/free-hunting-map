@@ -18,7 +18,7 @@ export class TrackRecorder {
   coords: LngLat[] = [];
 
   constructor(
-    private readonly onPoint: (coords: LngLat[]) => void,
+    private readonly onPoint: (coords: LngLat[], pos: GeolocationPosition) => void,
     private readonly onError: (err: GeolocationPositionError) => void,
   ) {}
 
@@ -38,7 +38,7 @@ export class TrackRecorder {
         const next = roundCoord([pos.coords.longitude, pos.coords.latitude]);
         if (!acceptFix(this.coords.at(-1), next, pos.coords.accuracy)) return;
         this.coords.push(next);
-        this.onPoint(this.coords);
+        this.onPoint(this.coords, pos);
       },
       (err) => {
         if (err.code === err.TIMEOUT && ++this.consecutiveTimeouts < 2) return;
