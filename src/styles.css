@@ -583,4 +583,4 @@ input[type='color'] { min-width: 44px; width: 44px; height: 44px; padding: 3px; 
   background: radial-gradient(circle closest-side, transparent 0 9px, rgba(29, 161, 242, 0.55) 9px, rgba(29, 161, 242, 0) 100%);
   clip-path: polygon(50% 50%, 21% 0, 79% 0);
 }
-.maplibregl-user-location-dot-stale .fhm-heading-cone { display: none !important; }
+.maplibregl-user-location-dot-stale .fhm-heading-cone { opacity: 0.45; }
