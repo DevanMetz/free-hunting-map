@@ -3,7 +3,7 @@ import { coordinatesFromUrl } from '../share/takeout/coordinates';
 import type { LngLat } from '../types';
 import type { AppContext } from './context';
 import { copyText, h, iconButton, toast } from './dom';
-import { visibleLandSearch } from './visibleLandSearch';
+import { loadedLandBounds, visibleLandSearch } from './visibleLandSearch';
 
 export function readLocation(input: string): LngLat | null {
   const fromUrl = coordinatesFromUrl(input);
@@ -29,10 +29,16 @@ export function openGoTo(ctx: AppContext): void {
     results.replaceChildren();
     if (readLocation(input.value)) return;
     for (const result of visibleLandSearch(ctx.map.map, input.value)) {
-      results.append(h('button', { type: 'button', class: 'btn', onclick: () => {
+      results.append(h('button', { type: 'button', class: 'btn', onclick: async (event: Event) => {
+        const selected = event.currentTarget as HTMLButtonElement;
+        const button = results.querySelectorAll('button');
+        button.forEach(item => { item.disabled = true; });
+        const bounds = await loadedLandBounds(ctx.map.map, result).catch(() => null);
+        if (!results.isConnected || !results.contains(selected)) return;
         ctx.sheet.close();
-        ctx.map.map.easeTo({ center: result.center, zoom: Math.max(ctx.map.map.getZoom(), 12),
-          duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800 });
+        const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800;
+        if (bounds) ctx.map.map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration });
+        else ctx.map.map.easeTo({ center: result.center, zoom: Math.max(ctx.map.map.getZoom(), 12), duration });
       } }, result.name));
     }
   };
