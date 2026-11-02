@@ -44,8 +44,10 @@ export class Repo extends EventTarget {
     return repo;
   }
 
-  async beginRecording(trackId: string): Promise<void> {
-    await this.db.put('meta', { trackId, started: Date.now(), paused: false }, 'active-recording');
+  async beginRecording(trackId: string): Promise<number> {
+    const started = Date.now();
+    await this.db.put('meta', { trackId, started, paused: false }, 'active-recording');
+    return started;
   }
 
   async activeRecording(): Promise<{ trackId: string; started: number; paused: boolean } | undefined> {

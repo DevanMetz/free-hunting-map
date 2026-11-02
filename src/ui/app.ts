@@ -4,7 +4,7 @@ import type { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
 import { layerRegistry, layerSetting } from '../map/layerRegistry';
-import { formatLatLng, locationFromSearch, pathLength, shortDistance } from '../map/geo';
+import { formatLatLng, haversine, locationFromSearch, pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { WindPlume } from '../map/windPlume';
 import { TrackRecorder } from '../map/recorder';
@@ -40,6 +40,10 @@ export class App implements AppContext {
   private lastRecordingSnapshot = 0;
   private stoppedCoords: LngLat[] | null = null;
   private wakeLock: WakeLockSentinel | null = null;
+  private wakeLockPending = false;
+  private recordingStarted = 0;
+  private recordingDistance = 0;
+  private recordingTimer = 0;
   private readonly buttons = new Map<string, HTMLButtonElement>();
   private readonly recChip: HTMLElement;
 
@@ -50,7 +54,7 @@ export class App implements AppContext {
   ) {
     const mapEl = h('div', { id: 'map' });
     const sheetEl = h('section', { id: 'sheet', class: 'sheet', hidden: true, 'aria-live': 'polite' });
-    this.recChip = h('div', { class: 'rec-chip', hidden: true, role: 'status' });
+    this.recChip = h('div', { class: 'rec-chip', hidden: true, role: 'timer', 'aria-label': 'Recording time and distance' });
     const toolbar = this.buildToolbar();
     const offlineChip = h('div', { class: 'offline-chip', role: 'status', hidden: navigator.onLine }, 'Offline');
     const updateConnection = () => { offlineChip.hidden = navigator.onLine; };
@@ -82,7 +86,10 @@ export class App implements AppContext {
     repo.addEventListener('change', () => void this.reloadItems());
     repo.addEventListener('preferences', () => void this.applyPreferences());
     document.addEventListener('sheet-closed', () => this.syncToolbar());
-    document.addEventListener('visibilitychange', () => { if (document.hidden) this.queueRecordingSave(true); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.queueRecordingSave(true);
+      else { this.updateRecordingTimer(); void this.requestRecordingWakeLock(); }
+    });
     window.addEventListener('pagehide', () => this.queueRecordingSave(true));
   }
 
@@ -393,6 +400,9 @@ export class App implements AppContext {
         this.recording = null;
         this.stoppedCoords = null;
         this.recChip.hidden = true;
+        clearInterval(this.recordingTimer);
+        this.recordingStarted = 0;
+        this.recordingDistance = 0;
         this.setRecordIcon(false);
         this.syncToolbar();
         return;
@@ -401,7 +411,7 @@ export class App implements AppContext {
       const name = `Track ${new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
       this.recording = await this.repo.create<Track>({ kind: 'track', name, note: '', coords: [], recorded: true });
       try {
-        await this.repo.beginRecording(this.recording.id);
+        this.recordingStarted = await this.repo.beginRecording(this.recording.id);
         this.recorder.start();
       } catch {
         this.stoppedCoords = [];
@@ -415,14 +425,10 @@ export class App implements AppContext {
       useFeature('track_record');
       if (this.map.geolocate._watchState === 'OFF') this.map.geolocate.trigger();
       this.recChip.hidden = false;
-      this.recChip.textContent = shortDistance(0);
+      this.startRecordingTimer();
       this.setRecordIcon(true);
       this.syncToolbar();
-      const track = this.recording;
-      void navigator.wakeLock?.request('screen').then(lock => {
-        if (this.recorder.active && this.recording === track) this.wakeLock = lock;
-        else void lock.release().catch(() => {});
-      }).catch(() => {});
+      void this.requestRecordingWakeLock();
     } catch {
       if (this.stoppedCoords) {
         this.setRecordIcon(true);
@@ -433,6 +439,38 @@ export class App implements AppContext {
       this.recordingBusy = false;
       if (button) button.disabled = false;
     }
+  }
+
+  private async requestRecordingWakeLock(): Promise<void> {
+    if (!this.recorder.active || document.hidden || this.wakeLock || this.wakeLockPending || !navigator.wakeLock) return;
+    this.wakeLockPending = true;
+    const track = this.recording;
+    try {
+      const lock = await navigator.wakeLock.request('screen');
+      if (!this.recorder.active || document.hidden || this.recording !== track) {
+        await lock.release();
+        return;
+      }
+      this.wakeLock = lock;
+      lock.addEventListener('release', () => { if (this.wakeLock === lock) this.wakeLock = null; });
+    } catch { /* Wake lock may be unavailable or denied. */ }
+    finally { this.wakeLockPending = false; }
+  }
+
+  private startRecordingTimer(): void {
+    clearInterval(this.recordingTimer);
+    this.updateRecordingTimer();
+    this.recordingTimer = window.setInterval(() => this.updateRecordingTimer(), 1000);
+  }
+
+  private updateRecordingTimer(): void {
+    if (!this.recordingStarted) return;
+    const seconds = Math.max(0, Math.floor((Date.now() - this.recordingStarted) / 1000));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds / 60) % 60;
+    const tail = String(seconds % 60).padStart(2, '0');
+    const elapsed = hours ? `${hours}:${String(minutes).padStart(2, '0')}:${tail}` : `${minutes}:${tail}`;
+    this.recChip.textContent = `${elapsed} · ${shortDistance(this.recordingDistance)}`;
   }
 
   private setRecordIcon(recording: boolean): void {
@@ -464,13 +502,12 @@ export class App implements AppContext {
       this.recording = track;
       this.recorder.start(coords);
       this.recChip.hidden = false;
-      this.recChip.textContent = shortDistance(pathLength(coords));
+      this.recordingStarted = active.started;
+      this.recordingDistance = pathLength(coords);
+      this.startRecordingTimer();
       this.setRecordIcon(true);
       this.syncToolbar();
-      void navigator.wakeLock?.request('screen').then(lock => {
-        if (this.recorder.active && this.recording === track) this.wakeLock = lock;
-        else void lock.release().catch(() => {});
-      }).catch(() => {});
+      void this.requestRecordingWakeLock();
       this.queueRecordingSave(true);
     } catch {
       toast('Could not resume recording');
@@ -478,7 +515,8 @@ export class App implements AppContext {
   }
 
   private onRecordedPoint(coords: LngLat[], pos: GeolocationPosition): void {
-    this.recChip.textContent = shortDistance(pathLength(coords));
+    if (coords.length > 1) this.recordingDistance += haversine(coords[coords.length - 2]!, coords[coords.length - 1]!);
+    this.updateRecordingTimer();
     const track = this.recording;
     if (!track) return;
     this.pendingPoints.push({ trackId: track.id, index: coords.length - 1, coord: coords[coords.length - 1]!,
