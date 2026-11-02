@@ -81,9 +81,15 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     if (blocked(name, version) && !raw) {
       if (tilejson) {
         headers0.set('Content-Type', 'application/json');
-        return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: archive.title, format: 'webp', tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.webp`], minzoom: BLOCK_ZOOM, maxzoom: archive.maxzoom, attribution: archive.attribution }), { headers: headers0 });
+        return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: archive.title, format: 'webp', tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.webp`], minzoom: archive.minzoom, maxzoom: archive.maxzoom, attribution: archive.attribution }), { headers: headers0 });
       }
-      if (z < BLOCK_ZOOM) return new Response(null, { status: 204, headers: headers0 });
+      // The original Clark archive includes an overview below the block zoom.
+      if (z < BLOCK_ZOOM) {
+        const pm = bucket ? await reader(bucket, name, 'v1') : null;
+        const bytes = pm ? await pm.tile(z, x, y) : null;
+        headers0.set('Content-Type', archive.contentType);
+        return new Response(request.method === 'HEAD' || !bytes ? null : new Uint8Array(bytes).buffer, { status: bytes ? 200 : 204, headers: headers0 });
+      }
       const shift = z - BLOCK_ZOOM;
       // Blocks not yet published fall back to the v1 (Clark County) archive.
       const pm = bucket ? await reader(bucket, name, `${version}/b${BLOCK_ZOOM}-${x >>> shift}-${y >>> shift}`) ?? await reader(bucket, name, 'v1') : null;
