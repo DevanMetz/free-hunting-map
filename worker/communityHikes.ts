@@ -6,7 +6,7 @@ import { pathLength } from '../src/map/geo';
 import { ApiError } from './sync';
 export const hikeTilePath = (key: string) => `/tiles/community-hikes/12/${key}.geojson`;
 export interface HikeRow { id:string; geometry:string; month:string; name:string; type:string|null; distance:number; reports:number; override:string|null }
-export function hikeFeature(r:HikeRow) { return {type:'Feature',id:r.id,geometry:{type:'LineString',coordinates:JSON.parse(r.geometry)},properties:{id:r.id,month:r.month,name:r.name,type:r.type,distance:r.distance}}; }
+export function hikeFeature(r:HikeRow) { const coordinates=JSON.parse(r.geometry); return {type:'Feature',id:r.id,geometry:{type:Array.isArray(coordinates[0]?.[0])?'MultiLineString':'LineString',coordinates},properties:{id:r.id,month:r.month,name:r.name,type:r.type,distance:r.distance}}; }
 const ok = () => Response.json({accepted:true},{headers:{'Cache-Control':'no-store'}});
 function credentials(raw:unknown) {
   const r=raw as {id?:unknown;secret?:unknown}|null;
@@ -17,17 +17,19 @@ export async function shareHike(request:Request,db:D1Database,raw:unknown) {
   const {id,secret}=credentials(raw);
   if(Object.keys(raw as object).some(k=>!['id','secret','hike'].includes(k)))throw new ApiError(400,'Invalid hike');
   let hike;try{hike=decodeHike((raw as {hike:unknown}).hike);}catch{throw new ApiError(400,'Invalid hike');}
-  hike.coordinates=simplify(hike.coordinates,2.5);
-  hike.distance=Math.round(pathLength(hike.coordinates));
+  const starts=[0,...(hike.segments ?? []),hike.coordinates.length];
+  const lines=starts.slice(0,-1).map((start,i)=>simplify(hike.coordinates.slice(start,starts[i+1]),2.5));
+  const geometry=lines.length===1 ? lines[0]! : lines;
+  hike.distance=Math.round(lines.reduce((sum,line)=>sum+pathLength(line),0));
   if(hike.distance<=200)throw new ApiError(400,'Hike too short');
   // Geometry-only duplicate hash: metadata edits cannot bypass duplicate protection.
-  const content=await sha256(JSON.stringify(hike.coordinates)),secretHash=await sha256(secret);
+  const content=await sha256(JSON.stringify(geometry)),secretHash=await sha256(secret);
   const existing=await db.prepare('SELECT id FROM community_hikes WHERE id=? OR content_hash=?').bind(id,content).first();
   if(existing)throw new ApiError(409,'Duplicate hike');
   const bounds=bbox(hike.coordinates), keys=tiles(bounds);
   try {
     await db.batch([
-      db.prepare('INSERT INTO community_hikes(id,secret_hash,content_hash,geometry,month,name,type,distance,west,south,east,north) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,secretHash,content,JSON.stringify(hike.coordinates),hike.month,hike.name,hike.type,hike.distance,...bounds),
+      db.prepare('INSERT INTO community_hikes(id,secret_hash,content_hash,geometry,month,name,type,distance,west,south,east,north) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,secretHash,content,JSON.stringify(geometry),hike.month,hike.name,hike.type,hike.distance,...bounds),
       ...keys.map(key=>db.prepare('INSERT INTO community_hike_tiles(tile,hike_id) VALUES(?,?)').bind(key,id)),
     ]);
   } catch(error) {

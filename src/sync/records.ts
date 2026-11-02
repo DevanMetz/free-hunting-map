@@ -52,7 +52,7 @@ export function sanitizeRecord(raw: unknown): SyncRecord | null {
   const meta = { id, createdAt, updatedAt, deviceId, deleted };
   if (r.kind === 'community-hike') {
     if (typeof r.trackId !== 'string' || r.trackId.length < 8 || r.trackId.length > 64 || id !== r.shareId || !validHikeId(r.shareId) || !validHikeId(r.secret) || typeof r.shared !== 'boolean') return null;
-    try { const hike=decodeHike(r.hike); return {...meta,kind:'community-hike',trackId:r.trackId,shareId:r.shareId,secret:r.secret,shared:r.shared,hike:encodeHike(hike.coordinates,hike.month,hike.name,hike.type)}; } catch { return null; }
+    try { const hike=decodeHike(r.hike); return {...meta,kind:'community-hike',trackId:r.trackId,shareId:r.shareId,secret:r.secret,shared:r.shared,hike:encodeHike(hike.coordinates,hike.month,hike.name,hike.type,hike.segments)}; } catch { return null; }
   }
   if (r.kind === 'category') {
     if (typeof r.name !== 'string' || !r.name.trim()) return null;
