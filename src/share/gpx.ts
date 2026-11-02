@@ -27,8 +27,9 @@ export function toGpx(items: Item[]): string {
         `  <wpt lat="${lat}" lon="${lng}"><time>${iso(item.createdAt)}</time>${text}<sym>${item.icon}</sym>${ext}</wpt>`,
       );
     } else {
-      const pts = item.coords.map(([lng, lat]) => `<trkpt lat="${lat}" lon="${lng}"/>`).join('');
-      trks.push(`  <trk>${text}${ext}<trkseg>${pts}</trkseg></trk>`);
+      const starts = [0, ...(item.segments ?? []), item.coords.length];
+      const segments = starts.slice(0, -1).map((start, n) => `<trkseg>${item.coords.slice(start, starts[n + 1]).map(([lng, lat]) => `<trkpt lat="${lat}" lon="${lng}"/>`).join('')}</trkseg>`).join('');
+      trks.push(`  <trk>${text}${ext}${segments}</trk>`);
     }
   }
   return [
@@ -56,10 +57,16 @@ export function fromGpx(xml: string): Item[] {
   }
 
   for (const trk of [...byTag(doc, 'trk'), ...byTag(doc, 'rte')]) {
-    const pts = [...byTag(trk, 'trkpt'), ...byTag(trk, 'rtept')];
-    const coords = pts.map(pointOf).filter((c): c is LngLat => c !== null);
+    const groups = byTag(trk, 'trkseg');
+    const coords: LngLat[] = [];
+    const segments: number[] = [];
+    for (const group of groups.length ? groups : [trk]) {
+      const points = [...byTag(group, 'trkpt'), ...byTag(group, 'rtept')].map(pointOf).filter((c): c is LngLat => c !== null);
+      if (points.length && coords.length) segments.push(coords.length);
+      coords.push(...points);
+    }
     if (coords.length < 2) continue;
-    const item = withMeta(trk, { kind: 'track', name: childText(trk, 'name'), note: childText(trk, 'desc'), coords, recorded: false });
+    const item = withMeta(trk, { kind: 'track', name: childText(trk, 'name'), note: childText(trk, 'desc'), coords, segments, recorded: false });
     if (item) out.push(item);
   }
   return out;

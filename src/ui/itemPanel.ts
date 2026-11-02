@@ -38,7 +38,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
     item.kind === 'waypoint'
       ? formatLatLng(item.coord)
       : (() => {
-          const d = formatDistance(pathLength(item.coords));
+          const d = formatDistance(pathLength(item.coords, item.segments));
           return `${d.imperial} · ${d.metric}`;
         })();
 

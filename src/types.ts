@@ -58,6 +58,8 @@ export interface Track extends ItemMeta, ItemOrganization {
   name: string;
   note: string;
   coords: LngLat[];
+  /** Indices of points that begin a new recording segment. */
+  segments?: number[];
   /** True when recorded from GPS rather than drawn. */
   recorded: boolean;
 }

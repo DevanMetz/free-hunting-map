@@ -16,6 +16,9 @@ export class TrackRecorder {
   private consecutiveTimeouts = 0;
   private reportedError: number | null = null;
   coords: LngLat[] = [];
+  segments: number[] = [];
+  private lastFixTime = 0;
+  private wasHidden = false;
 
   constructor(
     private readonly onPoint: (coords: LngLat[], pos: GeolocationPosition) => void,
@@ -26,9 +29,12 @@ export class TrackRecorder {
     return this.watchId !== null;
   }
 
-  start(initial: LngLat[] = []): void {
+  start(initial: LngLat[] = [], segments: number[] = [], lastFixTime = 0): void {
     if (this.active) return;
     this.coords = [...initial];
+    this.segments = [...segments];
+    this.lastFixTime = lastFixTime;
+    this.wasHidden = false;
     this.consecutiveTimeouts = 0;
     this.reportedError = null;
     this.watchId = navigator.geolocation.watchPosition(
@@ -37,6 +43,10 @@ export class TrackRecorder {
         this.reportedError = null;
         const next = roundCoord([pos.coords.longitude, pos.coords.latitude]);
         if (!acceptFix(this.coords.at(-1), next, pos.coords.accuracy)) return;
+        const previous = this.coords.at(-1);
+        if (previous && haversine(previous, next) > 50 && (this.wasHidden || (this.lastFixTime > 0 && pos.timestamp - this.lastFixTime > 60_000))) this.segments.push(this.coords.length);
+        this.wasHidden = false;
+        this.lastFixTime = pos.timestamp;
         this.coords.push(next);
         this.onPoint(this.coords, pos);
       },
@@ -51,6 +61,8 @@ export class TrackRecorder {
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 },
     );
   }
+
+  markHidden(): void { if (this.active) this.wasHidden = true; }
 
   stop(): LngLat[] {
     if (this.watchId !== null) navigator.geolocation.clearWatch(this.watchId);

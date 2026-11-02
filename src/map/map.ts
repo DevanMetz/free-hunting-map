@@ -294,6 +294,7 @@ export class HuntMap {
         id: `${LAYER_TRACKS}-casing`,
         type: 'line',
         source: SRC_ITEMS_LN,
+        filter: ['!=', ['get', 'gap'], true],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': '#000', 'line-width': 6, 'line-opacity': 0.45 },
       });
@@ -301,9 +302,13 @@ export class HuntMap {
         id: LAYER_TRACKS,
         type: 'line',
         source: SRC_ITEMS_LN,
+        filter: ['!=', ['get', 'gap'], true],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': ['get', 'color'], 'line-width': 3.5 },
       });
+      m.addLayer({ id: `${LAYER_TRACKS}-gaps`, type: 'line', source: SRC_ITEMS_LN,
+        filter: ['==', ['get', 'gap'], true],
+        paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-dasharray': [2, 2] } });
     }
     if (!m.getSource(SRC_SKETCH)) {
       m.addSource(SRC_SKETCH, { type: 'geojson', data: emptyFC() });
@@ -381,7 +386,18 @@ export class HuntMap {
       type: 'FeatureCollection',
       features: live.flatMap((i) =>
         i.kind === 'track' && i.coords.length > 1
-          ? [{ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: i.coords }, properties: { id: i.id, recorded: i.recorded, color: effectiveColor(i, this.categories) } }]
+          ? (() => {
+              const starts = [0, ...(i.segments ?? []), i.coords.length];
+              const props = { id: i.id, recorded: i.recorded, color: effectiveColor(i, this.categories) };
+              return starts.slice(0, -1).flatMap((start, n) => {
+                const end = starts[n + 1]!;
+                const line = i.coords.slice(start, end);
+                return [
+                  ...(line.length > 1 ? [{ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: line }, properties: { ...props, gap: false } }] : []),
+                  ...(start > 0 ? [{ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: [i.coords[start - 1]!, i.coords[start]!] }, properties: { ...props, gap: true } }] : []),
+                ];
+              });
+            })()
           : [],
       ),
     });

@@ -19,6 +19,10 @@ export function hikeShareControl(ctx:AppContext,track:Track) {
       }},'Unshare from community'));
       return;
     }
+    if (track.segments?.length) {
+      root.append(h('button', { type: 'button', class: 'btn', onclick: () => toast('Tracks with GPS gaps cannot be shared to the community') }, 'Share to community'));
+      return;
+    }
     const open=h('button',{type:'button',class:'btn',onclick:()=>{
       root.classList.add('hike-share-open');
       const name=h('input',{class:'field',placeholder:'Public name', 'aria-label':'Public name',maxlength:60,value:''});

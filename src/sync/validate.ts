@@ -37,7 +37,8 @@ export function sanitizeItem(raw: unknown): Item | null {
       if (!p) return null;
       coords.push(p);
     }
-    return { ...meta, ...organization, kind: 'track', name, note, coords, recorded: r.recorded === true };
+    const segments = Array.isArray(r.segments) ? [...new Set(r.segments.filter((n): n is number => Number.isInteger(n) && n > 0 && n < coords.length))].sort((a, b) => a - b) : [];
+    return { ...meta, ...organization, kind: 'track', name, note, coords, recorded: r.recorded === true, ...(segments.length ? { segments } : {}) };
   }
   return null;
 }

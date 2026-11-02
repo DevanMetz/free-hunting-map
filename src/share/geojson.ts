@@ -8,7 +8,7 @@ export const FOREIGN_DEVICE = 'import';
 
 interface Feature {
   type: 'Feature';
-  geometry: { type: 'Point'; coordinates: LngLat } | { type: 'LineString'; coordinates: LngLat[] };
+  geometry: { type: 'Point'; coordinates: LngLat } | { type: 'LineString'; coordinates: LngLat[] } | { type: 'MultiLineString'; coordinates: LngLat[][] };
   properties: Record<string, unknown>;
 }
 
@@ -23,7 +23,7 @@ export function toGeoJSON(items: Item[]): { type: 'FeatureCollection'; features:
       }
       return {
         type: 'Feature',
-        geometry: { type: 'LineString', coordinates: item.coords },
+        geometry: item.segments?.length ? { type: 'MultiLineString', coordinates: [0, ...item.segments].map((start, n, starts) => item.coords.slice(start, starts[n + 1])) } : { type: 'LineString', coordinates: item.coords },
         properties: { ...props, recorded: item.recorded },
       };
     }),
@@ -46,6 +46,23 @@ export function fromGeoJSON(input: unknown): Item[] {
         ? sanitizeItem({ ...props, kind: 'waypoint', coord: geom.coordinates })
         : foreign({ kind: 'waypoint', coord: lngLat(geom.coordinates), props });
       if (item) out.push(item);
+    }
+    if (props.ohm && geom.type === 'MultiLineString') {
+      const coords: LngLat[] = [];
+      const segments: number[] = [];
+      let valid = true;
+      for (const line of lines) {
+        if (!Array.isArray(line)) { valid = false; break; }
+        const points = line.map(lngLat);
+        if (points.some(point => point === null)) { valid = false; break; }
+        if (points.length && coords.length) segments.push(coords.length);
+        coords.push(...points as LngLat[]);
+      }
+      if (valid && coords.length >= 2) {
+        const item = sanitizeItem({ ...props, kind: 'track', coords, segments });
+        if (item) out.push(item);
+      }
+      continue;
     }
     for (const line of lines) {
       if (!Array.isArray(line)) continue;

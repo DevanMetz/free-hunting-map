@@ -87,7 +87,7 @@ export class App implements AppContext {
     repo.addEventListener('preferences', () => void this.applyPreferences());
     document.addEventListener('sheet-closed', () => this.syncToolbar());
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) this.queueRecordingSave(true);
+      if (document.hidden) { this.recorder.markHidden(); this.queueRecordingSave(true); }
       else { this.updateRecordingTimer(); void this.requestRecordingWakeLock(); }
     });
     window.addEventListener('pagehide', () => this.queueRecordingSave(true));
@@ -392,7 +392,7 @@ export class App implements AppContext {
         if (track) {
           if (coords.length < 2) await this.repo.remove(track.id);
           else {
-            const saved = await this.repo.update(track, { coords });
+            const saved = await this.repo.update(track, { coords, segments: [...this.recorder.segments] });
             this.openItem(saved);
           }
         }
@@ -500,10 +500,11 @@ export class App implements AppContext {
         return;
       }
       this.recording = track;
-      this.recorder.start(coords);
+      const segments = points.filter(point => point.segmentStart).map(point => point.index);
+      this.recorder.start(coords, segments, points.at(-1)?.t);
       this.recChip.hidden = false;
       this.recordingStarted = active.started;
-      this.recordingDistance = pathLength(coords);
+      this.recordingDistance = pathLength(coords, segments);
       this.startRecordingTimer();
       this.setRecordIcon(true);
       this.syncToolbar();
@@ -515,12 +516,12 @@ export class App implements AppContext {
   }
 
   private onRecordedPoint(coords: LngLat[], pos: GeolocationPosition): void {
-    if (coords.length > 1) this.recordingDistance += haversine(coords[coords.length - 2]!, coords[coords.length - 1]!);
+    if (coords.length > 1 && !this.recorder.segments.includes(coords.length - 1)) this.recordingDistance += haversine(coords[coords.length - 2]!, coords[coords.length - 1]!);
     this.updateRecordingTimer();
     const track = this.recording;
     if (!track) return;
     this.pendingPoints.push({ trackId: track.id, index: coords.length - 1, coord: coords[coords.length - 1]!,
-      t: pos.timestamp, acc: pos.coords.accuracy, alt: pos.coords.altitude, altAcc: pos.coords.altitudeAccuracy });
+      t: pos.timestamp, acc: pos.coords.accuracy, alt: pos.coords.altitude, altAcc: pos.coords.altitudeAccuracy, segmentStart: this.recorder.segments.includes(coords.length - 1) });
     this.queueRecordingSave(Date.now() - this.lastRecordingSnapshot >= RECORD_SAVE_INTERVAL);
   }
 
@@ -535,10 +536,11 @@ export class App implements AppContext {
     const track = this.recording;
     if (!track) return;
     const coords = snapshot ? [...this.recorder.coords] : null;
+    const segments = snapshot ? [...this.recorder.segments] : [];
     if (snapshot) this.lastRecordingSnapshot = Date.now();
     this.recordingSave = this.recordingSave.then(async () => {
       await this.flushRecordingPoints();
-      if (coords && coords.length >= 2) await this.repo.update(track, { coords });
+      if (coords && coords.length >= 2) await this.repo.update(track, { coords, segments });
     }).catch(() => { toast('Could not save recording'); });
   }
 

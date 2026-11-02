@@ -18,9 +18,10 @@ export function haversine(a: LngLat, b: LngLat): number {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-export function pathLength(coords: readonly LngLat[]): number {
+export function pathLength(coords: readonly LngLat[], segments: readonly number[] = []): number {
   let total = 0;
-  for (let i = 1; i < coords.length; i++) total += haversine(coords[i - 1]!, coords[i]!);
+  const gaps = new Set(segments);
+  for (let i = 1; i < coords.length; i++) if (!gaps.has(i)) total += haversine(coords[i - 1]!, coords[i]!);
   return total;
 }
 
