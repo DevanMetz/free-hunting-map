@@ -501,7 +501,7 @@ export class App implements AppContext {
       }
       this.recording = track;
       const segments = points.filter(point => point.segmentStart).map(point => point.index);
-      this.recorder.start(coords, segments, points.at(-1)?.t);
+      this.recorder.start(coords, segments, points.at(-1)?.t, points.at(-1)?.acc);
       this.recChip.hidden = false;
       this.recordingStarted = active.started;
       this.recordingDistance = pathLength(coords, segments);

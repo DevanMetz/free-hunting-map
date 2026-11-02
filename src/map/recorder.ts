@@ -1,13 +1,17 @@
 import type { LngLat } from '../types';
 import { haversine, roundCoord } from './geo';
 
-export const MAX_ACCURACY_M = 50;
+export const MAX_ACCURACY_M = 30;
 export const MIN_STEP_M = 5;
+export const MAX_SPEED_M_PER_S = 12;
+const GAP_DISTANCE_M = 50;
+const GAP_TIME_MS = 60_000;
+const MIN_SMOOTH_WEIGHT = 0.65;
 
 /** Pure filter: accept a fix if accurate enough and far enough from the last kept point. */
-export function acceptFix(prev: LngLat | undefined, next: LngLat, accuracy: number): boolean {
-  if (!(accuracy <= MAX_ACCURACY_M)) return false;
-  return !prev || haversine(prev, next) >= MIN_STEP_M;
+export function acceptFix(prev: LngLat | undefined, next: LngLat, accuracy: number, previousAccuracy = 0): boolean {
+  if (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > MAX_ACCURACY_M) return false;
+  return !prev || haversine(prev, next) >= Math.max(MIN_STEP_M, accuracy, previousAccuracy);
 }
 
 /** GPS track recorder around navigator.geolocation.watchPosition. */
@@ -18,6 +22,8 @@ export class TrackRecorder {
   coords: LngLat[] = [];
   segments: number[] = [];
   private lastFixTime = 0;
+  private lastAccuracy = 0;
+  private lastRawFix: LngLat | undefined;
   private wasHidden = false;
 
   constructor(
@@ -29,11 +35,13 @@ export class TrackRecorder {
     return this.watchId !== null;
   }
 
-  start(initial: LngLat[] = [], segments: number[] = [], lastFixTime = 0): void {
+  start(initial: LngLat[] = [], segments: number[] = [], lastFixTime = 0, lastAccuracy = 0): void {
     if (this.active) return;
     this.coords = [...initial];
     this.segments = [...segments];
     this.lastFixTime = lastFixTime;
+    this.lastAccuracy = Number.isFinite(lastAccuracy) && lastAccuracy >= 0 ? lastAccuracy : 0;
+    this.lastRawFix = initial.at(-1);
     this.wasHidden = false;
     this.consecutiveTimeouts = 0;
     this.reportedError = null;
@@ -42,12 +50,24 @@ export class TrackRecorder {
         this.consecutiveTimeouts = 0;
         this.reportedError = null;
         const next = roundCoord([pos.coords.longitude, pos.coords.latitude]);
-        if (!acceptFix(this.coords.at(-1), next, pos.coords.accuracy)) return;
+        if (!acceptFix(this.lastRawFix, next, pos.coords.accuracy, this.lastAccuracy)) return;
         const previous = this.coords.at(-1);
-        if (previous && haversine(previous, next) > 50 && (this.wasHidden || (this.lastFixTime > 0 && pos.timestamp - this.lastFixTime > 60_000))) this.segments.push(this.coords.length);
+        const elapsed = pos.timestamp - this.lastFixTime;
+        const distance = this.lastRawFix ? haversine(this.lastRawFix, next) : 0;
+        const gap = !!previous && distance > GAP_DISTANCE_M && (this.wasHidden || (this.lastFixTime > 0 && elapsed > GAP_TIME_MS));
+        if (this.lastRawFix && !gap && this.lastFixTime > 0 && (elapsed <= 0 || distance / (elapsed / 1000) > MAX_SPEED_M_PER_S)) return;
+        if (gap) this.segments.push(this.coords.length);
+        let point = next;
+        if (previous && !gap) {
+          const weight = Math.max(MIN_SMOOTH_WEIGHT, this.lastAccuracy / (this.lastAccuracy + pos.coords.accuracy || 1));
+          const deltaLng = ((next[0] - previous[0] + 540) % 360) - 180;
+          point = roundCoord([((previous[0] + deltaLng * weight + 540) % 360) - 180, previous[1] + (next[1] - previous[1]) * weight]);
+        }
         this.wasHidden = false;
         this.lastFixTime = pos.timestamp;
-        this.coords.push(next);
+        this.lastAccuracy = pos.coords.accuracy;
+        this.lastRawFix = next;
+        this.coords.push(point);
         this.onPoint(this.coords, pos);
       },
       (err) => {
