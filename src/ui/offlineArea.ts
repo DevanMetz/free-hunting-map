@@ -12,8 +12,8 @@ const latY = (lat: number, n: number): number => {
 };
 
 interface Box { west: number; south: number; east: number; north: number }
-interface Pack { id: string; name: string; template: string; min: number; max: number; bounds?: [number, number, number, number]; cap?: number }
-interface SavedArea extends Box { id: string; name: string; template: string; min: number; max: number }
+interface Pack { id: string; name: string; template: string; min: number; max: number; bounds?: [number, number, number, number]; coverage?: [number, number, number, number][]; cap?: number }
+interface SavedArea extends Box { id: string; name: string; template: string; min: number; max: number; boxes?: Box[] }
 
 const VECTOR_PACKS: Record<string, { template: string; min: number; max: number }> = {
   'public-trails': { template: TRAILS_TILES, min: 6, max: 14 },
@@ -65,14 +65,15 @@ function packsFor(def: LayerDef): Pack[] {
   if (!def.cacheRoute || (def.cacheStrategy === 'NetworkFirst' && def.id !== 'water-occurrence')) return [];
   const range = zooms(def);
   const bounds = def.source?.kind === 'raster' ? def.source.bounds : undefined;
+  const coverage = def.source?.kind === 'raster' ? def.source.coverage : undefined;
   const cap = def.id === 'water-occurrence' ? 200 : undefined;
   const variants = (def.variants ?? []).flatMap(variant => {
     const template = tileTemplate(variant.tiles[0]);
-    return template ? [{ id: `${def.id}:${variant.id}`, name: `${def.name} ${variant.label}`, template, ...range, bounds, cap }] : [];
+    return template ? [{ id: `${def.id}:${variant.id}`, name: `${def.name} ${variant.label}`, template, ...range, bounds, coverage, cap }] : [];
   });
   if (variants.length > 1) return variants;
   const template = variants[0]?.template ?? tileTemplate(def.source?.kind === 'raster' ? def.source.tiles[0] : undefined);
-  return template ? [{ id: def.id, name: def.name, template, ...range, bounds, cap }] : [];
+  return template ? [{ id: def.id, name: def.name, template, ...range, bounds, coverage, cap }] : [];
 }
 
 function downloadPacks(): Pack[] {
@@ -87,6 +88,15 @@ function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function validBox(box: Box): boolean {
+  return !!box && finite(box.west) && finite(box.south) && finite(box.east) && finite(box.north)
+    && box.west <= box.east && box.south >= -90 && box.north <= 90 && box.south <= box.north;
+}
+
+function areaTiles(area: SavedArea): string[] {
+  return [...new Set((area.boxes ?? [area]).flatMap(box => tiles(box, area.min, area.max, area.template) ?? []))];
+}
+
 function savedAreas(value: unknown, allowed: Set<string>): SavedArea[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is SavedArea => {
@@ -97,7 +107,8 @@ function savedAreas(value: unknown, allowed: Set<string>): SavedArea[] {
       && typeof area.template === 'string' && allowed.has(area.template)
       && finite(area.min) && finite(area.max) && area.min >= 0 && area.max >= area.min && area.max <= 22
       && finite(area.west) && finite(area.south) && finite(area.east) && finite(area.north)
-      && area.south >= -90 && area.north <= 90 && area.south <= area.north;
+      && area.south >= -90 && area.north <= 90 && area.south <= area.north
+      && (area.boxes === undefined || (Array.isArray(area.boxes) && area.boxes.length <= 100 && area.boxes.every(validBox)));
   });
 }
 
@@ -154,8 +165,8 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     if (busy) return;
     busy = true; download.disabled = true; zoom.disabled = true; source.disabled = true;
     renderAreas();
-    const keep = new Set(areas.filter(item => item.id !== area.id).flatMap(item => tiles(item, item.min, item.max, item.template) ?? []));
-    const drop = (tiles(area, area.min, area.max, area.template) ?? []).filter(url => !keep.has(url));
+    const keep = new Set(areas.filter(item => item.id !== area.id).flatMap(item => areaTiles(item)));
+    const drop = areaTiles(area).filter(url => !keep.has(url));
     status.textContent = `Removing ${area.name}`;
     const remaining = areas.filter(item => item.id !== area.id);
     try {
@@ -184,8 +195,15 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     if (!navigator.onLine) { status.textContent = 'Connect to download an area.'; return; }
     const choice: Pack = pack ?? { id: 'basemap', name: basemap === 'topo' ? 'Topo' : 'Satellite', template: basemap === 'topo' ? USGS_TOPO_TILES : USGS_IMAGERY_TILES, min: 0, max: 16 };
     const view = viewBox(getBounds());
-    if (choice.bounds && outside(view, choice.bounds)) { status.textContent = 'Move the map into coverage.'; return; }
-    const urls = tiles(view, choice.min, Math.min(Number(zoom.value), choice.max), choice.template);
+    if ((choice.bounds && outside(view, choice.bounds)) || (choice.coverage && choice.coverage.every(bounds => outside(view, bounds)))) { status.textContent = 'Move the map into coverage.'; return; }
+    const maxZoom = Math.min(Number(zoom.value), choice.max);
+    const boxes = choice.coverage ? choice.coverage.filter(bounds => !outside(view, bounds)).map(bounds => ({
+      west: Math.max(view.west, bounds[0]), south: Math.max(view.south, bounds[1]),
+      east: Math.min(view.east, bounds[2]), north: Math.min(view.north, bounds[3]),
+    })) : [view];
+    const parts = boxes.map(box => tiles(box, choice.min, maxZoom, choice.template));
+    const urls = parts.some(part => part === null) ? null : [...new Set(parts.flatMap(part => part!))];
+    if (urls && urls.length > LIMIT) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }
     if (!urls) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }
     if (!urls.length) { status.textContent = 'Choose more detail for this layer.'; return; }
     if (choice.cap && urls.length > choice.cap) { status.textContent = 'Area too large. Zoom in or choose less detail.'; return; }
@@ -206,7 +224,7 @@ export function offlineArea(getBounds: () => LngLatBounds, getBasemap: () => Bas
     };
     await Promise.all(Array.from({ length: 4 }, worker));
     if (!signal.aborted && completed > failed) {
-      const updated = [{ id: crypto.randomUUID(), name: choice.name, template: choice.template, min: choice.min, max: Math.min(Number(zoom.value), choice.max), ...view }, ...areas];
+      const updated = [{ id: crypto.randomUUID(), name: choice.name, template: choice.template, min: choice.min, max: maxZoom, ...view, ...(choice.coverage ? { boxes } : {}) }, ...areas];
       try {
         await repo.setMeta(AREAS, updated);
         areas = updated;

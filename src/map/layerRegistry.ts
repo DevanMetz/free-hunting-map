@@ -49,7 +49,7 @@ export interface LayerDef {
   cacheStrategy?: 'CacheFirst' | 'NetworkFirst';
   variants?: { id: string; label: string; tiles: string[]; attribution?: string }[];
   defaultVariant?: string;
-  source?: { kind: 'raster'; tiles: string[]; tileSize?: number; minzoom?: number; maxzoom?: number; bounds?: [number, number, number, number] };
+  source?: { kind: 'raster'; tiles: string[]; tileSize?: number; minzoom?: number; maxzoom?: number; bounds?: [number, number, number, number]; coverage?: [number, number, number, number][] };
   /** Custom hooks run again on every style load. layerIds controls ordering. */
   layerIds?: string[];
   install?(map: Map, ctx: LayerContext): void;

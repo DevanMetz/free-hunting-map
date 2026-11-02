@@ -99,8 +99,11 @@ export const ASPECT_EXPORT = terrainExport('Aspect Map');
 
 /** v2 = per-z9-block archives (Worker falls back to v1 Clark for unpublished blocks). */
 export const LIDAR_VERSION = 'v2';
-/** Published lidar: Clark County (v1) and z9 block b9-130-188 (Muskego / SE Waukesha). Union bbox. */
-export const LIDAR_BOUNDS: [number, number, number, number] = [-90.991, 42.553, -87.890, 45.136];
+/** Published Clark County coverage and z9 block b9-130-188 (Muskego / SE Waukesha). */
+export const LIDAR_BOUNDS: [number, number, number, number][] = [
+  [-90.991, 44.399, -90.202, 45.136],
+  [-88.594, 42.552, -87.890, 43.070],
+];
 /** Bump when a block is published so service-worker caches drop empty (204) tiles saved before it existed. */
 export const LIDAR_BLOCKS = '130-188-z8';
 export const LIDAR_TILES = Object.fromEntries(

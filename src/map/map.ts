@@ -167,15 +167,17 @@ export class HuntMap {
     const selected = layerVariant(def, variant)!;
     this.state.layers[id] = { ...layerSetting(this.state, def), variant: selected.id };
     if (this.styleReady && this.installed.has(id)) {
-      const source = this.map.getSource(id) as import('maplibre-gl').RasterTileSource;
-      // setTiles reloads TileJSON metadata, including attribution, from these options.
-      source._options.attribution = selected.attribution ?? def.attribution;
-      source.setTiles(selected.tiles);
+      for (const sourceId of this.layerIds(def)) {
+        const source = this.map.getSource(sourceId) as import('maplibre-gl').RasterTileSource;
+        // setTiles reloads TileJSON metadata, including attribution, from these options.
+        source._options.attribution = selected.attribution ?? def.attribution;
+        source.setTiles(selected.tiles);
+      }
     }
   }
 
   private applyOpacity(def: LayerDef, opacity: number): void {
-    if (def.source) this.map.setPaintProperty(def.id, 'raster-opacity', opacity);
+    if (def.source) for (const id of this.layerIds(def)) this.map.setPaintProperty(id, 'raster-opacity', opacity);
     else def.setOpacity?.(this.map, opacity, this.layerContext());
   }
 
@@ -199,17 +201,23 @@ export class HuntMap {
       const ctx = this.layerContext(before);
       if (value.on && !this.installed.has(def.id)) {
         if (def.source) {
-          const { kind: _kind, ...source } = def.source;
+          const { kind: _kind, coverage, ...source } = def.source;
           const variant = layerVariant(def, value.variant);
-          m.addSource(def.id, { type: 'raster', tileSize: 256, ...source, tiles: variant?.tiles ?? source.tiles, attribution: variant?.attribution ?? def.attribution });
-          m.addLayer({ id: def.id, type: 'raster', source: def.id, minzoom: def.minzoom, maxzoom: def.maxzoom }, before);
+          const boundsList = coverage ?? [source.bounds];
+          boundsList.forEach((bounds, index) => {
+            const id = coverage ? `${def.id}-coverage-${index}` : def.id;
+            m.addSource(id, { type: 'raster', tileSize: 256, ...source, bounds, tiles: variant?.tiles ?? source.tiles, attribution: variant?.attribution ?? def.attribution });
+            m.addLayer({ id, type: 'raster', source: id, minzoom: def.minzoom, maxzoom: def.maxzoom }, before);
+          });
         } else def.install?.(m, ctx);
         this.installed.add(def.id);
       }
       if (!this.installed.has(def.id)) continue;
       if (def.source) {
-        m.setLayoutProperty(def.id, 'visibility', value.on ? 'visible' : 'none');
-        m.setPaintProperty(def.id, 'raster-opacity', value.opacity);
+        for (const id of this.layerIds(def)) {
+          m.setLayoutProperty(id, 'visibility', value.on ? 'visible' : 'none');
+          m.setPaintProperty(id, 'raster-opacity', value.opacity);
+        }
       } else {
         def.setVisible?.(m, value.on, ctx);
         def.setOpacity?.(m, value.opacity, ctx);
@@ -219,7 +227,7 @@ export class HuntMap {
     for (const def of orderedLayers(this.state)) for (const id of this.layerIds(def)) if (m.getLayer(id)) m.moveLayer(id, before);
   }
 
-  private layerIds(def: LayerDef): string[] { return def.layerIds ?? (def.source ? [def.id] : []); }
+  private layerIds(def: LayerDef): string[] { return def.layerIds ?? (def.source ? def.source.coverage?.map((_, index) => `${def.id}-coverage-${index}`) ?? [def.id] : []); }
   private dataLayerIds(): Set<string> { return new Set(layerRegistry.layers().flatMap(def => this.layerIds(def))); }
 
   setWindPlume(on: boolean): void { this.state.windPlume = on; }
