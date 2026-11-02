@@ -8,7 +8,7 @@ import { haversine } from './geo';
 
 const SOURCE = 'ohm-wind-plume';
 const MAX_AGE = 90 * 60_000;
-const LOCATION_AGE = 15 * 60_000;
+const ERROR_GRACE = 15 * 60_000;
 const REFRESH = 10 * 60_000;
 const CACHE = 'wind-plume:last';
 type Geolocate = GeolocateControl & { _watchState?: string };
@@ -17,6 +17,7 @@ type Geolocate = GeolocateControl & { _watchState?: string };
 export class WindPlume {
   private position: { coord: LngLat; at: number } | null = null;
   private weather: Weather | null = null;
+  private errorSince: number | null = null;
   private lastAttempt = 0;
   private attemptPoint: LngLat | null = null;
   private fetching = false;
@@ -26,12 +27,17 @@ export class WindPlume {
     this.enabled = enabled;
     geolocate.on('geolocate', e => {
       this.position = { coord: [e.coords.longitude, e.coords.latitude], at: Date.now() };
+      this.errorSince = null;
       this.update();
     });
     geolocate.on('trackuserlocationend', () => {
       if (geolocate._watchState === 'OFF') { this.position = null; this.render(); }
     });
-    geolocate.on('error', () => { this.position = null; this.render(); });
+    geolocate.on('error', () => {
+      if (geolocate._watchState === 'OFF') this.position = null;
+      else this.errorSince ??= Date.now();
+      this.render();
+    });
     map.on('style.load', () => this.render());
     const timer = window.setInterval(() => this.update(), 15_000);
     map.on('remove', () => clearInterval(timer));
@@ -42,7 +48,8 @@ export class WindPlume {
 
   private freshPosition(): { coord: LngLat; at: number } | null {
     const state = this.geolocate._watchState;
-    return this.position && (state === 'ACTIVE_LOCK' || state === 'BACKGROUND') && Date.now() - this.position.at < LOCATION_AGE
+    return this.position && (state === 'ACTIVE_LOCK' || state === 'BACKGROUND' || state === 'ACTIVE_ERROR' || state === 'BACKGROUND_ERROR')
+      && (this.errorSince === null || Date.now() - this.errorSince < ERROR_GRACE)
       ? this.position : null;
   }
 
