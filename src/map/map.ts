@@ -54,7 +54,7 @@ export class HuntMap {
   private refreshVersion = 0;
   private preview: ({ id: string; fov: FieldOfView } & Pick<Waypoint, 'categoryId' | 'color' | 'icon'>) | undefined;
   private readonly parcelLoader: ParcelLoader;
-  private sketch: { line: LngLat[]; color: string } = { line: [], color: '#ffd54f' };
+  private sketch: { line: LngLat[]; color: string; segments?: number[] } = { line: [], color: '#ffd54f' };
 
   constructor(container: HTMLElement, state: MapState, view: MapView, linkedView = false) {
     this.state = state;
@@ -266,8 +266,8 @@ export class HuntMap {
   }
 
   /** Temporary line for drawing / measuring. */
-  setSketch(line: LngLat[], color = '#ffd54f'): void {
-    this.sketch = { line, color };
+  setSketch(line: LngLat[], color = '#ffd54f', segments: number[] = []): void {
+    this.sketch = { line, color, segments };
     this.refreshSketch();
   }
 
@@ -406,11 +406,12 @@ export class HuntMap {
   private refreshSketch(): void {
     const src = this.map.getSource<GeoJSONSource>(SRC_SKETCH);
     if (!src) return;
-    const { line, color } = this.sketch;
+    const { line, color, segments = [] } = this.sketch;
+    const starts = [0, ...segments, line.length];
     src.setData({
       type: 'FeatureCollection',
       features: [
-        ...(line.length > 1 ? [{ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: line }, properties: { color } }] : []),
+        ...starts.slice(0, -1).map((start, i) => line.slice(start, starts[i + 1])).filter(part => part.length > 1).map(part => ({ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: part }, properties: { color } })),
         ...line.map((c) => ({ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: c }, properties: { color } })),
       ],
     });

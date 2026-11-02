@@ -25,6 +25,33 @@ export function trimHike(coords: Point[], trim = 200): Point[] {
   }
   return simplify(result, 2.5);
 }
+/** Trim by traveled distance across segments, never across GPS gaps. */
+export function trimSegmentedHike(coords: Point[], segments: number[], trim = 200): {coordinates: Point[]; segments: number[]} {
+  if (trim !== 0 && (!Number.isFinite(trim) || trim < 100 || trim > 500)) return {coordinates: [], segments: []};
+  const total = pathLength(coords, segments);
+  if (total - 2 * trim <= 200) return {coordinates: [], segments: []};
+  const starts = [0, ...segments, coords.length];
+  const result: Point[] = [], gaps: number[] = [];
+  let at = 0;
+  for (let j = 0; j < starts.length - 1; j++) {
+    const line: Point[] = [];
+    for (let i = starts[j]! + 1; i < starts[j + 1]!; i++) {
+      const a = coords[i - 1]!, b = coords[i]!, length = haversine(a, b), end = at + length;
+      if (length && end > trim && at < total - trim) {
+        const point = (t: number): Point => roundCoord([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+        if (!line.length) line.push(point(Math.max(0, (trim - at) / length)));
+        line.push(point(Math.min(1, (total - trim - at) / length)));
+      }
+      at = end;
+    }
+    const simplified = simplify(line, 2.5);
+    if (simplified.length >= 2 && pathLength(simplified) > 0) {
+      if (result.length) gaps.push(result.length);
+      result.push(...simplified);
+    }
+  }
+  return {coordinates: result, segments: gaps};
+}
 export function encodeHike(coordinates: Point[], month: string, name = '', type: Hike['type'] = null, segments: number[] = []): WireHike {
   let x = 0, y = 0;
   const d: number[] = [];
