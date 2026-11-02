@@ -35,7 +35,7 @@ export class HeadingIndicator {
     geolocate.on('geolocate', (e: { coords?: GeolocationCoordinates }) => this.onPosition(e.coords));
     geolocate.on('trackuserlocationstart', () => this.start());
     geolocate.on('trackuserlocationend', () => { if (geolocate._watchState === 'OFF') this.stop(); });
-    geolocate.on('error', () => this.schedule());
+    geolocate.on('error', () => { if (geolocate._watchState === 'OFF') this.stop(); else this.schedule(); });
     map.on('rotate', () => this.schedule());
   }
 

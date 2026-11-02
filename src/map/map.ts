@@ -95,6 +95,9 @@ export class HuntMap {
     button?.addEventListener('click', cancelCenter, true);
 
     map.once('load', () => {
+      // Search results and saved items can move the camera without a map gesture.
+      // Once loaded, any camera move means the initial view has been chosen.
+      map.once('movestart', cancelCenter);
       void (async () => {
         if (!navigator.geolocation || !button) return;
         try {
@@ -109,7 +112,6 @@ export class HuntMap {
           map.once('remove', () => { observer.disconnect(); resolve(); });
         });
         if (!control._setup || button.disabled || control._watchState !== 'OFF') return;
-        control.once('error', cancelCenter);
         control.once('geolocate', e => {
           if (!centerOnFix) return;
           const options = { center: [e.coords.longitude, e.coords.latitude] as [number, number], zoom: Math.max(map.getZoom(), 15) };
