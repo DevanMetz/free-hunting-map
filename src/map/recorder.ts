@@ -13,6 +13,8 @@ export function acceptFix(prev: LngLat | undefined, next: LngLat, accuracy: numb
 /** GPS track recorder around navigator.geolocation.watchPosition. */
 export class TrackRecorder {
   private watchId: number | null = null;
+  private consecutiveTimeouts = 0;
+  private reportedError: number | null = null;
   coords: LngLat[] = [];
 
   constructor(
@@ -27,14 +29,25 @@ export class TrackRecorder {
   start(initial: LngLat[] = []): void {
     if (this.active) return;
     this.coords = [...initial];
+    this.consecutiveTimeouts = 0;
+    this.reportedError = null;
     this.watchId = navigator.geolocation.watchPosition(
       (pos) => {
+        this.consecutiveTimeouts = 0;
+        this.reportedError = null;
         const next = roundCoord([pos.coords.longitude, pos.coords.latitude]);
         if (!acceptFix(this.coords.at(-1), next, pos.coords.accuracy)) return;
         this.coords.push(next);
         this.onPoint(this.coords);
       },
-      (err) => this.onError(err),
+      (err) => {
+        if (err.code === err.TIMEOUT && ++this.consecutiveTimeouts < 2) return;
+        if (err.code !== err.TIMEOUT) this.consecutiveTimeouts = 0;
+        if (this.reportedError === null || (err.code === err.PERMISSION_DENIED && this.reportedError !== err.code)) {
+          this.reportedError = err.code;
+          this.onError(err);
+        }
+      },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 },
     );
   }
