@@ -73,6 +73,15 @@ export class App implements AppContext {
     this.recorder = new TrackRecorder(
       (coords, pos) => this.onRecordedPoint(coords, pos),
       (err) => toast(err.message || 'GPS error'),
+      (message) => {
+        this.stoppedCoords = [...this.recorder.coords];
+        this.recChip.hidden = true;
+        clearInterval(this.recordingTimer);
+        this.setRecordIcon(true);
+        this.syncToolbar();
+        this.queueRecordingSave(true);
+        toast(message);
+      },
     );
 
     this.map.map.on('click', (e) => {
@@ -508,10 +517,10 @@ export class App implements AppContext {
         this.stoppedCoords = coords;
         toast('Could not resume GPS. Stop recording to save it.');
       }
-      this.recChip.hidden = false;
+      this.recChip.hidden = this.stoppedCoords !== null;
       this.recordingStarted = active.started;
       this.recordingDistance = pathLength(coords, segments);
-      this.startRecordingTimer();
+      if (!this.stoppedCoords) this.startRecordingTimer();
       this.setRecordIcon(true);
       this.syncToolbar();
       void this.requestRecordingWakeLock();

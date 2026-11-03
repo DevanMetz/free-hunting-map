@@ -10,6 +10,8 @@ const GAP_DISTANCE_M = 50;
 const GAP_TIME_MS = 60_000;
 const MIN_SMOOTH_WEIGHT = 0.65;
 const MOVEMENT_ACCURACY_FACTOR = 2;
+const NATIVE_BIND_RETRIES = 5;
+const NATIVE_BIND_RETRY_MS = 500;
 const backgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
 const recordingPermissions = registerPlugin<{ prepare(): Promise<void> }>('RecordingPermissions');
 
@@ -38,6 +40,7 @@ export class TrackRecorder {
   constructor(
     private readonly onPoint: (coords: LngLat[], pos: GeolocationPosition) => void,
     private readonly onError: (err: GeolocationPositionError) => void,
+    private readonly onNativeFailure: (message: string) => void,
   ) {}
 
   get active(): boolean {
@@ -108,22 +111,39 @@ export class TrackRecorder {
       if (Capacitor.getPlatform() === 'android') await recordingPermissions.prepare();
       this.nativeActive = true;
       const generation = ++this.nativeGeneration;
-      void backgroundGeolocation.addWatcher(
-        { backgroundTitle: 'Recording hike', backgroundMessage: 'Free Hunting Map', requestPermissions: Capacitor.getPlatform() !== 'android', stale: false, distanceFilter: 0 },
-        (location, error) => {
-          if (!this.nativeActive || generation !== this.nativeGeneration) return;
-          if (error) {
-            onError({ code: error.code === 'NOT_AUTHORIZED' ? 1 : 2, message: error.code === 'NOT_AUTHORIZED' ? error.message : 'GPS unavailable. Stop recording and try again.', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
-          } else if (location) {
-            onPosition({ timestamp: location.time ?? Date.now(), coords: { latitude: location.latitude, longitude: location.longitude, accuracy: location.accuracy, altitude: location.altitude, altitudeAccuracy: location.altitudeAccuracy, heading: location.bearing, speed: location.speed, toJSON: () => ({}) }, toJSON: () => ({}) });
+      let attempt = 0;
+      const startWatcher = (): void => {
+        if (!this.nativeActive || generation !== this.nativeGeneration) return;
+        let failed = false;
+        const fail = (message: string): void => {
+          if (failed || !this.nativeActive || generation !== this.nativeGeneration) return;
+          failed = true;
+          if (message === 'Service not running.') this.nativeWatcherId = null;
+          if (message === 'Service not running.' && attempt++ < NATIVE_BIND_RETRIES) {
+            window.setTimeout(startWatcher, NATIVE_BIND_RETRY_MS);
+          } else {
+            this.stop();
+            window.setTimeout(() => {
+              if (generation + 1 === this.nativeGeneration) this.onNativeFailure(message === 'Service not running.' ? 'Could not start GPS. Tap stop to save the recording.' : 'GPS stopped. Tap stop to save the recording.');
+            }, 0);
           }
-        },
-      ).then(id => {
-        if (!this.nativeActive || generation !== this.nativeGeneration) void backgroundGeolocation.removeWatcher({ id }).catch(() => {});
-        else this.nativeWatcherId = id;
-      }).catch(() => {
-        if (this.nativeActive && generation === this.nativeGeneration) onError({ code: 2, message: 'Could not start GPS. Stop recording and try again.', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
-      });
+        };
+        void backgroundGeolocation.addWatcher(
+          { backgroundTitle: 'Recording hike', backgroundMessage: 'Free Hunting Map', requestPermissions: Capacitor.getPlatform() !== 'android', stale: false, distanceFilter: 0 },
+          (location, error) => {
+            if (!this.nativeActive || generation !== this.nativeGeneration || failed) return;
+            if (error) fail(error.message);
+            else if (location) {
+              onPosition({ timestamp: location.time ?? Date.now(), coords: { latitude: location.latitude, longitude: location.longitude, accuracy: location.accuracy, altitude: location.altitude, altitudeAccuracy: location.altitudeAccuracy, heading: location.bearing, speed: location.speed, toJSON: () => ({}) }, toJSON: () => ({}) });
+            }
+          },
+        ).then(id => {
+          if (failed) return;
+          if (!this.nativeActive || generation !== this.nativeGeneration) void backgroundGeolocation.removeWatcher({ id }).catch(() => {});
+          else this.nativeWatcherId = id;
+        }).catch(error => fail(error instanceof Error ? error.message : ''));
+      };
+      startWatcher();
     } else {
       this.watchId = navigator.geolocation.watchPosition(onPosition, onError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 });
     }
