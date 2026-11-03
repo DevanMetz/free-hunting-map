@@ -7,6 +7,7 @@ export const MAX_SPEED_M_PER_S = 12;
 const GAP_DISTANCE_M = 50;
 const GAP_TIME_MS = 60_000;
 const MIN_SMOOTH_WEIGHT = 0.65;
+const MOVEMENT_ACCURACY_FACTOR = 2;
 
 /** Pure filter: accept a fix if accurate enough and far enough from the last kept point. */
 export function acceptFix(prev: LngLat | undefined, next: LngLat, accuracy: number, previousAccuracy = 0): boolean {
@@ -25,6 +26,7 @@ export class TrackRecorder {
   private lastAccuracy = 0;
   private lastRawFix: LngLat | undefined;
   private wasHidden = false;
+  private movementCandidate: LngLat | undefined;
 
   constructor(
     private readonly onPoint: (coords: LngLat[], pos: GeolocationPosition) => void,
@@ -43,6 +45,7 @@ export class TrackRecorder {
     this.lastAccuracy = Number.isFinite(lastAccuracy) && lastAccuracy >= 0 ? lastAccuracy : 0;
     this.lastRawFix = initial.at(-1);
     this.wasHidden = false;
+    this.movementCandidate = undefined;
     this.consecutiveTimeouts = 0;
     this.reportedError = null;
     this.watchId = navigator.geolocation.watchPosition(
@@ -50,12 +53,29 @@ export class TrackRecorder {
         this.consecutiveTimeouts = 0;
         this.reportedError = null;
         const next = roundCoord([pos.coords.longitude, pos.coords.latitude]);
-        if (!acceptFix(this.lastRawFix, next, pos.coords.accuracy, this.lastAccuracy)) return;
+        if (!acceptFix(this.lastRawFix, next, pos.coords.accuracy, this.lastAccuracy)) {
+          this.movementCandidate = undefined;
+          return;
+        }
         const previous = this.coords.at(-1);
         const elapsed = pos.timestamp - this.lastFixTime;
         const distance = this.lastRawFix ? haversine(this.lastRawFix, next) : 0;
         const gap = !!previous && distance > GAP_DISTANCE_M && (this.wasHidden || (this.lastFixTime > 0 && elapsed > GAP_TIME_MS));
         if (this.lastRawFix && !gap && this.lastFixTime > 0 && (elapsed <= 0 || distance / (elapsed / 1000) > MAX_SPEED_M_PER_S)) return;
+        if (this.lastRawFix && !gap) {
+          // A single outlier can cross the accuracy radius even while stationary.
+          // Confirm that the next fix is also displaced in the same direction.
+          const threshold = Math.max(MIN_STEP_M, MOVEMENT_ACCURACY_FACTOR * Math.max(this.lastAccuracy, pos.coords.accuracy));
+          if (distance < threshold) {
+            this.movementCandidate = undefined;
+            return;
+          }
+          if (!this.movementCandidate || haversine(this.movementCandidate, next) >= distance) {
+            this.movementCandidate = next;
+            return;
+          }
+        }
+        this.movementCandidate = undefined;
         if (gap) this.segments.push(this.coords.length);
         let point = next;
         if (previous && !gap) {
