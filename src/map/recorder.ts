@@ -11,6 +11,7 @@ const GAP_TIME_MS = 60_000;
 const MIN_SMOOTH_WEIGHT = 0.65;
 const MOVEMENT_ACCURACY_FACTOR = 2;
 const backgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
+const recordingPermissions = registerPlugin<{ prepare(): Promise<void> }>('RecordingPermissions');
 
 /** Pure filter: accept a fix if accurate enough and far enough from the last kept point. */
 export function acceptFix(prev: LngLat | undefined, next: LngLat, accuracy: number, previousAccuracy = 0): boolean {
@@ -43,7 +44,7 @@ export class TrackRecorder {
     return this.watchId !== null || this.nativeActive;
   }
 
-  start(initial: LngLat[] = [], segments: number[] = [], lastFixTime = 0, lastAccuracy = 0): void {
+  async start(initial: LngLat[] = [], segments: number[] = [], lastFixTime = 0, lastAccuracy = 0): Promise<void> {
     if (this.active) return;
     this.coords = [...initial];
     this.segments = [...segments];
@@ -104,14 +105,15 @@ export class TrackRecorder {
         }
       };
     if (Capacitor.isNativePlatform()) {
+      if (Capacitor.getPlatform() === 'android') await recordingPermissions.prepare();
       this.nativeActive = true;
       const generation = ++this.nativeGeneration;
       void backgroundGeolocation.addWatcher(
-        { backgroundTitle: 'Recording hike', backgroundMessage: 'Free Hunting Map', requestPermissions: true, stale: false, distanceFilter: 0 },
+        { backgroundTitle: 'Recording hike', backgroundMessage: 'Free Hunting Map', requestPermissions: Capacitor.getPlatform() !== 'android', stale: false, distanceFilter: 0 },
         (location, error) => {
           if (!this.nativeActive || generation !== this.nativeGeneration) return;
           if (error) {
-            onError({ code: error.code === 'NOT_AUTHORIZED' ? 1 : 2, message: error.message, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
+            onError({ code: error.code === 'NOT_AUTHORIZED' ? 1 : 2, message: error.code === 'NOT_AUTHORIZED' ? error.message : 'GPS unavailable. Stop recording and try again.', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
           } else if (location) {
             onPosition({ timestamp: location.time ?? Date.now(), coords: { latitude: location.latitude, longitude: location.longitude, accuracy: location.accuracy, altitude: location.altitude, altitudeAccuracy: location.altitudeAccuracy, heading: location.bearing, speed: location.speed, toJSON: () => ({}) }, toJSON: () => ({}) });
           }
@@ -120,7 +122,7 @@ export class TrackRecorder {
         if (!this.nativeActive || generation !== this.nativeGeneration) void backgroundGeolocation.removeWatcher({ id }).catch(() => {});
         else this.nativeWatcherId = id;
       }).catch(() => {
-        if (this.nativeActive && generation === this.nativeGeneration) onError({ code: 2, message: 'GPS unavailable', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
+        if (this.nativeActive && generation === this.nativeGeneration) onError({ code: 2, message: 'Could not start GPS. Stop recording and try again.', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
       });
     } else {
       this.watchId = navigator.geolocation.watchPosition(onPosition, onError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 });

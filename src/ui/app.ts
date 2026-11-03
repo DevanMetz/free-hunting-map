@@ -408,19 +408,19 @@ export class App implements AppContext {
         this.syncToolbar();
         return;
       }
-      if (!('geolocation' in navigator)) return toast('GPS unavailable');
+      if (!Capacitor.isNativePlatform() && !('geolocation' in navigator)) return toast('GPS unavailable');
       const name = `Track ${new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
       this.recording = await this.repo.create<Track>({ kind: 'track', name, note: '', coords: [], recorded: true });
       try {
         this.recordingStarted = await this.repo.beginRecording(this.recording.id);
-        this.recorder.start();
-      } catch {
+        await this.recorder.start();
+      } catch (error) {
         this.stoppedCoords = [];
         await this.repo.remove(this.recording.id);
         await this.repo.clearRecording(this.recording.id);
         this.recording = null;
         this.stoppedCoords = null;
-        toast('Could not start GPS');
+        toast(error instanceof Error && error.message ? error.message : 'Could not start GPS');
         return;
       }
       useFeature('track_record');
@@ -502,7 +502,12 @@ export class App implements AppContext {
       }
       this.recording = track;
       const segments = points.filter(point => point.segmentStart).map(point => point.index);
-      this.recorder.start(coords, segments, points.at(-1)?.t, points.at(-1)?.acc);
+      try {
+        await this.recorder.start(coords, segments, points.at(-1)?.t, points.at(-1)?.acc);
+      } catch {
+        this.stoppedCoords = coords;
+        toast('Could not resume GPS. Stop recording to save it.');
+      }
       this.recChip.hidden = false;
       this.recordingStarted = active.started;
       this.recordingDistance = pathLength(coords, segments);
