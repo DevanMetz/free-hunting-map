@@ -1,3 +1,4 @@
+import { serviceUrl } from '../serviceUrl';
 import { useFeature } from '../usage';
 import type { Repo } from '../storage/repo';
 import { sanitizeRecord } from './records';
@@ -47,7 +48,7 @@ export class CloudSync extends EventTarget {
   }
   private emit(): void { this.dispatchEvent(new Event('change')); }
   private async json(path: string, body?: unknown): Promise<any> {
-    const res = await this.request(`/api/${path}`, {
+    const res = await this.request(serviceUrl(`/api/${path}`), {
       credentials: 'same-origin', cache: 'no-store',
       ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
     }).catch(() => { throw new TransportError('Cloud sync transport unavailable'); });

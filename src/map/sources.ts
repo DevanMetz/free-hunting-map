@@ -1,3 +1,4 @@
+import { serviceUrl } from '../serviceUrl';
 /**
  * Every external map endpoint lives here. All were verified to return tiles/images
  * (see README "Data sources"). Do not add endpoints without verifying them.
@@ -5,7 +6,7 @@
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 /** Bump the version for every new trails data build (R2 prefix trails/vN/) so edge and offline caches never mix builds. */
-export const TRAILS_TILES = '/tiles/trails/v2/{z}/{x}/{y}.mvt';
+export const TRAILS_TILES = serviceUrl('/tiles/trails/v2/{z}/{x}/{y}.mvt');
 export const TRAILS_ATTR = 'USFS, BLM, NPS, USGS trails (public domain)';
 
 export type BasemapId = 'topo' | 'satellite' | 'streets';
@@ -108,15 +109,15 @@ export const LIDAR_BOUNDS: [number, number, number, number][] = [
 export const LIDAR_BLOCKS = '130-188-z8';
 export const LIDAR_TILES = Object.fromEntries(
   ['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'].map(name =>
-    [name, `/tiles/${name}/${LIDAR_VERSION}/{z}/{x}/{y}.webp?b=${LIDAR_BLOCKS}`]),
+    [name, serviceUrl(`/tiles/${name}/${LIDAR_VERSION}/{z}/{x}/{y}.webp?b=${LIDAR_BLOCKS}`)]),
 );
 export const HISTORIC_AERIAL_SERVICE = 'https://dnrmaps.wi.gov/arcgis_image/rest/services/DW_Imagery/EN_Image_Basemap_';
 export const WISCONSIN_BOUNDS: [number, number, number, number] = [-92.89, 42.49, -86.25, 47.31];
 
 /** Hansen GFC v1.13, loss years 2001–2025; immutable lower-48 raster. */
-export const CUTS_TILES = '/tiles/cuts/v1/{z}/{x}/{y}.webp';
+export const CUTS_TILES = serviceUrl('/tiles/cuts/v1/{z}/{x}/{y}.webp');
 export const CUTS_BOUNDS: [number, number, number, number] = [-124.85, 24.4, -66.85, 49.4];
 export const CUTS_ATTR = '<a href="https://developers.google.com/earth-engine/datasets/catalog/UMD_hansen_global_forest_change_2025_v1_13">Hansen/UMD/Google/USGS/NASA Global Forest Change, CC BY 4.0</a>';
 
 /** Versioned road inventory tile URL shared by map sources and offline downloads. */
-export const roadTiles = (archive: string, version: string): string => `/tiles/${archive}/${version}/{z}/{x}/{y}.mvt`;
+export const roadTiles = (archive: string, version: string): string => serviceUrl(`/tiles/${archive}/${version}/{z}/{x}/{y}.mvt`);

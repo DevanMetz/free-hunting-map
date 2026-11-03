@@ -1,3 +1,4 @@
+import { serviceUrl } from './serviceUrl';
 import { BOT_UA, periods, type Feature } from './usageSchema';
 declare const __APP_VERSION__: string;
 const prefix = 'fhm.usage.';
@@ -43,7 +44,7 @@ export async function flushUsage(keepalive = false) {
     beacon(); busy = true;
     const pending = read<Open|null>('pending',null);
     if (pending) {
-      const response = await fetch('/api/ping',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({...pending,internal:internalDevice()}),keepalive});
+      const response = await fetch(serviceUrl('/api/ping'),{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({...pending,internal:internalDevice()}),keepalive});
       if (response.ok || response.status === 400) { if (read<Open|null>('pending',null)?.id === pending.id) localStorage.removeItem(prefix+'pending'); }
     }
     const events = queue(); write('events',events);
@@ -51,7 +52,7 @@ export async function flushUsage(keepalive = false) {
     const first = events[0];
     if (first && usageAllowed()) {
       const batch = events.filter(e=>e.id===first.id).slice(0,60);
-      const response = await fetch('/api/events',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({internal:internalDevice(),id:first.id,installed:first.installed,version:__APP_VERSION__,events:batch.map(({f,o,day,fw,fm})=>({f,o,day,fw,fm}))}),keepalive});
+      const response = await fetch(serviceUrl('/api/events'),{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({internal:internalDevice(),id:first.id,installed:first.installed,version:__APP_VERSION__,events:batch.map(({f,o,day,fw,fm})=>({f,o,day,fw,fm}))}),keepalive});
       if (response.ok || response.status===400) { const current=queue(); let remaining=batch.length; write('events',current.filter(e=>{ if(e.id===first.id && remaining>0) { remaining--; return false; } return true; })); }
     }
   } catch { /* Analytics must never affect the map. */ }

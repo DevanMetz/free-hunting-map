@@ -1,10 +1,11 @@
+import { serviceUrl } from '../serviceUrl';
 import { addProtocol } from 'maplibre-gl';
 
 // Fetch the original URL so the existing service-worker cache remains authoritative.
 addProtocol('cuts', async (request, abort) => {
   const match = /^cuts:\/\/(20\d\d)\/(\d+\/\d+\/\d+\.webp)$/.exec(request.url);
   if (!match || +match[1]! < 2002 || +match[1]! > 2025) throw new Error('Invalid cuts tile');
-  const response = await fetch(`/tiles/cuts/v1/${match[2]}`, { signal: abort.signal });
+  const response = await fetch(serviceUrl(`/tiles/cuts/v1/${match[2]}`), { signal: abort.signal });
   if (!response.ok) throw new Error(`Cuts tile request failed: ${response.status}`);
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 256;

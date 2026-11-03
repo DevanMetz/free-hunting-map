@@ -1,8 +1,9 @@
+import { serviceUrl } from '../../serviceUrl';
 import { registerLayer, type LayerDef } from '../layerRegistry';
 
 const attribution = 'USGS Historical Topographic Map Collection';
 const variants = [['early', '1924–1958', 'topo-early'], ['1970s', '1969–1984', 'topo-1970s']].map(([id, label, archive]) => ({
-  id: id!, label: label!, tiles: [`/tiles/${archive}/v1/{z}/{x}/{y}.webp`], attribution,
+  id: id!, label: label!, tiles: [serviceUrl(`/tiles/${archive}/v1/{z}/{x}/{y}.webp`)], attribution,
 }));
 export const historicTopo: LayerDef = {
   id: 'historic-topo', name: 'Historic topos', category: 'terrain', defaultOpacity: 1,

@@ -1,3 +1,4 @@
+import { serviceUrl } from '../serviceUrl';
 import type { Repo } from '../storage/repo';
 import { canonicalJson } from '../sync/merge';
 import { useFeature } from '../usage';
@@ -13,7 +14,7 @@ export class CommunityHikes {
         const key=`hike.delivered:${r.id}`,revision=canonicalJson(r);
         if(await this.repo.getMeta(key)===revision)continue;
         let response:Response;
-        try { response=await this.fetcher.call(globalThis,`/api/community/hikes/${r.shared&&!r.deleted?'share':'unshare'}`,{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:r.shareId,secret:r.secret,...(r.shared&&!r.deleted?{hike:r.hike}:{})})}); } catch {return;}
+        try { response=await this.fetcher.call(globalThis,serviceUrl(`/api/community/hikes/${r.shared&&!r.deleted?'share':'unshare'}`),{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:r.shareId,secret:r.secret,...(r.shared&&!r.deleted?{hike:r.hike}:{})})}); } catch {return;}
         if(response.ok||response.status===409) {
           await this.repo.setMeta(key,revision);
           if(r.shared)useFeature('community_hike_share','ok');
@@ -24,7 +25,7 @@ export class CommunityHikes {
       for(const [id,delivered] of Object.entries(reports)) {
         if(delivered)continue;
         let response:Response;
-        try { response=await this.fetcher.call(globalThis,'/api/community/hikes/report',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,token:await this.repo.communityVoteToken()})}); }catch{return;}
+        try { response=await this.fetcher.call(globalThis,serviceUrl('/api/community/hikes/report'),{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,token:await this.repo.communityVoteToken()})}); }catch{return;}
         useFeature('community_hike_report',response.ok?'ok':'fail');
         if(!response.ok&&response.status!==404)return;
         const latest=await this.repo.getMeta<Record<string,boolean>>('hike.reports')??{};

@@ -1,3 +1,4 @@
+import { serviceUrl } from '../../serviceUrl';
 import type { GeoJSONSource, Map } from 'maplibre-gl';
 import type { FeatureCollection, Feature, LineString } from 'geojson';
 import { tiles } from '../../community/geometry';
@@ -16,7 +17,7 @@ export function communityLoader(id:string,path:string) {
         const keys=tiles([west,Math.max(-85,bounds.getSouth()),east,Math.min(85,bounds.getNorth())]);
         if(keys.length>100)return;
         controller=new AbortController();const signal=controller.signal;
-        void Promise.all(keys.map(async key=>{try{const r=await fetch(`${path}/${key}.geojson`,{signal,credentials:'omit'});return r.ok?await r.json() as FeatureCollection<LineString>:null;}catch{return null;}})).then(collections=>{
+        void Promise.all(keys.map(async key=>{try{const r=await fetch(serviceUrl(`${path}/${key}.geojson`),{signal,credentials:'omit'});return r.ok?await r.json() as FeatureCollection<LineString>:null;}catch{return null;}})).then(collections=>{
           if(signal.aborted)return;
           const features=new globalThis.Map<string,Feature<LineString>>();
           for(const collection of collections)for(const f of collection?.features??[])features.set(String(f.id),f);

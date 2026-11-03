@@ -1,3 +1,4 @@
+import { serviceUrl } from '../serviceUrl';
 import { DETECTION_THRESHOLD, MODEL_VERSION } from '../lidar/model';
 import type { Repo } from '../storage/repo';
 import type { Candidates } from '../lidar/postprocess';
@@ -29,7 +30,7 @@ export class CommunityUploads {
         if (!(await this.repo.pendingCommunity()).some(e => e.id === entry.id)) continue;
         let response: Response;
         try {
-          response = await this.fetcher.call(globalThis, '/api/community/scans', {
+          response = await this.fetcher.call(globalThis, serviceUrl('/api/community/scans'), {
             method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry.scan),
           });
         } catch (error) {

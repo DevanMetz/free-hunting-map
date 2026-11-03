@@ -27,6 +27,13 @@ const tileCache = (name: string, urlPattern: RegExp, maxEntries: number) => ({
   },
 });
 
+// Workbox requires cross-origin regular expressions to match from the URL start.
+function nativeTilePattern(pattern: RegExp): RegExp {
+  return pattern.source.startsWith('\\/tiles\\/')
+    ? new RegExp(`(?:^https://freehuntingmap\\.com)?${pattern.source}`, pattern.flags)
+    : pattern;
+}
+
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(version) },
   worker: { format: 'es' },
@@ -117,9 +124,9 @@ export default defineConfig({
           tileCache('tiles-usgs-imagery', CACHE_ROUTES.usgsImagery, 4000),
           tileCache('tiles-padus', CACHE_ROUTES.padus, 3000),
           tileCache('tiles-hillshade', CACHE_ROUTES.hillshade, 3000),
-          ...layerRegistry.cacheRoutes().map(pattern => tileCache('tiles-data-layers', pattern, 6000)),
-          ...layerRegistry.cacheRoutes('NetworkFirst').map(urlPattern => ({
-            urlPattern, handler: 'NetworkFirst' as const,
+          ...layerRegistry.cacheRoutes().map(pattern => tileCache('tiles-data-layers', nativeTilePattern(pattern), 6000)),
+          ...layerRegistry.cacheRoutes('NetworkFirst').map(pattern => ({
+            urlPattern: nativeTilePattern(pattern), handler: 'NetworkFirst' as const,
             options: { cacheName: 'live-data-layers', networkTimeoutSeconds: 5,
               expiration: { maxEntries: 200, maxAgeSeconds: DAY, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [200] } },

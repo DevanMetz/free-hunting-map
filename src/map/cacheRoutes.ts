@@ -16,4 +16,4 @@ export const CACHE_ROUTES = {
 
 /** Self-contained so Workbox can serialize this matcher into the service worker. */
 export const trailsCacheMatch = ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }): boolean =>
-  sameOrigin && /^\/tiles\/trails\/v\d+\/\d+\/\d+\/\d+\.mvt$/.test(url.pathname);
+  (sameOrigin || url.origin === 'https://freehuntingmap.com') && /^\/tiles\/trails\/v\d+\/\d+\/\d+\/\d+\.mvt$/.test(url.pathname);
