@@ -16,6 +16,15 @@ const AGE = 45 * 86400;
 const clearCookie = { 'Set-Cookie': `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` };
 const json = (value: unknown, status = 200, headers: HeadersInit = {}) => Response.json(value, { status, headers: { 'Cache-Control': 'no-store', ...headers } });
 const local = (url: URL) => ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+const nativeOrigins = new Set(['https://localhost', 'capacitor://localhost']);
+function nativeCors(response: Response, origin: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set('Access-Control-Allow-Origin', origin);
+  headers.set('Access-Control-Allow-Credentials', 'true');
+  headers.set('Access-Control-Expose-Headers', 'Content-Range, ETag');
+  headers.append('Vary', 'Origin');
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
 async function hash(value: string) { return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), n => n.toString(16).padStart(2,'0')).join(''); }
 function cookie(request: Request) { return request.headers.get('cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1); }
 async function rate(db: D1Database, key: string, limit: number, userId?: string) {
@@ -41,6 +50,20 @@ async function body(request: Request, cap = 8_000_000) {
 export default {
   async fetch(request: Request, env: Env, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
     const url = new URL(request.url);
+    const origin = request.headers.get('origin');
+    const eligible = url.pathname.startsWith('/api/') || url.pathname === '/tiles' || url.pathname.startsWith('/tiles/');
+    if (!eligible || !origin || !nativeOrigins.has(origin)) return handle(request, env, ctx);
+    if (request.method === 'OPTIONS') return nativeCors(new Response(null, { status: 204, headers: {
+      'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, Range',
+      'Access-Control-Max-Age': '86400',
+    } }), origin);
+    if (url.pathname.startsWith('/api/') && request.headers.has('cookie')) return nativeCors(json({ error: 'Invalid origin' }, 403), origin);
+    return nativeCors(await handle(request, env, ctx), origin);
+  },
+};
+async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
+    const url = new URL(request.url);
     if (url.pathname.startsWith('/tiles/community-hikes/')) {
       try { return await hikesTile(request,env.DB); } catch { return new Response(null,{status:503}); }
     }
@@ -54,7 +77,10 @@ export default {
         // Comparing to the actual request origin prevents cross-domain cookies/authentication attacks.
         const origin = request.headers.get('origin');
         const allowed = ['https://freehuntingmap.com','https://www.freehuntingmap.com','https://open-hunt-map.metzdevan.workers.dev'].includes(url.origin) || local(url);
-        if (!allowed || origin !== url.origin) throw new ApiError(403,'Invalid origin');
+        // Native requests must not use browser cookies across origins; native authentication
+        // will use an explicit bearer token instead.
+        const native = origin !== null && nativeOrigins.has(origin) && !request.headers.has('cookie');
+        if (!allowed || (origin !== url.origin && !native)) throw new ApiError(403,'Invalid origin');
       }
       if (request.method === 'GET' && url.pathname === '/api/config') return json({ googleClientId: env.GOOGLE_CLIENT_ID || null });
       if (request.method === 'GET' && url.pathname === '/api/me') return json({ user: await user(request,env) });
@@ -149,5 +175,4 @@ export default {
       console.error('API request failed', error);
       return json({error:'Request failed'},500);
     }
-  },
-};
+}
