@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { categoryOf, type TypeVisibility } from '../organize/model';
 import { useFeature } from '../usage';
 import type { CloudSync } from '../sync/cloud';
@@ -442,7 +443,7 @@ export class App implements AppContext {
   }
 
   private async requestRecordingWakeLock(): Promise<void> {
-    if (!this.recorder.active || document.hidden || this.wakeLock || this.wakeLockPending || !navigator.wakeLock) return;
+    if (Capacitor.isNativePlatform() || !this.recorder.active || document.hidden || this.wakeLock || this.wakeLockPending || !navigator.wakeLock) return;
     this.wakeLockPending = true;
     const track = this.recording;
     try {

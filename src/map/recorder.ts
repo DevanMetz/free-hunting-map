@@ -1,3 +1,5 @@
+import { Capacitor, registerPlugin } from '@capacitor/core';
+import type { BackgroundGeolocationPlugin } from '@capacitor-community/background-geolocation';
 import type { LngLat } from '../types';
 import { haversine, roundCoord } from './geo';
 
@@ -8,6 +10,7 @@ const GAP_DISTANCE_M = 50;
 const GAP_TIME_MS = 60_000;
 const MIN_SMOOTH_WEIGHT = 0.65;
 const MOVEMENT_ACCURACY_FACTOR = 2;
+const backgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>('BackgroundGeolocation');
 
 /** Pure filter: accept a fix if accurate enough and far enough from the last kept point. */
 export function acceptFix(prev: LngLat | undefined, next: LngLat, accuracy: number, previousAccuracy = 0): boolean {
@@ -18,6 +21,9 @@ export function acceptFix(prev: LngLat | undefined, next: LngLat, accuracy: numb
 /** GPS track recorder around navigator.geolocation.watchPosition. */
 export class TrackRecorder {
   private watchId: number | null = null;
+  private nativeGeneration = 0;
+  private nativeActive = false;
+  private nativeWatcherId: string | null = null;
   private consecutiveTimeouts = 0;
   private reportedError: number | null = null;
   coords: LngLat[] = [];
@@ -34,7 +40,7 @@ export class TrackRecorder {
   ) {}
 
   get active(): boolean {
-    return this.watchId !== null;
+    return this.watchId !== null || this.nativeActive;
   }
 
   start(initial: LngLat[] = [], segments: number[] = [], lastFixTime = 0, lastAccuracy = 0): void {
@@ -48,8 +54,7 @@ export class TrackRecorder {
     this.movementCandidate = undefined;
     this.consecutiveTimeouts = 0;
     this.reportedError = null;
-    this.watchId = navigator.geolocation.watchPosition(
-      (pos) => {
+    const onPosition = (pos: GeolocationPosition): void => {
         this.consecutiveTimeouts = 0;
         this.reportedError = null;
         const next = roundCoord([pos.coords.longitude, pos.coords.latitude]);
@@ -89,24 +94,48 @@ export class TrackRecorder {
         this.lastRawFix = next;
         this.coords.push(point);
         this.onPoint(this.coords, pos);
-      },
-      (err) => {
+      };
+    const onError = (err: GeolocationPositionError): void => {
         if (err.code === err.TIMEOUT && ++this.consecutiveTimeouts < 2) return;
         if (err.code !== err.TIMEOUT) this.consecutiveTimeouts = 0;
         if (this.reportedError === null || (err.code === err.PERMISSION_DENIED && this.reportedError !== err.code)) {
           this.reportedError = err.code;
           this.onError(err);
         }
-      },
-      { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 },
-    );
+      };
+    if (Capacitor.isNativePlatform()) {
+      this.nativeActive = true;
+      const generation = ++this.nativeGeneration;
+      void backgroundGeolocation.addWatcher(
+        { backgroundTitle: 'Recording hike', backgroundMessage: 'Free Hunting Map', requestPermissions: true, stale: false, distanceFilter: 0 },
+        (location, error) => {
+          if (!this.nativeActive || generation !== this.nativeGeneration) return;
+          if (error) {
+            onError({ code: error.code === 'NOT_AUTHORIZED' ? 1 : 2, message: error.message, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
+          } else if (location) {
+            onPosition({ timestamp: location.time ?? Date.now(), coords: { latitude: location.latitude, longitude: location.longitude, accuracy: location.accuracy, altitude: location.altitude, altitudeAccuracy: location.altitudeAccuracy, heading: location.bearing, speed: location.speed, toJSON: () => ({}) }, toJSON: () => ({}) });
+          }
+        },
+      ).then(id => {
+        if (!this.nativeActive || generation !== this.nativeGeneration) void backgroundGeolocation.removeWatcher({ id }).catch(() => {});
+        else this.nativeWatcherId = id;
+      }).catch(() => {
+        if (this.nativeActive && generation === this.nativeGeneration) onError({ code: 2, message: 'GPS unavailable', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
+      });
+    } else {
+      this.watchId = navigator.geolocation.watchPosition(onPosition, onError, { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 });
+    }
   }
 
-  markHidden(): void { if (this.active) this.wasHidden = true; }
+  markHidden(): void { if (this.active && !this.nativeActive) this.wasHidden = true; }
 
   stop(): LngLat[] {
     if (this.watchId !== null) navigator.geolocation.clearWatch(this.watchId);
     this.watchId = null;
+    this.nativeActive = false;
+    this.nativeGeneration++;
+    if (this.nativeWatcherId !== null) void backgroundGeolocation.removeWatcher({ id: this.nativeWatcherId }).catch(() => {});
+    this.nativeWatcherId = null;
     return this.coords;
   }
 }
