@@ -6,7 +6,7 @@ import type { MapState, MapView } from '../map/map';
 export interface Settings extends MapState { view: MapView }
 export const DEFAULT_SETTINGS: Settings = {
   basemap: 'topo', layers: {}, collapsed: {}, remembered: {},
-  windPlume: true, labels: true, labelScale: 1, view: { center: [-98.5, 39.8], zoom: 3.5 },
+  windPlume: true, centerOnLocation: true, labels: true, labelScale: 1, view: { center: [-98.5, 39.8], zoom: 3.5 },
   showPins: true, showTrails: true, showRecordings: true,
 };
 type LegacySettings = Partial<Settings> & {
@@ -17,7 +17,7 @@ export function loadSettings(saved: LegacySettings = {}): Settings {
   const state: Settings = { ...DEFAULT_SETTINGS,
     basemap: saved.basemap ?? DEFAULT_SETTINGS.basemap,
     showPins: saved.showPins !== false, showTrails: saved.showTrails !== false, showRecordings: saved.showRecordings !== false,
-    windPlume: saved.windPlume !== false, labels: saved.labels ?? true, labelScale: clampLabelScale(saved.labelScale),
+    windPlume: saved.windPlume !== false, centerOnLocation: saved.centerOnLocation !== false, labels: saved.labels ?? true, labelScale: clampLabelScale(saved.labelScale),
     view: saved.view ?? { ...DEFAULT_SETTINGS.view, center: [...DEFAULT_SETTINGS.view.center] },
     layers: {}, layerOrder: Array.isArray(saved.layerOrder) ? [...new Set(saved.layerOrder.filter((id): id is string => typeof id === 'string' && id.length <= 120))].slice(0, 1000) : [], collapsed: { ...saved.collapsed },
     remembered: Object.fromEntries(Object.entries(saved.remembered ?? {}).map(([id, ids]) => [id, [...ids]])),

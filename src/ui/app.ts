@@ -201,6 +201,7 @@ export class App implements AppContext {
     const current = this.map.mapState;
     if (current.basemap !== saved.basemap) this.map.setBasemap(saved.basemap);
     this.setWindPlume(saved.windPlume);
+    this.map.setCenterOnLocation(saved.centerOnLocation);
     this.map.setLabels(saved.labels);
     this.map.setLabelScale(saved.labelScale);
     for (const [id, value] of Object.entries(saved.layers)) {
