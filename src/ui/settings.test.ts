@@ -27,6 +27,12 @@ it('new state wins over legacy and retains unknown IDs and category memories', (
   expect(saved.collapsed).toEqual({ water: true }); expect(saved.remembered.terrain).toEqual(['future']);
   expect(loadSettings(saved)).toEqual(saved);
 });
+it('centers on the device location unless that choice was saved off', () => {
+  expect(loadSettings().centerOnLocation).toBe(true);
+  expect(loadSettings({ centerOnLocation: false }).centerOnLocation).toBe(false);
+  expect(loadSettings(loadSettings({ centerOnLocation: false })).centerOnLocation).toBe(false);
+});
+
 it('clamps persisted opacity and label sizes', () => {
   const state = loadSettings({ layers: { future: { on: true, opacity: 3 }, slope: { on: true, opacity: NaN } }, labelScale: 100 });
   expect(state.layers.future!.opacity).toBe(1); expect(state.layers.slope!.opacity).toBe(0.65);

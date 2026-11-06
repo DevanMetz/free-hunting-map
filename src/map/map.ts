@@ -32,6 +32,7 @@ const SRC_SKETCH = 'ohm-sketch';
 export interface MapState extends LayerPreferences, TypeVisibility {
   basemap: BasemapId;
   windPlume: boolean;
+  centerOnLocation: boolean;
   labels: boolean;
   labelScale: number;
 }
@@ -113,7 +114,9 @@ export class HuntMap {
         });
         if (!control._setup || button.disabled || control._watchState !== 'OFF') return;
         control.once('geolocate', e => {
-          if (!centerOnFix) return;
+          // Gestures, a chosen view, and the Center on location switch all skip this one camera move.
+          // The locate button still recenters: that tap leaves the watch in ACTIVE_LOCK.
+          if (!centerOnFix || !this.state.centerOnLocation) return;
           const options = { center: [e.coords.longitude, e.coords.latitude] as [number, number], zoom: Math.max(map.getZoom(), 15) };
           if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) map.jumpTo(options);
           else map.easeTo(options);
@@ -233,6 +236,8 @@ export class HuntMap {
   private dataLayerIds(): Set<string> { return new Set(layerRegistry.layers().flatMap(def => this.layerIds(def))); }
 
   setWindPlume(on: boolean): void { this.state.windPlume = on; }
+
+  setCenterOnLocation(on: boolean): void { this.state.centerOnLocation = on; }
 
   setLabels(on: boolean): void {
     this.state.labels = on;

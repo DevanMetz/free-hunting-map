@@ -6,7 +6,7 @@ const meta = { id: 'settings:map', createdAt: 1, updatedAt: 2, deviceId: 'device
 describe('cloud record validation', () => {
   it('retains item validation and strips device-specific preference fields', () => {
     expect(sanitizeRecord(wp())).toEqual(wp());
-    expect(sanitizeRecord({ ...meta, kind: 'settings', preferences: { labels: false, view: { zoom: 9 }, offlineRegions: ['x'], basemap: 'invalid' } })).toEqual({ ...meta, kind: 'settings', preferences: { labels: false } });
+    expect(sanitizeRecord({ ...meta, kind: 'settings', preferences: { labels: false, view: { zoom: 9 }, offlineRegions: ['x'], basemap: 'invalid', centerOnLocation: false } })).toEqual({ ...meta, kind: 'settings', preferences: { labels: false } });
   });
   it('preserves unknown layer preferences and validates incoming nested state', () => {
     expect(sanitizeRecord({ ...meta, kind: 'settings', preferences: {

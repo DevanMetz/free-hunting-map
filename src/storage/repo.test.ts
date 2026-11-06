@@ -54,17 +54,18 @@ describe('Repo (IndexedDB)', () => {
 describe('cloud records', () => {
   it('syncs portable preferences while keeping camera and cache local', async () => {
     const a = await fresh(), b = await fresh();
-    await b.setMeta('settings', { view: { zoom: 2 } });
+    await b.setMeta('settings', { view: { zoom: 2 }, centerOnLocation: false });
     a.clock.observe(b.clock.now());
-    await a.setMeta('settings', { basemap: 'satellite', labels: false, view: { zoom: 9 }, cache: 'secret' });
+    await a.setMeta('settings', { basemap: 'satellite', labels: false, view: { zoom: 9 }, cache: 'secret', centerOnLocation: true });
     const pending = await a.pending();
     expect(pending[0]!.item).toMatchObject({ kind: 'settings', preferences: { basemap: 'satellite', labels: false } });
     expect(JSON.stringify(pending[0]!.item)).not.toContain('secret');
+    expect(JSON.stringify(pending[0]!.item)).not.toContain('centerOnLocation');
     await b.ack(await b.pending());
     let notified = false;
     b.addEventListener('preferences', () => { notified = true; });
     await b.importSyncRecords(pending.map(e => e.item));
-    expect(await b.getMeta('settings')).toEqual({ basemap: 'satellite', labels: false, view: { zoom: 2 } });
+    expect(await b.getMeta('settings')).toEqual({ basemap: 'satellite', labels: false, view: { zoom: 2 }, centerOnLocation: false });
     expect(notified).toBe(true);
     expect(await b.pending()).toHaveLength(0);
   });

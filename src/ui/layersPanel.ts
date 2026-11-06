@@ -71,6 +71,9 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   const plume = h('input', { type: 'checkbox', role: 'switch', 'aria-label': 'Wind plume', onchange: () => { ctx.setWindPlume(plume.checked); persist(); } });
   updates.push(() => { plume.checked = current.windPlume; });
   const plumeControl = h('label', { class: 'layer-toggle' }, plume, 'Wind plume');
+  const centerOnLocation = h('input', { type: 'checkbox', role: 'switch', 'aria-label': 'Center on location', onchange: () => { ctx.map.setCenterOnLocation(centerOnLocation.checked); persist(); } });
+  updates.push(() => { centerOnLocation.checked = current.centerOnLocation; });
+  const centerControl = h('label', { class: 'layer-toggle' }, centerOnLocation, 'Center on location');
 
   const activeList = h('div', { class: 'active-layers' });
   const activeRows = new Map<string, HTMLElement>();
@@ -304,7 +307,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
   };
   refreshStorage();
   const offline = offlineArea(() => ctx.map.map.getBounds(), () => ctx.map.mapState.basemap, ctx.repo, refreshStorage);
-  const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, offline.element, labelControls, plumeControl, activeBar, activeList, categories, empty,
+  const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, offline.element, labelControls, plumeControl, centerControl, activeBar, activeList, categories, empty,
     h('footer', { class: 'layers-footer' },
       storage,
       h('label', { class: 'layer-toggle' }, sharing, 'Share scan results'),
