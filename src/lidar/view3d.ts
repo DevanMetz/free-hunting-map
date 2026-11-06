@@ -251,7 +251,7 @@ export function createLidar3d(app: AppContext): Lidar3d {
     busy(true);
     status.textContent = 'Loading';
     void loadPointCloud(selected, controller.signal, p => {
-      if (id === loadId) status.textContent = p.total ? `Loading ${p.done}/${p.total}` : 'Loading';
+      if (id === loadId) status.textContent = p.stage ?? (p.total ? `Loading ${p.done}/${p.total}` : 'Loading');
     }).then(cloud => {
       if (id !== loadId || controller.signal.aborted) return;
       busy(false);
