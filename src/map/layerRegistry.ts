@@ -59,7 +59,7 @@ export interface LayerDef {
   identifyPresentation?: 'sheet';
   identify?(lng: number, lat: number, signal: AbortSignal, map: Map, point: PointLike): Promise<IdentifyResult | null>;
   /** Actions appear as entries without a visibility switch. */
-  action?: 'trailfinder';
+  action?: 'trailfinder' | 'lidar3d';
 }
 
 /** No DOM or MapLibre runtime dependency: also consumed by the service-worker build. */
