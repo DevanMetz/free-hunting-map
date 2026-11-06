@@ -7,6 +7,7 @@ import {
   Float32BufferAttribute,
   LinearSRGBColorSpace,
   Mesh,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   NoToneMapping,
   PerspectiveCamera,
@@ -18,6 +19,8 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { PointCloud } from './cloud';
+import { loadBasemap } from './drape';
+import type { BasemapId } from '../map/sources';
 import { h } from '../ui/dom';
 
 const STOPS: readonly (readonly [number, number, number])[] = [
@@ -29,7 +32,7 @@ const STOPS: readonly (readonly [number, number, number])[] = [
 ];
 
 type ColorMode = 'height' | 'intensity';
-type ViewMode = 'points' | 'surface' | 'both';
+type ViewMode = 'map' | 'surface' | 'points' | 'both';
 
 function pointTexture(): CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -70,16 +73,17 @@ function paintValues(values: Float32Array, range: [number, number], colors: Floa
 }
 
 /** Full-screen orbit viewer. The returned function removes the canvas, listeners, and WebGL context. */
-export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => void {
+export function mountPointCloud(cloud: PointCloud, basemap: BasemapId, onClose: () => void): () => void {
   const canvas = h('canvas');
   const closeBtn = h('button', { type: 'button', class: 'btn' }, 'Close');
   const heightBtn = h('button', { type: 'button', class: 'btn primary', 'aria-pressed': 'true' }, 'Height');
   const intensityBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Intensity');
-  const pointsBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Points');
+  const mapBtn = h('button', { type: 'button', class: 'btn primary', 'aria-pressed': 'true' }, 'Map');
   const surfaceBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Surface');
-  const bothBtn = h('button', { type: 'button', class: 'btn primary', 'aria-pressed': 'true' }, 'Both');
+  const pointsBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Points');
+  const bothBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Both');
   const bar = h('div', { class: 'lidar-3d-bar' }, closeBtn, heightBtn, intensityBtn);
-  if (cloud.surface) bar.append(pointsBtn, surfaceBtn, bothBtn);
+  if (cloud.surface) bar.append(mapBtn, surfaceBtn, pointsBtn, bothBtn);
   const root = h('div', { class: 'lidar-3d', role: 'dialog', 'aria-modal': 'true', 'aria-label': '3D lidar', 'data-points': String(cloud.count) },
     canvas, bar,
   );
@@ -120,9 +124,12 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
 
   let meshGeom: BufferGeometry | undefined;
   let meshMat: MeshLambertMaterial | undefined;
+  let mapMat: MeshBasicMaterial | undefined;
   let meshColors: Float32BufferAttribute | undefined;
   let terrain: Mesh | undefined;
+  let drapeTex: CanvasTexture | undefined;
   const surface = cloud.surface;
+  const drapeAbort = new AbortController();
   if (surface) {
     meshGeom = new BufferGeometry();
     meshGeom.setAttribute('position', new Float32BufferAttribute(surface.positions, 3));
@@ -145,6 +152,40 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
     scene.add(sun);
     terrain = new Mesh(meshGeom, meshMat);
     scene.add(terrain);
+    const position = meshGeom.getAttribute('position');
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      const mx = position.getX(i) + cloud.origin.x;
+      const my = cloud.origin.y - position.getZ(i);
+      if (mx < minX) minX = mx;
+      if (my < minY) minY = my;
+      if (mx > maxX) maxX = mx;
+      if (my > maxY) maxY = my;
+    }
+    void loadBasemap(minX, minY, maxX, maxY, basemap, drapeAbort.signal).then(image => {
+      if (drapeAbort.signal.aborted || !meshGeom || !terrain) return;
+      const uvs = new Float32Array(position.count * 2);
+      const spanX = image.east - image.west || 1;
+      const spanY = image.north - image.south || 1;
+      for (let i = 0; i < position.count; i++) {
+        const mx = position.getX(i) + cloud.origin.x;
+        const my = cloud.origin.y - position.getZ(i);
+        uvs[i * 2] = (mx - image.west) / spanX;
+        uvs[i * 2 + 1] = (my - image.south) / spanY;
+      }
+      meshGeom.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
+      drapeTex = new CanvasTexture(image.canvas);
+      drapeTex.colorSpace = LinearSRGBColorSpace;
+      drapeTex.needsUpdate = true;
+      mapMat = new MeshBasicMaterial({
+        map: drapeTex,
+        side: DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
+      });
+      if (viewMode === 'map' || viewMode === 'both') terrain.material = mapMat;
+    }).catch(() => undefined);
   }
   scene.add(points);
 
@@ -188,19 +229,26 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
     heightBtn.setAttribute('aria-pressed', String(heightOn));
     intensityBtn.setAttribute('aria-pressed', String(!heightOn));
   };
+  let viewMode: ViewMode = cloud.surface ? 'map' : 'points';
   const setView = (mode: ViewMode): void => {
-    points.visible = mode !== 'surface';
-    if (terrain) terrain.visible = mode !== 'points';
-    for (const [button, on] of [[pointsBtn, mode === 'points'], [surfaceBtn, mode === 'surface'], [bothBtn, mode === 'both']] as const) {
+    viewMode = mode;
+    points.visible = mode === 'points' || mode === 'both';
+    if (terrain) {
+      terrain.visible = mode !== 'points';
+      terrain.material = (mode === 'map' || mode === 'both') && mapMat ? mapMat : meshMat!;
+    }
+    for (const [button, on] of [[mapBtn, mode === 'map'], [surfaceBtn, mode === 'surface'], [pointsBtn, mode === 'points'], [bothBtn, mode === 'both']] as const) {
       button.classList.toggle('primary', on);
       button.setAttribute('aria-pressed', String(on));
     }
   };
   heightBtn.onclick = () => setColor('height');
   intensityBtn.onclick = () => setColor('intensity');
-  pointsBtn.onclick = () => setView('points');
+  mapBtn.onclick = () => setView('map');
   surfaceBtn.onclick = () => setView('surface');
+  pointsBtn.onclick = () => setView('points');
   bothBtn.onclick = () => setView('both');
+  if (cloud.surface) setView('map');
 
   let disposed = false;
   let frame = 0;
@@ -216,6 +264,7 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
   return () => {
     if (disposed) return;
     disposed = true;
+    drapeAbort.abort();
     cancelAnimationFrame(frame);
     observer.disconnect();
     controls.dispose();
@@ -224,6 +273,8 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
     texture.dispose();
     meshGeom?.dispose();
     meshMat?.dispose();
+    mapMat?.dispose();
+    drapeTex?.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
     root.remove();

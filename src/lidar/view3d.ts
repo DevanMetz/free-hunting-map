@@ -258,7 +258,7 @@ export function createLidar3d(app: AppContext): Lidar3d {
       if (!cloud.count) { status.textContent = 'No lidar coverage'; return; }
       status.textContent = '';
       try {
-        closeViewer = mountPointCloud(cloud, () => app.sheet.close());
+        closeViewer = mountPointCloud(cloud, app.map.mapState.basemap, () => app.sheet.close());
       } catch (err) {
         closeViewer = undefined;
         status.textContent = failMessage(err) || '3D unavailable';
