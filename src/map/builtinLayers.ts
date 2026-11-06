@@ -105,6 +105,7 @@ registerLayers([
     },
   },
   { id: 'trail-finder', category: 'trailfinder', name: 'Find trails', defaultOpacity: 1, attribution: HILLSHADE_ATTR, action: 'trailfinder' },
+  { id: 'lidar-3d', category: 'trailfinder', name: '3D lidar', defaultOpacity: 1, attribution: 'USGS 3DEP lidar', action: 'lidar3d' },
 ]);
 
 import './layers/land';

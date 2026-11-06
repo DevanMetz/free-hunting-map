@@ -28,6 +28,7 @@ export class App implements AppContext {
   readonly map: HuntMap;
   private readonly windPlume: WindPlume;
   private trailFinder: Promise<import('../lidar/lab').TrailFinder> | undefined;
+  private lidar3d: Promise<import('../lidar/view3d').Lidar3d> | undefined;
   private liveItems: Item[] = [];
   private liveCategories: Category[] = [];
   private reloadVersion = 0;
@@ -246,10 +247,11 @@ export class App implements AppContext {
     return h(
       'nav',
       { class: 'toolbar', 'aria-label': 'Tools' },
-      add('layers', 'layers', 'Layers', () => this.openLazyPanel('layers', 'Layers', () => import('./layersPanel').then(m => () => m.openLayersPanel(this, () => this.persistSettings(), () => this.openTrailFinder())))),
+      add('layers', 'layers', 'Layers', () => this.openLazyPanel('layers', 'Layers', () => import('./layersPanel').then(m => () => m.openLayersPanel(this, () => this.persistSettings(), () => this.openTrailFinder(), () => this.openLidar3d())))),
       add('tool:waypoint', 'pin', 'Drop pin', () => this.toggleTool('waypoint')),
       add('tool:track', 'track', 'Draw track', () => this.toggleTool('track')),
       add('trails', 'scan', 'Trail finder', () => this.openTrailFinder()),
+      add('lidar3d', 'lidar3d', '3D lidar', () => this.openLidar3d()),
       add('record', 'record', 'Record GPS track', () => void this.toggleRecording()),
       add('tool:measure', 'measure', 'Measure', () => this.toggleTool('measure')),
       add('list', 'list', 'Organize', () => this.openLazyPanel('list', 'Organize', () => import('./listPanel').then(m => () => m.openListPanel(this)))),
@@ -269,6 +271,19 @@ export class App implements AppContext {
 
   private getTrailFinder(): Promise<import('../lidar/lab').TrailFinder> {
     return this.trailFinder ??= import('../lidar/lab').then(m => m.createTrailFinder(this));
+  }
+
+  private openLidar3d(): void {
+    this.togglePanel('lidar3d', () => {
+      this.sheet.open('lidar3d', '3D lidar', h('progress', { 'aria-label': 'Loading 3D lidar' }));
+      void this.getLidar3d().then(view => {
+        if (this.sheet.current === 'lidar3d') view.open();
+      }).catch(err => toast(String(err)));
+    });
+  }
+
+  private getLidar3d(): Promise<import('../lidar/view3d').Lidar3d> {
+    return this.lidar3d ??= import('../lidar/view3d').then(m => m.createLidar3d(this));
   }
 
   private openLazyPanel(key: string, title: string, load: () => Promise<() => void>): void {

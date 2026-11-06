@@ -7,7 +7,7 @@ import { h, iconButton, toast } from './dom';
 import { layerState, stateDistance } from './layerStates';
 import { offlineArea } from './offlineArea';
 
-export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailFinder?: () => void): void {
+export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailFinder?: () => void, openLidar3d?: () => void): void {
   let active: HTMLButtonElement | null = null;
   const popover = h('div', { class: 'land-info', role: 'tooltip', id: 'public-land-info', hidden: true });
   const close = () => {
@@ -218,7 +218,8 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
         if (renderedLayers.has(def.id)) continue;
         renderedLayers.add(def.id);
         if (def.action) {
-          const action = h('button', { type: 'button', class: 'btn layer-action', disabled: !openTrailFinder, onclick: () => openTrailFinder?.() }, def.name);
+          const run = def.action === 'lidar3d' ? openLidar3d : openTrailFinder;
+          const action = h('button', { type: 'button', class: 'btn layer-action', disabled: !run, onclick: () => run?.() }, def.name);
           searchRows.set(def.id, action); entry.rows.append(action);
           continue;
         }
