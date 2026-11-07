@@ -1,17 +1,26 @@
 import {
+  AmbientLight,
   BufferGeometry,
   CanvasTexture,
+  DirectionalLight,
+  DoubleSide,
   Float32BufferAttribute,
   LinearSRGBColorSpace,
+  Mesh,
+  MeshBasicMaterial,
+  MeshLambertMaterial,
   NoToneMapping,
   PerspectiveCamera,
   Points,
   PointsMaterial,
   Scene,
+  Uint16BufferAttribute,
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { PointCloud } from './cloud';
+import { loadBasemap } from './drape';
+import type { BasemapId } from '../map/sources';
 import { h } from '../ui/dom';
 
 const STOPS: readonly (readonly [number, number, number])[] = [
@@ -21,6 +30,9 @@ const STOPS: readonly (readonly [number, number, number])[] = [
   [0.98, 0.76, 0.18],
   [0.98, 0.96, 0.90],
 ];
+
+type ColorMode = 'height' | 'intensity';
+type ViewMode = 'map' | 'surface' | 'points' | 'both';
 
 function pointTexture(): CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -39,18 +51,15 @@ function pointTexture(): CanvasTexture {
   return texture;
 }
 
-function paint(cloud: PointCloud, colors: Float32Array, mode: 'height' | 'intensity'): void {
-  const [lo, hi] = mode === 'height' ? cloud.heightRange : cloud.intensityRange;
-  const src = mode === 'height' ? cloud.height : cloud.intensity;
+function paintValues(values: Float32Array, range: [number, number], colors: Float32Array, mode: ColorMode): void {
+  const [lo, hi] = range;
   const span = hi - lo || 1;
-  for (let i = 0; i < cloud.count; i++) {
-    const t = Math.min(1, Math.max(0, (src[i]! - lo) / span));
+  for (let i = 0; i < values.length; i++) {
+    const t = Math.min(1, Math.max(0, (values[i]! - lo) / span));
     const offset = i * 3;
     if (mode === 'intensity') {
       const v = 0.55 + 0.45 * t;
-      colors[offset] = v;
-      colors[offset + 1] = v;
-      colors[offset + 2] = v;
+      colors[offset] = colors[offset + 1] = colors[offset + 2] = v;
     } else {
       const x = t * (STOPS.length - 1);
       const j = Math.min(STOPS.length - 2, Math.floor(x));
@@ -64,14 +73,19 @@ function paint(cloud: PointCloud, colors: Float32Array, mode: 'height' | 'intens
 }
 
 /** Full-screen orbit viewer. The returned function removes the canvas, listeners, and WebGL context. */
-export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => void {
+export function mountPointCloud(cloud: PointCloud, basemap: BasemapId, onClose: () => void): () => void {
   const canvas = h('canvas');
   const closeBtn = h('button', { type: 'button', class: 'btn' }, 'Close');
   const heightBtn = h('button', { type: 'button', class: 'btn primary', 'aria-pressed': 'true' }, 'Height');
   const intensityBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Intensity');
+  const mapBtn = h('button', { type: 'button', class: 'btn primary', 'aria-pressed': 'true' }, 'Map');
+  const surfaceBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Surface');
+  const pointsBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Points');
+  const bothBtn = h('button', { type: 'button', class: 'btn', 'aria-pressed': 'false' }, 'Both');
+  const bar = h('div', { class: 'lidar-3d-bar' }, closeBtn, heightBtn, intensityBtn);
+  if (cloud.surface) bar.append(mapBtn, surfaceBtn, pointsBtn, bothBtn);
   const root = h('div', { class: 'lidar-3d', role: 'dialog', 'aria-modal': 'true', 'aria-label': '3D lidar', 'data-points': String(cloud.count) },
-    canvas,
-    h('div', { class: 'lidar-3d-bar' }, closeBtn, heightBtn, intensityBtn),
+    canvas, bar,
   );
   document.body.append(root);
   closeBtn.onclick = onClose;
@@ -93,7 +107,7 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(cloud.positions, 3));
   const colorAttr = new Float32BufferAttribute(cloud.count * 3, 3);
-  paint(cloud, colorAttr.array as Float32Array, 'height');
+  paintValues(cloud.height, cloud.heightRange, colorAttr.array as Float32Array, 'height');
   colorAttr.needsUpdate = true;
   geometry.setAttribute('color', colorAttr);
   const texture = pointTexture();
@@ -106,7 +120,74 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
     transparent: false,
     depthWrite: true,
   });
-  scene.add(new Points(geometry, material));
+  const points = new Points(geometry, material);
+
+  let meshGeom: BufferGeometry | undefined;
+  let meshMat: MeshLambertMaterial | undefined;
+  let mapMat: MeshBasicMaterial | undefined;
+  let meshColors: Float32BufferAttribute | undefined;
+  let terrain: Mesh | undefined;
+  let drapeTex: CanvasTexture | undefined;
+  const surface = cloud.surface;
+  const drapeAbort = new AbortController();
+  if (surface) {
+    meshGeom = new BufferGeometry();
+    meshGeom.setAttribute('position', new Float32BufferAttribute(surface.positions, 3));
+    meshColors = new Float32BufferAttribute(surface.height.length * 3, 3);
+    paintValues(surface.height, surface.heightRange, meshColors.array as Float32Array, 'height');
+    meshColors.needsUpdate = true;
+    meshGeom.setAttribute('color', meshColors);
+    meshGeom.setIndex(new Uint16BufferAttribute(surface.indices, 1));
+    meshGeom.computeVertexNormals();
+    meshMat = new MeshLambertMaterial({
+      vertexColors: true,
+      side: DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+    });
+    scene.add(new AmbientLight(0xffffff, 0.78));
+    const sun = new DirectionalLight(0xffffff, 0.55);
+    sun.position.set(-0.4, 1, -0.25);
+    scene.add(sun);
+    terrain = new Mesh(meshGeom, meshMat);
+    scene.add(terrain);
+    const position = meshGeom.getAttribute('position');
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      const mx = position.getX(i) + cloud.origin.x;
+      const my = cloud.origin.y - position.getZ(i);
+      if (mx < minX) minX = mx;
+      if (my < minY) minY = my;
+      if (mx > maxX) maxX = mx;
+      if (my > maxY) maxY = my;
+    }
+    void loadBasemap(minX, minY, maxX, maxY, basemap, drapeAbort.signal).then(image => {
+      if (drapeAbort.signal.aborted || !meshGeom || !terrain) return;
+      const uvs = new Float32Array(position.count * 2);
+      const spanX = image.east - image.west || 1;
+      const spanY = image.north - image.south || 1;
+      for (let i = 0; i < position.count; i++) {
+        const mx = position.getX(i) + cloud.origin.x;
+        const my = cloud.origin.y - position.getZ(i);
+        uvs[i * 2] = (mx - image.west) / spanX;
+        uvs[i * 2 + 1] = (my - image.south) / spanY;
+      }
+      meshGeom.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
+      drapeTex = new CanvasTexture(image.canvas);
+      drapeTex.colorSpace = LinearSRGBColorSpace;
+      drapeTex.needsUpdate = true;
+      mapMat = new MeshBasicMaterial({
+        map: drapeTex,
+        side: DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
+      });
+      if (viewMode === 'map' || viewMode === 'both') terrain.material = mapMat;
+    }).catch(() => undefined);
+  }
+  scene.add(points);
 
   const distance = Math.max(cloud.span * 1.15, 30);
   camera.position.set(distance * 0.42, distance * 0.9, distance * 0.42);
@@ -123,27 +204,51 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
   controls.update();
 
   const resize = (): void => {
-    const width = root.clientWidth, height = root.clientHeight;
-    if (!width || !height) return;
-    camera.aspect = width / height;
+    const width = root.clientWidth, viewHeight = root.clientHeight;
+    if (!width || !viewHeight) return;
+    camera.aspect = width / viewHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height, false);
+    renderer.setSize(width, viewHeight, false);
   };
   resize();
   const observer = new ResizeObserver(resize);
   observer.observe(root);
 
-  const setMode = (mode: 'height' | 'intensity'): void => {
-    paint(cloud, colorAttr.array as Float32Array, mode);
+  const setColor = (mode: ColorMode): void => {
+    const values = mode === 'height' ? cloud.height : cloud.intensity;
+    const range = mode === 'height' ? cloud.heightRange : cloud.intensityRange;
+    paintValues(values, range, colorAttr.array as Float32Array, mode);
     colorAttr.needsUpdate = true;
+    if (surface && meshColors) {
+      paintValues(surface.height, surface.heightRange, meshColors.array as Float32Array, mode);
+      meshColors.needsUpdate = true;
+    }
     const heightOn = mode === 'height';
     heightBtn.classList.toggle('primary', heightOn);
     intensityBtn.classList.toggle('primary', !heightOn);
     heightBtn.setAttribute('aria-pressed', String(heightOn));
     intensityBtn.setAttribute('aria-pressed', String(!heightOn));
   };
-  heightBtn.onclick = () => setMode('height');
-  intensityBtn.onclick = () => setMode('intensity');
+  let viewMode: ViewMode = cloud.surface ? 'map' : 'points';
+  const setView = (mode: ViewMode): void => {
+    viewMode = mode;
+    points.visible = mode === 'points' || mode === 'both';
+    if (terrain) {
+      terrain.visible = mode !== 'points';
+      terrain.material = (mode === 'map' || mode === 'both') && mapMat ? mapMat : meshMat!;
+    }
+    for (const [button, on] of [[mapBtn, mode === 'map'], [surfaceBtn, mode === 'surface'], [pointsBtn, mode === 'points'], [bothBtn, mode === 'both']] as const) {
+      button.classList.toggle('primary', on);
+      button.setAttribute('aria-pressed', String(on));
+    }
+  };
+  heightBtn.onclick = () => setColor('height');
+  intensityBtn.onclick = () => setColor('intensity');
+  mapBtn.onclick = () => setView('map');
+  surfaceBtn.onclick = () => setView('surface');
+  pointsBtn.onclick = () => setView('points');
+  bothBtn.onclick = () => setView('both');
+  if (cloud.surface) setView('map');
 
   let disposed = false;
   let frame = 0;
@@ -159,12 +264,17 @@ export function mountPointCloud(cloud: PointCloud, onClose: () => void): () => v
   return () => {
     if (disposed) return;
     disposed = true;
+    drapeAbort.abort();
     cancelAnimationFrame(frame);
     observer.disconnect();
     controls.dispose();
     geometry.dispose();
     material.dispose();
     texture.dispose();
+    meshGeom?.dispose();
+    meshMat?.dispose();
+    mapMat?.dispose();
+    drapeTex?.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
     root.remove();

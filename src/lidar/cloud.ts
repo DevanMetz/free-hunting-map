@@ -2,6 +2,7 @@ import { Las } from 'copc';
 import { createLazPerf } from 'laz-perf';
 import proj4 from 'proj4';
 import { checkedBox, emptyStats, get, EPT_ROOT, PROJECTS, type Box, type Stats } from './ept';
+import { beginTerrain, type TerrainSurface } from './terrain';
 
 /** Deepest EPT level that still fits a phone download. Each level is its own sample. */
 const NODE_CAP = 20;
@@ -10,6 +11,7 @@ const POINT_BUDGET = 140_000;
 export interface CloudProgress {
   done: number;
   total: number;
+  stage?: string;
 }
 
 export interface PointCloud {
@@ -21,8 +23,12 @@ export interface PointCloud {
   count: number;
   /** Longest axis of the centered cloud, meters. */
   span: number;
+  /** Mercator easting, northing, and elevation subtracted from local positions. */
+  origin: { x: number; y: number; z: number };
   heightRange: [number, number];
   intensityRange: [number, number];
+  /** Ground surface in the same local frame. Absent when the DEM request fails. */
+  surface?: TerrainSurface;
 }
 
 interface EptMetadata {
@@ -54,6 +60,7 @@ function emptyCloud(): PointCloud {
     intensity: new Float32Array(),
     count: 0,
     span: 1,
+    origin: { x: 0, y: 0, z: 0 },
     heightRange: emptyRange,
     intensityRange: emptyRange,
   };
@@ -229,6 +236,7 @@ class Samples {
       intensity,
       count: n,
       span: Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1),
+      origin: { x: cx, y: cy, z: cz },
       heightRange: spread(height),
       intensityRange: spread(intensity),
     };
@@ -307,6 +315,8 @@ export async function loadPointCloud(box: Box, signal: AbortSignal, progress: (p
   checkedBox(box);
   if (signal.aborted) throw aborted();
   const xy = mercatorBox(box);
+  const terrain = beginTerrain(xy, signal);
+  void terrain.catch(() => undefined);
   const stats = emptyStats();
   let best: { project: string; nodes: NodeRef[]; points: number } | undefined;
   for (const project of PROJECTS) {
@@ -318,7 +328,22 @@ export async function loadPointCloud(box: Box, signal: AbortSignal, progress: (p
     const points = nodes.reduce((sum, node) => sum + node.count, 0);
     if (points > (best?.points ?? 0)) best = { project, nodes, points };
   }
-  if (!best?.nodes.length) return emptyCloud();
+  if (!best?.nodes.length) {
+    terrain.catch(() => undefined);
+    return emptyCloud();
+  }
   progress({ done: 0, total: best.nodes.length });
-  return readNodes(best.project, best.nodes, xy, stats, signal, progress);
+  const cloud = await readNodes(best.project, best.nodes, xy, stats, signal, progress);
+  if (!cloud.count || signal.aborted) {
+    terrain.catch(() => undefined);
+    return cloud;
+  }
+  progress({ done: best.nodes.length, total: best.nodes.length, stage: 'Surface' });
+  try {
+    cloud.surface = (await terrain)(cloud.origin);
+    cloud.span = Math.max(cloud.span, xy[2] - xy[0], xy[3] - xy[1]);
+  } catch (err) {
+    if (signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) throw err;
+  }
+  return cloud;
 }
