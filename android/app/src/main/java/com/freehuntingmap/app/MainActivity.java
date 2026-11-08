@@ -6,7 +6,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(RecordingPermissions.class);
+        registerPlugin(HikeRecorderPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
