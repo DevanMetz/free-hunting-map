@@ -7,8 +7,10 @@ import { BOT_UA } from '../src/usageSchema';
 import { recordUsage } from './usage';
 import { usageReport } from './usageReport';
 import { verifyGoogleToken } from './token';
+import { createKey, listKeys, revokeKey } from './v1Keys';
+import { apiV1 } from './v1';
 import { ApiError, sync } from './sync';
-export interface Env { DB: D1Database; TILES?: R2Bucket; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; COMMUNITY_ADMIN_TOKEN?: string; USAGE?: AnalyticsEngineDataset }
+export interface Env { DB: D1Database; TILES?: R2Bucket; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; COMMUNITY_ADMIN_TOKEN?: string; USAGE?: AnalyticsEngineDataset; RL_ANON?: RateLimit; RL_KEY?: RateLimit; RL_UPSTREAM?: RateLimit }
 // Random values are only allowed inside handlers; this salt lives for the isolate.
 let pingSalt: string | undefined;
 const COOKIE = '__Host-fhm_session';
@@ -64,6 +66,7 @@ export default {
 };
 async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === '/api/v1' || url.pathname.startsWith('/api/v1/')) return apiV1(request, env, ctx);
     if (url.pathname.startsWith('/tiles/community-hikes/')) {
       try { return await hikesTile(request,env.DB); } catch { return new Response(null,{status:503}); }
     }
@@ -84,6 +87,11 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
       }
       if (request.method === 'GET' && url.pathname === '/api/config') return json({ googleClientId: env.GOOGLE_CLIENT_ID || null });
       if (request.method === 'GET' && url.pathname === '/api/me') return json({ user: await user(request,env) });
+      if (request.method === 'GET' && url.pathname === '/api/keys') {
+        const account = await user(request, env);
+        if (!account) throw new ApiError(401, 'Sign in required');
+        return json(await listKeys(env.DB, account.id));
+      }
       if (request.method === 'GET' && url.pathname === '/api/admin/usage') {
         const account = await user(request,env);
         if (!account) throw new ApiError(401,'Sign in required');
@@ -126,6 +134,15 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
       if (url.pathname === '/api/community/override') return await overrideCommunity(request,env.DB,await body(request,2048),env.COMMUNITY_ADMIN_TOKEN);
       if (url.pathname === '/api/community/delete') return await deleteCommunity(request,env.DB,await body(request,2048),env.COMMUNITY_ADMIN_TOKEN);
       const input = await body(request);
+      if (url.pathname === '/api/keys' || url.pathname === '/api/keys/revoke') {
+        const account = await user(request, env);
+        if (!account) throw new ApiError(401, 'Sign in required');
+        if (url.pathname === '/api/keys') {
+          await rate(env.DB, `keys:${account.id}`, 10, account.id);
+          return json(await createKey(env.DB, account.id, input), 201);
+        }
+        return json(await revokeKey(env.DB, account.id, input));
+      }
       if (url.pathname === '/api/auth/google') {
         await rate(env.DB,`auth:${await hash(request.headers.get('CF-Connecting-IP') ?? 'local')}`,20);
         const credential = (input as {credential?: unknown})?.credential;
@@ -158,6 +175,7 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
           env.DB.prepare('DELETE FROM items WHERE user_id=?').bind(account.id),
           env.DB.prepare('DELETE FROM changes WHERE user_id=?').bind(account.id),
           env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(account.id),
+          env.DB.prepare('DELETE FROM api_keys WHERE user_id=?').bind(account.id),
           env.DB.prepare('DELETE FROM rate_limits WHERE key=?').bind(`sync:${account.id}`),
           env.DB.prepare('DELETE FROM users WHERE id=?').bind(account.id),
         ]);

@@ -1,4 +1,6 @@
+import { Capacitor } from '@capacitor/core';
 import type { CloudSync } from '../sync/cloud';
+import { createKey, listKeys, revokeKey, type ApiKeyInfo } from '../sync/apiKeys';
 import { h, iconButton, toast } from './dom';
 
 interface GoogleIdentity {
@@ -40,6 +42,12 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
   const root = h('div', { class: 'account-control' });
   let revision = 0;
   let signedOutClient: string | null = null;
+  let menuOpen = false;
+  let keysOpen = false;
+  let keyRows: ApiKeyInfo[] = [];
+  let revealed: { id: string; key: string } | null = null;
+  let draftName = '';
+  let keysGeneration = 0;
   // Chromium exposes the active iframe on document, but does not propagate
   // :focus-within from its inner button. Mirror that boundary without moving focus.
   const reflectFrameFocus = () => {
@@ -49,6 +57,9 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
   window.addEventListener('focus', reflectFrameFocus, { signal });
   document.addEventListener('focusin', reflectFrameFocus, { signal });
   const dismiss = () => {
+    menuOpen = false;
+    keysOpen = false;
+    revealed = null;
     const menu = root.querySelector<HTMLElement>('.account-menu');
     if (menu) menu.hidden = true;
     root.querySelector('.account-toggle')?.setAttribute('aria-expanded', 'false');
@@ -86,21 +97,72 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
         remove.disabled = true;
         void sync.deleteAccount().then(() => window.google?.accounts.id.disableAutoSelect()).catch(report).finally(() => { remove.disabled = false; });
       });
-      const menu = h('div', { class: 'account-menu', hidden: true });
+      const menu = h('div', { class: 'account-menu', hidden: !menuOpen });
       const avatar = iconButton('layers', `Account: ${user.name || user.email || 'Google account'} — ${labels[sync.state]}`, () => {
-        menu.hidden = !menu.hidden;
-        avatar.setAttribute('aria-expanded', String(!menu.hidden));
+        menuOpen = !menuOpen;
+        menu.hidden = !menuOpen;
+        avatar.setAttribute('aria-expanded', String(menuOpen));
       }, `account-toggle account-status-${sync.state}`);
-      avatar.setAttribute('aria-expanded', 'false');
+      avatar.setAttribute('aria-expanded', String(menuOpen));
       const picture = identity.querySelector('img');
       avatar.replaceChildren(picture ? picture.cloneNode(true) : h('span', {}, (user.name || user.email || 'G').slice(0, 1).toUpperCase()),
         h('span', { class: 'account-dot', 'aria-hidden': 'true' }));
-      menu.append(identity, h('div', { class: 'account-actions' }, status, logout, remove), h('nav', { class: 'policy-links', 'aria-label': 'Policies' },
-        h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms')));
+      const refreshKeys = () => {
+        const generation = ++keysGeneration;
+        void listKeys().then(rows => {
+          if (generation !== keysGeneration) return;
+          keyRows = rows;
+          render();
+        }).catch(error => { if (generation === keysGeneration) report(error); });
+      };
+      const keysButton = Capacitor.isNativePlatform() ? null : iconButton('key', 'API keys', () => {
+        keysOpen = !keysOpen;
+        render();
+        if (keysOpen) refreshKeys();
+      });
+      const actions = h('div', { class: 'account-actions' }, status, keysButton, logout, remove);
+      const keysBlock = h('div', { class: 'account-keys' });
+      if (revealed) {
+        const secret = revealed.key;
+        keysBlock.append(h('div', { class: 'account-key-secret' },
+          h('input', { class: 'field', readonly: true, value: secret, 'aria-label': 'API key' }),
+          iconButton('copy', 'Copy key', () => { void navigator.clipboard.writeText(secret).catch(() => report(new Error('Copy failed'))); })));
+      }
+      for (const key of keyRows) {
+        keysBlock.append(h('div', { class: 'account-key-row' },
+          h('div', { class: 'account-key-meta' }, h('span', { class: 'account-key-name' }, key.name), h('span', { class: 'account-key-prefix' }, key.prefix)),
+          iconButton('trash', 'Revoke key', () => {
+            void revokeKey(key.id).then(() => {
+              keyRows = keyRows.filter(item => item.id !== key.id);
+              if (revealed?.id === key.id) revealed = null;
+              render();
+            }).catch(report);
+          })));
+      }
+      const nameInput = h('input', {
+        class: 'field', placeholder: 'Key name', 'aria-label': 'Key name', value: draftName,
+        oninput: event => { draftName = (event.target as HTMLInputElement).value; },
+        onkeydown: event => { if ((event as KeyboardEvent).key === 'Enter') { event.preventDefault(); void create(); } },
+      });
+      const create = async () => {
+        try {
+          const created = await createKey(draftName.trim());
+          revealed = { id: created.id, key: created.key };
+          draftName = '';
+          keyRows = [...keyRows.filter(item => item.id !== created.id), { id: created.id, name: created.name, prefix: created.prefix, created_at: Date.now(), last_used_at: null }];
+        } catch (error) { report(error); }
+        render();
+      };
+      keysBlock.append(h('div', { class: 'account-key-create' }, nameInput, iconButton('plus', 'Create key', () => { void create(); })));
+      const policies = h('nav', { class: 'policy-links', 'aria-label': 'Policies' }, h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'));
+      menu.append(identity, actions);
+      if (keysOpen) menu.append(keysBlock);
+      menu.append(policies);
       root.onkeydown = event => { if (event.key === 'Escape') { event.stopPropagation(); dismiss(); avatar.focus(); } };
       root.append(avatar, menu);
       return;
     }
+    menuOpen = false; keysOpen = false; revealed = null;
     if (!sync.googleClientId || !navigator.onLine) { root.hidden = true; return; }
     const button = h('div', { class: 'google-sign-in' });
     const visual = iconButton('google', 'Sign in with Google', () => {}, 'account-sign-in');
