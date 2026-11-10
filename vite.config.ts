@@ -2,7 +2,7 @@ import { version } from './package.json';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { trailsCacheMatch, CACHE_ROUTES } from './src/map/cacheRoutes';
-import { layerRegistry } from './src/map/layerRegistry';
+import { layerRegistry, layerVariant } from './src/map/layerRegistry';
 import './src/map/builtinLayers';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -13,7 +13,7 @@ export const NAVIGATION_FALLBACK_DENYLIST = [
   /^\/tiles(?:\/|$)/,
   /^\/api(?:\/|$)/,
   /^\/(?:privacy|terms|features|about|free-onx-alternative|guides|public-land|links|faq)(?:\.html)?(?:\/|$|\?)/,
-  /^\/(?:robots\.txt|sitemap\.xml)(?:$|\?)/,
+  /^\/(?:robots\.txt|sitemap\.xml|llms\.txt)(?:$|\?)/,
 ];
 
 /** CacheFirst for map imagery so previously viewed areas work offline. */
@@ -63,6 +63,13 @@ export default defineConfig({
         for (const fileName of await generatedFiles()) {
           this.emitFile({ type: 'asset', fileName, source: await readFile(resolve('.generated-pages', fileName)) });
         }
+        const catalog = layerRegistry.layers().map(def => ({
+          id: def.id, name: def.name, category: def.category, attribution: def.attribution,
+          minzoom: def.minzoom ?? null, maxzoom: def.maxzoom ?? null,
+          bounds: def.source?.bounds ?? null, coverage: def.source?.coverage ?? null,
+          tiles: def.source?.tiles ?? layerVariant(def)?.tiles ?? null,
+        }));
+        this.emitFile({ type: 'asset', fileName: 'api-layers.json', source: JSON.stringify(catalog) });
       },
     },
     {

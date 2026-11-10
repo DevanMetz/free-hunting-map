@@ -92,6 +92,11 @@ Data flow: UI -> `Repo` (IndexedDB) -> `change` event -> `App.reloadItems()` -> 
 - The public OAuth client ID is committed as `vars.GOOGLE_CLIENT_ID` in `wrangler.jsonc`; `.dev.vars` and tests can override it. Never commit `DEV_AUTH` in vars. Vite uses strict port 5180: real Google login uses `http://localhost:5180`, while Wrangler port 8787 uses dev authentication. Local schema: `npx wrangler d1 migrations apply free-hunting-map --local`. Remote migrations/deploy require owner authorization.
 - `npm run build` checks client and Worker. `npm test` includes real Miniflare D1 API tests; `npm run test:worker` isolates them. API routes must stay NetworkOnly and excluded from PWA navigation fallback. Standalone `/privacy` and `/terms` pages must also bypass that fallback. Dev authentication is localhost-only and requires an uncommitted `DEV_AUTH=1`.
 
+## Agent API
+
+- Read-only `/api/v1` (terrain, land, layers, community, keyed `/me`), OpenAPI, stateless `POST /api/v1/mcp`, and `/llms.txt`. Personal keys are created in the account menu and stored as SHA-256. Dispatch `/api/v1` before the same-origin POST check. Do not import `src/map/sources.ts` from the Worker.
+- `migrations/0006_api_keys.sql` and the `RL_ANON`, `RL_KEY`, and `RL_UPSTREAM` rate-limit bindings must be in place before this Worker runs. Account deletion deletes `api_keys` before `users`. Never log `Authorization`. `/me` serves only synced rows through allowlists and never returns `deviceId` or hike secrets.
+
 ## Community trails
 
 - Completed trail-finder scans anonymously queue in IndexedDB `communityQueue`, separate from account sync. Device preference `meta['community.share']` defaults on; disabling clears pending uploads. Never include account, device, session or IP fields in scan data.

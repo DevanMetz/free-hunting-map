@@ -1,0 +1,33 @@
+# Free Hunting Map API
+
+Read-only JSON API for terrain, public land, community trails and hikes, and an account’s synced map data.
+Base URL: https://freehuntingmap.com/api/v1
+OpenAPI: https://freehuntingmap.com/api/v1/openapi.json
+MCP: https://freehuntingmap.com/api/v1/mcp
+
+## Authentication
+
+Send `Authorization: Bearer fhm_…`. Keys are created in the signed-in account menu (up to 5, no expiry, one read scope) and shown once. SHA-256 hashes are stored. Public routes work without a key at a lower rate limit. `/me` requires a key and returns only map data that has been synced while signed in. Data that never leaves the device, including GPS point times and elevations, is not available.
+
+Anonymous: 30 requests/minute. Key: 120/minute. Terrain and land upstream calls: 20/minute. A 429 includes `Retry-After: 60`.
+
+## Endpoints
+
+- GET /terrain/point?lat&lng — elevation, slope, aspect (USGS 3DEP)
+- GET /terrain/profile?path=lng,lat;lng,lat&samples= — or POST {geometry: LineString, samples?}
+- GET /terrain/summary?bbox=west,south,east,north — at most 0.25° per side
+- GET /land/point?lat&lng&include=parcel,plss — public land, BLM surface, PLSS, one parcel
+- GET /land/area?bbox= — public land units, at most 0.5° per side
+- GET /land/path?path= — public land units a line crosses
+- GET /layers?lat&lng — layer catalog and TileJSON URLs
+- GET /community/trails?bbox= and /community/trails/{id} — lidar lines and aggregate vote counts
+- GET /community/hikes?bbox= and /community/hikes/{id} — shared hikes
+- GET /me — key and counts
+- GET /me/pins, /me/trails, /me/recordings — GeoJSON; bbox, limit, cursor, updated_since, category, geometry=simplified|full|none
+- GET /me/items/{id}, /me/lidar-scans, /me/lidar-scans/{id}, /me/categories, /me/settings
+
+Coordinates are [lng, lat] WGS84. Terrain and land points outside the supported US return 422. The API never calls a place private: public land is `public` or `no_public_land_record`. Parcel lookup is one point, not a bbox dump. Profile paths are at most 500 vertices and 100 km.
+
+## Attribution
+
+Keep the source credits returned with each response. Elevation is USGS 3DEP, public domain. Public land is USGS PAD-US 4.1. PLSS and surface management are BLM. Parcel responses name the state source. Community trails are anonymous lidar detections. Community hikes are GPS tracks people chose to share, with private names, times and elevations removed.

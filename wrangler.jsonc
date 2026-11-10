@@ -10,6 +10,11 @@
   "main": "worker/index.ts",
   "d1_databases": [{ "binding": "DB", "database_name": "free-hunting-map", "database_id": "49e11a0a-8b6e-4758-a31e-dd5a057d4462", "migrations_dir": "migrations" }],
   "r2_buckets": [{ "binding": "TILES", "bucket_name": "fhm-tiles" }],
+  "ratelimits": [
+    { "name": "RL_ANON", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+    { "name": "RL_KEY", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } },
+    { "name": "RL_UPSTREAM", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } }
+  ],
   "routes": [
     { "pattern": "freehuntingmap.com", "custom_domain": true },
     { "pattern": "www.freehuntingmap.com", "custom_domain": true }
