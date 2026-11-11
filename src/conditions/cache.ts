@@ -1,5 +1,5 @@
 import type { Repo } from '../storage/repo';
-import { fetchWeather, type Weather } from './weather';
+import { fetchWeather, FORECAST_DAYS, type Weather } from './weather';
 
 const KEY = 'conditions:last';
 
@@ -12,7 +12,7 @@ export interface ConditionsResult {
 /** Network first; on failure fall back to the last cached forecast. */
 export async function loadConditions(repo: Repo, lat: number, lng: number): Promise<ConditionsResult> {
   try {
-    const weather = await fetchWeather(lat, lng, AbortSignal.timeout(10_000));
+    const weather = await fetchWeather(lat, lng, AbortSignal.timeout(10_000), FORECAST_DAYS);
     await repo.setMeta(KEY, weather);
     return { weather, stale: false };
   } catch {

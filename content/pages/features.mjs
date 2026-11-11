@@ -69,7 +69,7 @@ export const features = [
     id: 'conditions', enabled: true, image: 'conditions',
     requires: [['src/ui/conditionsPanel.ts', 'sunMoon'], ['src/conditions/weather.ts', 'open-meteo']],
     heading: 'Weather, wind, sun and moon',
-    body: '<p>Read wind direction, gusts, temperature and hourly weather for the map center. See sunrise, sunset and moon information alongside the forecast.</p><p>Weather needs a connection to refresh; the last cached forecast can be shown offline. Sun and moon calculations run locally. Civil twilight is not a determination of legal shooting hours.</p>',
+    body: '<p>Read a 7-day forecast for the map center: daily high and low, wind direction, speed and gusts, precipitation chance, and sunrise and sunset. Pick a day for its hourly wind and temperature, plus civil twilight and moon information for that day.</p><p>Weather needs a connection to refresh; the last cached forecast can be shown offline. Sun and moon calculations run locally. Civil twilight is not a determination of legal shooting hours.</p>',
     href: '/faq', link: 'Read the FAQ',
     alt: 'Free Hunting Map Conditions panel showing a real Open-Meteo forecast, wind and locally calculated sun and moon information.',
   },

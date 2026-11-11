@@ -12,6 +12,21 @@ export interface WeatherPoint {
   code: number;
 }
 
+/** One location-local calendar day from Open-Meteo `daily`. */
+export interface DailyForecast {
+  /** YYYY-MM-DD in the forecast timezone. */
+  date: string;
+  high: number;
+  low: number;
+  /** Dominant direction the wind blows from, degrees. */
+  windDir: number;
+  /** Maximum sustained wind, mph. */
+  windSpeed: number;
+  windGust: number;
+  precipProb: number | null;
+  code: number;
+}
+
 export interface Weather {
   lat: number;
   lng: number;
@@ -19,11 +34,20 @@ export interface Weather {
   timezone: string;
   current: WeatherPoint;
   hourly: WeatherPoint[];
+  /**
+   * Present on 7-day forecasts. Absent on the short fetch used by the wind
+   * plume and on forecasts cached before daily data was stored.
+   */
+  daily?: DailyForecast[];
 }
 
 const VARS = 'temperature_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code';
+const DAILY_VARS = 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,wind_direction_10m_dominant,wind_gusts_10m_max';
 
-export function weatherUrl(lat: number, lng: number, hours = 8): string {
+/** Days requested for the conditions panel, including today. */
+export const FORECAST_DAYS = 7;
+
+export function weatherUrl(lat: number, lng: number, hours = 8, days = 0): string {
   const q = new URLSearchParams({
     latitude: lat.toFixed(4),
     longitude: lng.toFixed(4),
@@ -32,13 +56,19 @@ export function weatherUrl(lat: number, lng: number, hours = 8): string {
     wind_speed_unit: 'mph',
     temperature_unit: 'fahrenheit',
     timezone: 'auto',
-    forecast_hours: String(hours),
   });
+  // A day count replaces the short hourly window so each day has its hours.
+  if (days > 0) {
+    q.set('forecast_days', String(days));
+    q.set('daily', DAILY_VARS);
+  } else {
+    q.set('forecast_hours', String(hours));
+  }
   return `${OPEN_METEO_URL}?${q}`;
 }
 
-export async function fetchWeather(lat: number, lng: number, signal?: AbortSignal): Promise<Weather> {
-  const res = await fetch(weatherUrl(lat, lng), signal ? { signal } : {});
+export async function fetchWeather(lat: number, lng: number, signal?: AbortSignal, days = 0): Promise<Weather> {
+  const res = await fetch(weatherUrl(lat, lng, 8, days), signal ? { signal } : {});
   if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
   return parseWeather(await res.json(), lat, lng, Date.now());
 }
@@ -53,12 +83,40 @@ interface RawBlock {
   precipitation_probability?: (number | null)[];
 }
 
+interface RawDaily {
+  time?: unknown;
+  temperature_2m_max?: unknown[];
+  temperature_2m_min?: unknown[];
+  precipitation_probability_max?: (number | null)[];
+  wind_speed_10m_max?: unknown[];
+  wind_direction_10m_dominant?: unknown[];
+  wind_gusts_10m_max?: unknown[];
+  weather_code?: unknown[];
+}
+
+function parseDaily(raw: unknown): DailyForecast[] {
+  if (!raw || typeof raw !== 'object') return [];
+  const d = raw as RawDaily;
+  if (!Array.isArray(d.time)) return [];
+  return d.time.map((date, i) => ({
+    date: String(date),
+    high: Number(d.temperature_2m_max?.[i]),
+    low: Number(d.temperature_2m_min?.[i]),
+    windSpeed: Number(d.wind_speed_10m_max?.[i]),
+    windDir: Number(d.wind_direction_10m_dominant?.[i]),
+    windGust: Number(d.wind_gusts_10m_max?.[i]),
+    precipProb: d.precipitation_probability_max?.[i] ?? null,
+    code: Number(d.weather_code?.[i]),
+  }));
+}
+
 export function parseWeather(json: unknown, lat: number, lng: number, fetchedAt: number): Weather {
-  const j = json as { timezone?: string; current?: RawBlock; hourly?: RawBlock };
+  const j = json as { timezone?: string; current?: RawBlock; hourly?: RawBlock; daily?: unknown };
   if (!j.current || !j.hourly || !Array.isArray(j.hourly.time)) throw new Error('Unexpected Open-Meteo response');
   const c = j.current;
   const h = j.hourly;
   const at = <T,>(v: T | T[], i: number): T => (Array.isArray(v) ? (v[i] as T) : v);
+  const daily = parseDaily(j.daily);
   return {
     lat,
     lng,
@@ -82,6 +140,7 @@ export function parseWeather(json: unknown, lat: number, lng: number, fetchedAt:
       precipProb: h.precipitation_probability?.[i] ?? null,
       code: at(h.weather_code, i),
     })),
+    ...(daily.length ? { daily } : {}),
   };
 }
 
