@@ -13,6 +13,19 @@ export interface Tool {
   stop(): void;
 }
 
+/** Save a pin the same way the Drop pin tool does, and make sure pins are visible. */
+export async function createWaypoint(ctx: AppContext, coord: LngLat, icon: WaypointIcon = 'pin'): Promise<Waypoint | null> {
+  try {
+    if (!ctx.visibility().showPins) await ctx.setTypeVisibility({ showPins: true });
+    const wp = await ctx.repo.create<Waypoint>({ kind: 'waypoint', name: '', note: '', icon, coord: roundCoord(coord) });
+    useFeature('marker_add');
+    return wp;
+  } catch {
+    toast('Could not save pin');
+    return null;
+  }
+}
+
 export function waypointTool(ctx: AppContext, done: () => void): Tool {
   let icon: WaypointIcon = 'pin';
   let active = true;
@@ -22,11 +35,8 @@ export function waypointTool(ctx: AppContext, done: () => void): Tool {
     if (!active || saving) return;
     saving = true;
     try {
-      const wp = await ctx.repo.create<Waypoint>({ kind: 'waypoint', name: '', note: '', icon, coord: roundCoord(coord) });
-      useFeature('marker_add');
-      if (active) { done(); ctx.openItem(wp); }
-    } catch {
-      toast('Could not save pin');
+      const wp = await createWaypoint(ctx, coord, icon);
+      if (wp && active) { done(); ctx.openItem(wp); }
     } finally { saving = false; }
   };
 
