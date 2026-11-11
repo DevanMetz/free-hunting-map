@@ -3,6 +3,7 @@ import { coordinatesFromUrl } from '../share/takeout/coordinates';
 import type { LngLat } from '../types';
 import type { AppContext } from './context';
 import { copyText, h, iconButton, toast } from './dom';
+import { createWaypoint } from './tools';
 import { loadedLandBounds, visibleLandSearch } from './visibleLandSearch';
 
 export function readLocation(input: string): LngLat | null {
@@ -43,6 +44,11 @@ export function openGoTo(ctx: AppContext): void {
     }
   };
   input.addEventListener('input', search);
+  const flyTo = (center: LngLat): void => {
+    const zoom = Math.max(ctx.map.map.getZoom(), 15);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) ctx.map.map.jumpTo({ center, zoom });
+    else ctx.map.map.flyTo({ center, zoom });
+  };
   const go = (): void => {
     const parsed = readLocation(input.value);
     if (!parsed) {
@@ -50,10 +56,25 @@ export function openGoTo(ctx: AppContext): void {
       input.focus();
       return;
     }
-    const zoom = Math.max(ctx.map.map.getZoom(), 15);
     ctx.sheet.close();
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) ctx.map.map.jumpTo({ center: parsed, zoom });
-    else ctx.map.map.flyTo({ center: parsed, zoom });
+    flyTo(parsed);
+  };
+  let dropping = false;
+  const dropPin = async (): Promise<void> => {
+    const parsed = readLocation(input.value);
+    if (!parsed) {
+      toast('Could not read coordinates');
+      input.focus();
+      return;
+    }
+    if (dropping) return;
+    dropping = true;
+    try {
+      const wp = await createWaypoint(ctx, parsed);
+      if (!wp || !input.isConnected) return;
+      flyTo(wp.coord);
+      ctx.openItem(wp);
+    } finally { dropping = false; }
   };
   const copy = (): void => {
     const parsed = readLocation(input.value);
@@ -85,7 +106,7 @@ export function openGoTo(ctx: AppContext): void {
     { class: 'form', onsubmit: (event: Event) => { event.preventDefault(); go(); } },
     input,
     results,
-    h('div', { class: 'actions' }, h('div', { class: 'row' }, iconButton('copy', 'Copy coordinates', copy), iconButton('share', 'Copy map link', copyLink)), h('button', { type: 'submit', class: 'btn primary' }, 'Go')),
+    h('div', { class: 'actions' }, h('div', { class: 'row' }, iconButton('pin', 'Drop pin here', () => void dropPin()), iconButton('copy', 'Copy coordinates', copy), iconButton('share', 'Copy map link', copyLink)), h('button', { type: 'submit', class: 'btn primary' }, 'Go')),
   ));
   input.focus();
 }
