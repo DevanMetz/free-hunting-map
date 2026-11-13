@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { serviceUrl } from '../serviceUrl';
 import { useFeature } from '../usage';
 import type { Repo } from '../storage/repo';
@@ -8,7 +9,9 @@ export type SyncState = 'signed-out' | 'synced' | 'syncing' | 'offline' | 'error
 type Fetcher = typeof fetch;
 class TransportError extends Error {}
 
-/** A session cookie is the only credential. Data and retry state live in Repo. */
+const SESSION_KEY = 'cloud.session';
+
+/** Website calls use the session cookie. The Android app stores the same session and sends it as a bearer token. */
 export class CloudSync extends EventTarget {
   googleClientId: string | null = null;
   user: CloudUser | null = null;
@@ -47,13 +50,27 @@ export class CloudSync extends EventTarget {
     globalThis.document?.removeEventListener('visibilitychange', this.wake);
   }
   private emit(): void { this.dispatchEvent(new Event('change')); }
+  private async sessionToken(): Promise<string | null> {
+    if (!Capacitor.isNativePlatform()) return null;
+    const token = await this.repo.getMeta<string>(SESSION_KEY);
+    return typeof token === 'string' && /^[0-9a-f]{64}$/i.test(token) ? token : null;
+  }
   private async json(path: string, body?: unknown): Promise<any> {
+    const token = await this.sessionToken();
+    const headers: Record<string, string> = {};
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (token) headers.Authorization = `Bearer ${token}`;
     const res = await this.request(serviceUrl(`/api/${path}`), {
-      credentials: 'same-origin', cache: 'no-store',
-      ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+      credentials: Capacitor.isNativePlatform() ? 'omit' : 'same-origin', cache: 'no-store',
+      ...(Object.keys(headers).length ? { headers } : {}),
+      ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }),
     }).catch(() => { throw new TransportError('Cloud sync transport unavailable'); });
     if (!res.ok) {
-      if (res.status === 401) { this.sessionChecked = true; this.user = null; this.state = 'signed-out'; this.emit(); }
+      if (res.status === 401) {
+        this.sessionChecked = true; this.user = null; this.state = 'signed-out';
+        if (token) await this.repo.setMeta(SESSION_KEY, null);
+        this.emit();
+      }
       throw new Error(`Cloud sync: ${res.status}`);
     }
     return res.json().catch(error => {
@@ -66,9 +83,11 @@ export class CloudSync extends EventTarget {
     if (await this.repo.getMeta<boolean>('cloud.logout')) await this.finishLogout();
     const result = await this.json('auth/google', { credential }).catch(error=>{useFeature('sign_in','fail'); throw error;});
     useFeature('sign_in','ok');
+    if (typeof result.token === 'string' && /^[0-9a-f]{64}$/i.test(result.token)) await this.repo.setMeta(SESSION_KEY, result.token.toLowerCase());
     try { await this.repo.bindSyncAccount(result.user.id); }
     catch (err) {
       await this.json('auth/logout', {});
+      await this.repo.setMeta(SESSION_KEY, null);
       throw err;
     }
     this.epoch++;
@@ -98,6 +117,7 @@ export class CloudSync extends EventTarget {
       await this.json('account/delete', {});
       this.user = null;
       this.state = 'signed-out';
+      await this.repo.setMeta(SESSION_KEY, null);
       await this.repo.resetSyncAccount();
     } catch (error) {
       if (this.user) this.state = 'error';
@@ -111,6 +131,7 @@ export class CloudSync extends EventTarget {
   private async finishLogout(): Promise<void> {
     await this.json('auth/logout', {});
     await this.repo.setMeta('cloud.logout', false);
+    await this.repo.setMeta(SESSION_KEY, null);
   }
   retry(): Promise<void> {
     if (this.deleting) return Promise.resolve();

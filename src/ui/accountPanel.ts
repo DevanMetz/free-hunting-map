@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import type { CloudSync } from '../sync/cloud';
+import { nativeGoogleCredential, usesNativeAccount } from '../sync/nativeAccount';
 import { createKey, listKeys, revokeKey, type ApiKeyInfo } from '../sync/apiKeys';
 import { h, iconButton, toast } from './dom';
 
@@ -154,7 +155,7 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
         render();
       };
       keysBlock.append(h('div', { class: 'account-key-create' }, nameInput, iconButton('plus', 'Create key', () => { void create(); })));
-      const policies = h('nav', { class: 'policy-links', 'aria-label': 'Policies' }, h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'));
+      const policies = h('nav', { class: 'policy-links', 'aria-label': 'Policies' }, h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'), usesNativeAccount() ? null : h('a', { href: '/download/free-hunting-map.apk' }, 'Android'));
       menu.append(identity, actions);
       if (keysOpen) menu.append(keysBlock);
       menu.append(policies);
@@ -164,6 +165,14 @@ export function accountControl(sync: CloudSync, signal?: AbortSignal): HTMLEleme
     }
     menuOpen = false; keysOpen = false; revealed = null;
     if (!sync.googleClientId || !navigator.onLine) { root.hidden = true; return; }
+    if (usesNativeAccount()) {
+      const visual = iconButton('google', 'Sign in with Google', () => {
+        visual.disabled = true;
+        void nativeGoogleCredential(sync.googleClientId!).then(credential => sync.signIn(credential)).catch(report).finally(() => { visual.disabled = false; });
+      }, 'account-sign-in');
+      root.append(visual);
+      return;
+    }
     const button = h('div', { class: 'google-sign-in' });
     const visual = iconButton('google', 'Sign in with Google', () => {}, 'account-sign-in');
     // The GIS iframe is the only interactive/focusable target. Never synthesize its click.

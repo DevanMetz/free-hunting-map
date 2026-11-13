@@ -20,6 +20,7 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -29,7 +30,7 @@ import org.json.JSONObject;
 
 /**
  * Location foreground service for an in-progress hike.
- * While-in-use location is enough once this service is in the foreground, including with the screen locked.
+ * The ongoing notification keeps location running with the screen locked and the app in the background.
  */
 public class HikeRecordingService extends Service {
     static final String TAG = "HikeRecording";
@@ -42,15 +43,30 @@ public class HikeRecordingService extends Service {
     private static volatile String lastError;
     private static volatile CountDownLatch starting;
     private static volatile CountDownLatch stopped;
+    private static long lastAutoRestart;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     private HikeRecordingStore store;
     private LocationListener listener;
     private HandlerThread thread;
     private PowerManager.WakeLock wakeLock;
+    private boolean startedOk;
 
     static boolean isRunning() {
         return running;
+    }
+
+    /** Start again after process death, reboot, or an update while a hike is still open. */
+    static void resumeIfNeeded(Context context) {
+        Context app = context.getApplicationContext();
+        HikeRecordingStore.Session session = HikeRecordingStore.get(app).session();
+        if (session == null || !session.recording || running) return;
+        if (ContextCompat.checkSelfPermission(app, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
+        try {
+            ContextCompat.startForegroundService(app, new Intent(app, HikeRecordingService.class));
+        } catch (RuntimeException error) {
+            Log.e(TAG, "resume failed", error);
+        }
     }
 
     static String consumeError() {
@@ -103,8 +119,7 @@ public class HikeRecordingService extends Service {
                 startForeground(NOTIFICATION_ID, notification);
             }
             HikeRecordingStore.Session session = store.session();
-            boolean allowed = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                || ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean allowed = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
             if (session == null || !session.recording || !allowed) {
                 lastError = "Could not start GPS";
                 running = false;
@@ -120,6 +135,7 @@ public class HikeRecordingService extends Service {
                 return START_NOT_STICKY;
             }
             holdWake();
+            startedOk = true;
             running = true;
             return START_STICKY;
         } catch (RuntimeException error) {
@@ -136,7 +152,14 @@ public class HikeRecordingService extends Service {
     }
 
     @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // Swiping the app away must not end the hike. stopWithTask is false.
+    }
+
+    @Override
     public void onDestroy() {
+        HikeRecordingStore.Session session = store == null ? null : store.session();
+        boolean resume = startedOk && !explicitStop && session != null && session.recording;
         listenStop();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         wakeLock = null;
@@ -151,6 +174,14 @@ public class HikeRecordingService extends Service {
         CountDownLatch latch = stopped;
         stopped = null;
         if (latch != null) latch.countDown();
+        if (resume) {
+            long now = SystemClock.elapsedRealtime();
+            if (now - lastAutoRestart > 5_000L) {
+                lastAutoRestart = now;
+                Context app = getApplicationContext();
+                MAIN.post(() -> resumeIfNeeded(app));
+            }
+        }
         super.onDestroy();
     }
 
@@ -160,6 +191,7 @@ public class HikeRecordingService extends Service {
             NotificationChannel channel = new NotificationChannel(CHANNEL, getString(R.string.recording_channel), NotificationManager.IMPORTANCE_LOW);
             channel.setShowBadge(false);
             channel.setSound(null, null);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             manager.createNotificationChannel(channel);
         }
         HikeRecordingStore.Session session = store == null ? null : store.session();
@@ -173,6 +205,7 @@ public class HikeRecordingService extends Service {
             .setContentText(getString(R.string.recording_text))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(pending)

@@ -137,7 +137,7 @@ export class TrackRecorder {
   private schedulePoll(generation: number): void {
     clearInterval(this.nativePoll);
     this.nativePoll = window.setInterval(() => {
-      if (generation !== this.nativeGeneration || !this.nativeActive || document.hidden) return;
+      if (generation !== this.nativeGeneration || !this.nativeActive) return;
       void this.catchUp();
     }, 5000);
   }
