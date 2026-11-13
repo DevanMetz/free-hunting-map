@@ -91,7 +91,7 @@ export class App implements AppContext {
     );
 
     this.map.map.on('click', (e) => {
-      if (!document.querySelector('[data-lidar-drawing],[data-offline-drawing]')) this.onMapClick(e);
+      if (!document.querySelector('[data-lidar-drawing],[data-offline-drawing],[data-stand-drawing]')) this.onMapClick(e);
     });
     this.map.map.on('moveend', () => this.persistSettings());
     this.map.map.on('move', () => this.scheduleCoordChip());
@@ -262,6 +262,7 @@ export class App implements AppContext {
       add('tool:waypoint', 'pin', 'Drop pin', () => this.toggleTool('waypoint')),
       add('tool:track', 'track', 'Draw track', () => this.toggleTool('track')),
       add('trails', 'scan', 'Trail finder', () => this.openTrailFinder()),
+      add('stands', 'stand', 'Stands', () => this.openLazyPanel('stands', 'Stands', () => import('./standsPanel').then(m => () => m.openStandsPanel(this)))),
       add('lidar3d', 'lidar3d', '3D lidar', () => this.openLidar3d()),
       add('record', 'record', 'Record GPS track', () => void this.toggleRecording()),
       add('tool:measure', 'measure', 'Measure', () => this.toggleTool('measure')),
@@ -382,6 +383,7 @@ export class App implements AppContext {
       void import('../scout/client').then(({ openScoutPin }) => openScoutPin(this, scoutId));
       return;
     }
+    if (document.body.dataset.stands != null) return;
     void this.identifyLayers(e, at);
   }
 

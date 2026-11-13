@@ -4,16 +4,19 @@ import { partyShareControl } from './partyPanel';
 import { hikeShareControl } from './hikeShare';
 import { categoryPicker } from './categoryControls';
 import { fovEditor } from './fovEditor';
+import { rememberStand } from '../stands/selection';
 import { sanitizeFov } from '../sync/validate';
 import { useFeature } from '../usage';
 import { displayName, iconPicker } from './itemDisplay';
 import { formatDistance, formatLatLng, pathLength } from '../map/geo';
-import { type Item, type WaypointIcon } from '../types';
+import { type Item, type WaypointIcon, type WindDir } from '../types';
 import type { AppContext } from './context';
 import { copyText, h, iconButton, toast } from './dom';
 import { warnAboutRestrictions } from './restrictionWarning';
+import { windPicks } from './windPicks';
 
 export function openItemPanel(ctx: AppContext, item: Item): void {
+  if (item.kind === 'waypoint') rememberStand(item.id);
   let categoryId = item.categoryId;
   let color = item.color;
   let iconOverride = item.iconOverride;
@@ -23,6 +26,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
   let photo = item.kind === 'waypoint' ? item.photo : undefined;
   let cameraEditor: ReturnType<typeof fovEditor> | undefined;
   let icon: WaypointIcon = item.kind === 'waypoint' ? item.icon : 'pin';
+  let winds: WindDir[] = item.kind === 'waypoint' ? [...(item.winds ?? [])] : [];
   const name = h('input', { type: 'text', class: 'field', placeholder: 'Name', 'aria-label': 'Name', value: item.name, maxlength: 120 });
   const note = h('textarea', { class: 'field', placeholder: 'Note', 'aria-label': 'Note', rows: 3, maxlength: 2000 });
   note.value = item.note;
@@ -81,7 +85,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
       const current = await ctx.repo.get(item.id);
       if (!current || current.deleted) return;
       const common = { name: name.value.trim(), note: note.value.trim(), categoryId, color };
-      const patch = item.kind === 'waypoint' ? { ...common, icon, iconOverride, sex: icon === 'deer' ? sex : undefined, seenAt: icon === 'deer' ? seenAt : undefined, photo: icon === 'deer' || icon === 'trailcam' ? photo : undefined, ...(icon === 'trailcam' ? { fov: sanitizeFov(fov), camera: camera.value.trim(), setAt: setAt.value ? new Date(`${setAt.value}T12:00:00`).getTime() : undefined, checkedAt: checkedAt.value ? new Date(`${checkedAt.value}T12:00:00`).getTime() : undefined } : {}) } : common;
+      const patch = item.kind === 'waypoint' ? { ...common, icon, iconOverride, winds: winds.length ? winds : undefined, sex: icon === 'deer' ? sex : undefined, seenAt: icon === 'deer' ? seenAt : undefined, photo: icon === 'deer' || icon === 'trailcam' ? photo : undefined, ...(icon === 'trailcam' ? { fov: sanitizeFov(fov), camera: camera.value.trim(), setAt: setAt.value ? new Date(`${setAt.value}T12:00:00`).getTime() : undefined, checkedAt: checkedAt.value ? new Date(`${checkedAt.value}T12:00:00`).getTime() : undefined } : {}) } : common;
       if (item.kind === 'waypoint') {
         const links = await ctx.repo.getMeta<Record<string, string[]>>(SCOUT_SHARES) ?? {};
         const selected = party?.selected() ?? [];
@@ -118,6 +122,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
     'div',
     { class: 'form item-editor' },
     picker,
+    item.kind === 'waypoint' ? windPicks('Good wind', true, winds, next => { winds = next; }) : null,
     h('div', { class: 'item-identity' }, name, categoryPicker(ctx, categoryId, id => { categoryId = id; updateCamera(); })),
     cameraBody,
     sightingBody,
