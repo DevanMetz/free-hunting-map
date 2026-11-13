@@ -8,6 +8,7 @@ import { formatDistance, formatLatLng, pathLength } from '../map/geo';
 import { type Item, type WaypointIcon } from '../types';
 import type { AppContext } from './context';
 import { copyText, h, iconButton, toast } from './dom';
+import { warnAboutRestrictions } from './restrictionWarning';
 
 export function openItemPanel(ctx: AppContext, item: Item): void {
   let categoryId = item.categoryId;
@@ -52,6 +53,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
       const common = { name: name.value.trim(), note: note.value.trim(), categoryId, color };
       const patch = item.kind === 'waypoint' ? { ...common, icon, iconOverride, ...(icon === 'trailcam' ? { fov: sanitizeFov(fov), camera: camera.value.trim(), setAt: setAt.value ? new Date(`${setAt.value}T12:00:00`).getTime() : undefined, checkedAt: checkedAt.value ? new Date(`${checkedAt.value}T12:00:00`).getTime() : undefined } : {}) } : common;
       await ctx.repo.update(current, patch);
+      if (current.kind === 'waypoint') warnAboutRestrictions(current.coord);
       if (categoryId !== item.categoryId) useFeature('category_move');
       if (body.isConnected) ctx.sheet.close();
     } catch { toast('Could not save item'); }

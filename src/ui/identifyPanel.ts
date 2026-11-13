@@ -1,3 +1,4 @@
+import { pressureControls, pulloutForm } from './accessEditor';
 import { communityHikes } from '../community/hikes';
 import { communityVotes } from '../community/votes';
 import { TRAIL_TYPES, type Vote } from '../community/vote';
@@ -12,6 +13,8 @@ export function identifyContent(result: IdentifyResult): HTMLElement {
   for (const link of result.links ?? []) if (/^https:\/\//.test(link.url)) {
     content.append(h('a', { href: link.url, target: '_blank', rel: 'noopener noreferrer' }, link.label));
   }
+  if(result.pulloutId) content.append(pulloutForm(result.pulloutId));
+  else if(result.accessSpotId) content.append(pressureControls(result.accessSpotId));
   const id=result.communityLineId, votes=communityVotes;
   if(id && votes){
     const current=votes.get(id);

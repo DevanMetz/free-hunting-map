@@ -5,6 +5,7 @@ import type { CloudSync } from '../sync/cloud';
 import { loadSettings, type Settings } from './settings';
 import { Popup, type MapMouseEvent } from 'maplibre-gl';
 import { layerRegistry, layerSetting } from '../map/layerRegistry';
+import { cancelAccessPlacement, takeAccessPlacement } from '../map/access/place';
 import { formatLatLng, haversine, locationFromSearch, pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { WindPlume } from '../map/windPlume';
@@ -360,9 +361,11 @@ export class App implements AppContext {
     this.inspectPopup = null;
     const at: LngLat = [e.lngLat.lng, e.lngLat.lat];
     if (this.tool) {
+      cancelAccessPlacement();
       this.tool.onMapClick(at);
       return;
     }
+    if (takeAccessPlacement(at)) return;
     const { x, y } = e.point;
     const r = 10;
     const layers = [LAYER_WAYPOINTS, LAYER_TRACKS].filter((l) => this.map.map.getLayer(l));

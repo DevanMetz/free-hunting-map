@@ -176,6 +176,8 @@ import './layers/iowaPublicHunting';
 import './layers/missouriConservationAreas';
 
 import './layers/wisconsinVpa';
+import './layers/wisconsinHuntingRules';
+import './layers/wisconsinParking';
 
 import './layers/northCarolinaGameLands';
 
