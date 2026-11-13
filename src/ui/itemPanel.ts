@@ -1,3 +1,6 @@
+import { SCOUT_SHARES } from '../scout/grid';
+import { shrinkPhoto } from '../scout/photo';
+import { partyShareControl } from './partyPanel';
 import { hikeShareControl } from './hikeShare';
 import { categoryPicker } from './categoryControls';
 import { fovEditor } from './fovEditor';
@@ -14,6 +17,9 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
   let color = item.color;
   let iconOverride = item.iconOverride;
   let fov = item.kind === 'waypoint' ? item.fov : undefined;
+  let sex = item.kind === 'waypoint' ? item.sex : undefined;
+  let seenAt = item.kind === 'waypoint' ? item.seenAt : undefined;
+  let photo = item.kind === 'waypoint' ? item.photo : undefined;
   let cameraEditor: ReturnType<typeof fovEditor> | undefined;
   let icon: WaypointIcon = item.kind === 'waypoint' ? item.icon : 'pin';
   const name = h('input', { type: 'text', class: 'field', placeholder: 'Name', 'aria-label': 'Name', value: item.name, maxlength: 120 });
@@ -26,9 +32,33 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
   const checkedAt = dateField('Last checked', item.kind === 'waypoint' ? item.checkedAt : undefined);
   const cameraBody = h('div', { class: 'form' });
   const cameraDetails = h('div', { class: 'form' });
+  const sightingBody = h('div', { class: 'form' });
+  const party = item.kind === 'waypoint' ? partyShareControl(ctx, item.id, () => icon) : undefined;
   const updateCamera = (): void => {
     cameraEditor?.close(); cameraEditor = undefined;
-    cameraBody.replaceChildren(); cameraDetails.replaceChildren();
+    cameraBody.replaceChildren(); cameraDetails.replaceChildren(); sightingBody.replaceChildren();
+    if (item.kind === 'waypoint' && (icon === 'deer' || icon === 'trailcam')) {
+      if (icon === 'deer') {
+        const sexSelect = h('select', { class: 'field', 'aria-label': 'Sex', onchange: (e: Event) => { const value = (e.target as HTMLSelectElement).value; sex = value === 'buck' || value === 'doe' ? value : undefined; } },
+          h('option', { value: '' }, ''),
+          h('option', { value: 'buck', ...(sex === 'buck' ? { selected: true } : {}) }, 'Buck'),
+          h('option', { value: 'doe', ...(sex === 'doe' ? { selected: true } : {}) }, 'Doe'));
+        const when = h('input', { type: 'datetime-local', class: 'field', 'aria-label': 'Seen', value: seenAt ? localStamp(seenAt) : '', onchange: (e: Event) => { const value = (e.target as HTMLInputElement).value; const parsed = value ? new Date(value).getTime() : NaN; seenAt = Number.isFinite(parsed) ? parsed : undefined; } });
+        sightingBody.append(sexSelect, when);
+      }
+      const file = h('input', { type: 'file', accept: 'image/*', class: 'field', 'aria-label': 'Photo', onchange: () => {
+        const picked = file.files?.[0];
+        if (!picked) return;
+        void shrinkPhoto(picked).then(url => {
+          if (!url) { toast('Photo too large'); return; }
+          photo = url;
+          updateCamera();
+        }).catch(() => toast('Photo too large'));
+      } });
+      sightingBody.append(file);
+      if (photo) sightingBody.append(h('img', { class: 'sighting-photo', alt: '', src: photo }));
+    }
+    party?.refresh();
     if (item.kind !== 'waypoint' || icon !== 'trailcam') return;
     cameraEditor = fovEditor(ctx, { ...item, icon, color, categoryId, fov: sanitizeFov(fov) }, next => { fov = next; });
     cameraBody.append(cameraEditor.element);
@@ -50,7 +80,14 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
       const current = await ctx.repo.get(item.id);
       if (!current || current.deleted) return;
       const common = { name: name.value.trim(), note: note.value.trim(), categoryId, color };
-      const patch = item.kind === 'waypoint' ? { ...common, icon, iconOverride, ...(icon === 'trailcam' ? { fov: sanitizeFov(fov), camera: camera.value.trim(), setAt: setAt.value ? new Date(`${setAt.value}T12:00:00`).getTime() : undefined, checkedAt: checkedAt.value ? new Date(`${checkedAt.value}T12:00:00`).getTime() : undefined } : {}) } : common;
+      const patch = item.kind === 'waypoint' ? { ...common, icon, iconOverride, sex: icon === 'deer' ? sex : undefined, seenAt: icon === 'deer' ? seenAt : undefined, photo: icon === 'deer' || icon === 'trailcam' ? photo : undefined, ...(icon === 'trailcam' ? { fov: sanitizeFov(fov), camera: camera.value.trim(), setAt: setAt.value ? new Date(`${setAt.value}T12:00:00`).getTime() : undefined, checkedAt: checkedAt.value ? new Date(`${checkedAt.value}T12:00:00`).getTime() : undefined } : {}) } : common;
+      if (item.kind === 'waypoint') {
+        const links = await ctx.repo.getMeta<Record<string, string[]>>(SCOUT_SHARES) ?? {};
+        const selected = party?.selected() ?? [];
+        if (selected.length) links[item.id] = selected;
+        else delete links[item.id];
+        await ctx.repo.setMeta(SCOUT_SHARES, links);
+      }
       await ctx.repo.update(current, patch);
       if (categoryId !== item.categoryId) useFeature('category_move');
       if (body.isConnected) ctx.sheet.close();
@@ -72,7 +109,7 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
     void copyText(info);
   };
 
-  const title = (): string => item.kind === 'track' ? 'Track' : icon === 'trailcam' ? 'Trail cam' : 'Waypoint';
+  const title = (): string => item.kind === 'track' ? 'Track' : icon === 'trailcam' ? 'Trail cam' : icon === 'deer' ? 'Deer' : icon === 'scrape' ? 'Scrape' : icon === 'rub' ? 'Rub' : icon === 'stand' ? 'Stand' : 'Waypoint';
   const picker = item.kind === 'waypoint' ? iconPicker(icon, (i) => { icon = i; iconOverride = true; updateCamera(); ctx.sheet.setTitle(title()); }) : null;
   const hikeShare = item.kind === 'track' && item.recorded ? hikeShareControl(ctx, item) : undefined;
   const body = h(
@@ -81,6 +118,8 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
     picker,
     h('div', { class: 'item-identity' }, name, categoryPicker(ctx, categoryId, id => { categoryId = id; updateCamera(); })),
     cameraBody,
+    sightingBody,
+    party?.element,
     hikeShare?.element,
     h('details', { class: 'item-details', open: item.kind !== 'waypoint' || item.icon !== 'trailcam' || window.innerWidth >= 760 }, h('summary', {}, 'Details'), h('div', { class: 'form' }, cameraDetails, note,
     h('div', { class: 'row item-appearance' },
@@ -97,4 +136,11 @@ export function openItemPanel(ctx: AppContext, item: Item): void {
   ctx.sheet.open(`item:${item.id}`, title(), body, () => { cameraEditor?.close(); hikeShare?.close(); });
   updateCamera();
   if (!item.name && (item.kind !== 'waypoint' || item.icon !== 'trailcam' || window.innerWidth >= 760)) name.focus();
+}
+
+function localStamp(ms: number): string {
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (value: number): string => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }

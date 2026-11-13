@@ -1,3 +1,4 @@
+import { installOfflineFetch } from './offline/net';
 import { startCommunityVotes } from './community/votes';
 import { registerSW } from 'virtual:pwa-register';
 import { Repo } from './storage/repo';
@@ -6,6 +7,7 @@ import type { Settings } from './ui/settings';
 import './styles.css';
 
 async function main(): Promise<void> {
+  installOfflineFetch();
   const root = document.getElementById('app');
   if (!root) throw new Error('#app missing');
   // Register independently of map initialization failures.

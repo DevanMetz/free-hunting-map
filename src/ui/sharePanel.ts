@@ -9,6 +9,7 @@ import { encodeItemsToChunks, QrAssembler } from '../share/qr';
 import { startScanner } from '../share/scanner';
 import type { Item } from '../types';
 import type { AppContext } from './context';
+import { openPartyPanel } from './partyPanel';
 import { h, iconButton, toast } from './dom';
 import { displayName } from './itemDisplay';
 
@@ -64,6 +65,7 @@ export function openSharePanel(ctx: AppContext): void {
     h(
       'div',
       { class: 'toolbar-row' },
+      iconButton('users', 'Party', () => openPartyPanel(ctx)),
       iconButton('qr', 'Show QR', requireSelection((items) => showQr(ctx, items))),
       iconButton('scan', 'Scan QR', () => openScanner(ctx)),
       exportButton('GPX', 'gpx', picked),

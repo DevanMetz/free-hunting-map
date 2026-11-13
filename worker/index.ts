@@ -1,3 +1,4 @@
+import { activityTile, createScoutGroup, publishActivity, syncScout } from './scout';
 import { shareHike, unshareHike, reportHike, moderateHikes, hikesTile } from './communityHikes';
 import { exportCommunity } from './communityExport';
 import { voteCommunity, overrideCommunity } from './communityVotes';
@@ -76,6 +77,9 @@ export default {
 async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, 'waitUntil'>): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === '/api/v1' || url.pathname.startsWith('/api/v1/')) return apiV1(request, env, ctx);
+    if (url.pathname.startsWith('/tiles/activity/')) {
+      try { return await activityTile(request, env.DB); } catch { return new Response(null, { status: 503 }); }
+    }
     if (url.pathname.startsWith('/tiles/community-hikes/')) {
       try { return await hikesTile(request,env.DB); } catch { return new Response(null,{status:503}); }
     }
@@ -150,6 +154,14 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
       }
       if (url.pathname === '/api/community/override') return await overrideCommunity(request,env.DB,await body(request,2048),env.COMMUNITY_ADMIN_TOKEN);
       if (url.pathname === '/api/community/delete') return await deleteCommunity(request,env.DB,await body(request,2048),env.COMMUNITY_ADMIN_TOKEN);
+      if (url.pathname.startsWith('/api/scout/')) {
+        const action = url.pathname.slice('/api/scout/'.length);
+        const scoutBody = await body(request, action === 'sync' ? 6_000_000 : 32_000);
+        if (action === 'groups') return createScoutGroup(request, env.DB, scoutBody);
+        if (action === 'sync') return syncScout(request, env.DB, scoutBody);
+        if (action === 'activity') return publishActivity(request, env.DB, scoutBody);
+        return json({ error: 'Not found' }, 404);
+      }
       const input = await body(request);
       if (url.pathname === '/api/keys' || url.pathname === '/api/keys/revoke') {
         const account = await user(request, env);

@@ -1,4 +1,4 @@
-import { WAYPOINT_ICONS, type FieldOfView, type Item, type LngLat, type WaypointIcon } from '../types';
+import { WAYPOINT_ICONS, type FieldOfView, type Item, type LngLat, type SightingSex, type WaypointIcon } from '../types';
 import { roundCoord } from '../map/geo';
 
 const MAX_TEXT = 2000;
@@ -27,7 +27,7 @@ export function sanitizeItem(raw: unknown): Item | null {
   if (r.kind === 'waypoint') {
     const coord = lngLat(r.coord);
     if (!coord) return null;
-    return { ...meta, ...organization, ...cameraFields(r), kind: 'waypoint', name, note, icon: icon(r.icon), coord, ...(typeof r.sourceUrl === 'string' && /^https?:\/\//i.test(r.sourceUrl) ? { sourceUrl: r.sourceUrl.slice(0, 8192) } : {}) };
+    return { ...meta, ...organization, ...cameraFields(r), ...sightingFields(r), kind: 'waypoint', name, note, icon: icon(r.icon), coord, ...(typeof r.sourceUrl === 'string' && /^https?:\/\//i.test(r.sourceUrl) ? { sourceUrl: r.sourceUrl.slice(0, 8192) } : {}) };
   }
   if (r.kind === 'track') {
     if (!Array.isArray(r.coords) || r.coords.length > MAX_COORDS) return null;
@@ -77,6 +77,17 @@ export function sanitizeFov(value: unknown): FieldOfView {
     bearing: ((num(f.bearing) ?? 0) % 360 + 360) % 360,
     angle: Math.max(10, Math.min(120, num(f.angle) ?? 45)),
     range: Math.max(3, Math.min(100, num(f.range) ?? 25)),
+  };
+}
+
+function sightingFields(r: Record<string, unknown>): Partial<import('../types').Waypoint> {
+  const sex: SightingSex | undefined = r.sex === 'buck' || r.sex === 'doe' || r.sex === 'unknown' ? r.sex : undefined;
+  const seenAt = num(r.seenAt);
+  const photo = typeof r.photo === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(r.photo) && r.photo.length <= 200_000 ? r.photo : undefined;
+  return {
+    ...(sex ? { sex } : {}),
+    ...(seenAt !== null && seenAt > 946_684_800_000 && seenAt < 4_102_444_800_000 ? { seenAt } : {}),
+    ...(photo ? { photo } : {}),
   };
 }
 

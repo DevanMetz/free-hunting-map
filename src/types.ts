@@ -1,7 +1,8 @@
 /** Domain model shared by storage, sync, share and UI. */
 
-export const WAYPOINT_ICONS = ['pin', 'stand', 'blood', 'rub', 'camp', 'truck', 'trailcam'] as const;
+export const WAYPOINT_ICONS = ['pin', 'stand', 'blood', 'rub', 'scrape', 'deer', 'camp', 'truck', 'trailcam'] as const;
 export type WaypointIcon = (typeof WAYPOINT_ICONS)[number];
+export type SightingSex = 'buck' | 'doe' | 'unknown';
 
 /** [longitude, latitude] — GeoJSON order everywhere. */
 export type LngLat = [number, number];
@@ -51,6 +52,12 @@ export interface Waypoint extends ItemMeta, ItemOrganization {
   camera?: string;
   setAt?: number;
   checkedAt?: number;
+  /** Deer sighting. Omitted for other pins. */
+  sex?: SightingSex;
+  /** When a deer was seen, epoch ms. */
+  seenAt?: number;
+  /** Resized JPEG data URL. Kept out of file and QR exports. */
+  photo?: string;
 }
 
 export interface Track extends ItemMeta, ItemOrganization {

@@ -307,7 +307,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
     }).catch(() => {});
   };
   refreshStorage();
-  const offline = offlineArea(() => ctx.map.map.getBounds(), () => ctx.map.mapState.basemap, ctx.repo, refreshStorage);
+  const offline = offlineArea(ctx.map.map, () => ctx.map.mapState.basemap, ctx.repo, refreshStorage);
   const root = h('div', { class: 'layers-panel' }, searchBar, basemaps, offline.element, labelControls, plumeControl, centerControl, activeBar, activeList, categories, empty,
     h('footer', { class: 'layers-footer' },
       storage,
