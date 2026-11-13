@@ -11,6 +11,7 @@ const ARCHIVES: Record<string, Archive> = {
   'usfs-closed-roads': vector('Closed forest roads', 'USDA Forest Service (public domain)', 'usfs'),
   'osm-tracks': vector('OSM tracks', '© OpenStreetMap contributors (ODbL)', 'osm'),
   'wi-forest-roads': vector('County forest roads', 'Wisconsin county forests', 'wiforest'),
+  'state-land': vector('State land', 'USGS PAD-US 4.1 (public domain); Hawaii Statewide GIS Program TMK parcels (public domain)', 'land', 5, 15),
   ...Object.fromEntries(['lidar-lrm', 'lidar-openness', 'lidar-hillshade', 'lidar-slope', 'lidar-chm'].map(name => [name, raster(name, 'USGS 3DEP lidar')])),
   'topo-early': raster('Historic topos 1924–1958', 'USGS Historical Topographic Map Collection (public domain)', 9, 15),
   'topo-1970s': raster('Historic topos 1969–1984', 'USGS Historical Topographic Map Collection (public domain)', 10, 16),
@@ -125,7 +126,7 @@ export async function serveTiles(request: Request, bucket?: R2Bucket, ctx?: Pick
     }
     if (tilejson) {
       headers.set('Content-Type', 'application/json');
-      return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: archive.title, ...(archive.ext === 'webp' ? { format: 'webp' } : {}), tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.${archive.ext}`], minzoom: archive.minzoom, maxzoom: archive.maxzoom, bounds: manifest.bounds, attribution: archive.attribution, ...(archive.layer ? { vector_layers: [{ id: archive.layer, fields: name === 'trails' ? { type: 'String', src: 'String', agency: 'String' } : {} }] } : {}) }), { headers });
+      return new Response(request.method === 'HEAD' ? null : JSON.stringify({ tilejson: '3.0.0', name: archive.title, ...(archive.ext === 'webp' ? { format: 'webp' } : {}), tiles: [`${url.origin}/tiles/${name}/${version}/{z}/{x}/{y}.${archive.ext}`], minzoom: archive.minzoom, maxzoom: archive.maxzoom, bounds: manifest.bounds, attribution: archive.attribution, ...(archive.layer ? { vector_layers: [{ id: archive.layer, fields: name === 'trails' ? { type: 'String', src: 'String', agency: 'String' } : name === 'state-land' ? { k: 'String', st: 'String', pc: 'String', c: 'String', n: 'String', src: 'String' } : {} }] } : {}) }), { headers });
     }
     return await finishTile(request, pm, await pm.tile(z, x, y), archive, `${z}-${x}-${y}`, cache, cacheKey, ctx);
   } catch (error) {

@@ -28,6 +28,8 @@ const VECTOR_PACKS: Record<string, { template: string; min: number; max: number 
   'osm-tracks': { template: roadTiles('osm-tracks', 'v2'), min: 8, max: 14 },
   'county-forest-roads': { template: roadTiles('wi-forest-roads', 'v1'), min: 8, max: 14 },
   'usfs-closed-roads': { template: roadTiles('usfs-closed-roads', 'v1'), min: 8, max: 14 },
+  'state-public-land': { template: roadTiles('state-land', 'v1'), min: 5, max: 15 },
+  'state-parcels': { template: roadTiles('state-land', 'v1'), min: 13, max: 15 },
 };
 
 /** Enumerate a bounded visible area, avoiding world-wrap duplicates. */
