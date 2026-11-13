@@ -1,4 +1,5 @@
 import { startCommunityVotes } from './community/votes';
+import { startAccessStore } from './map/access/store';
 import { registerSW } from 'virtual:pwa-register';
 import { Repo } from './storage/repo';
 import { startUsage } from './usage';
@@ -39,6 +40,7 @@ async function main(): Promise<void> {
       const [settings, flushVotes] = await Promise.all([
         repo.getMeta<Partial<Settings>>('settings'),
         startCommunityVotes(repo),
+        startAccessStore(repo),
       ]);
       return { repo, settings, items, flushVotes };
     });

@@ -23,6 +23,10 @@ export interface LayerPreferences {
 export interface IdentifyResult {
   communityHikeId?: string;
   communityLineId?: string;
+  /** Official or user parking spot. Pressure reports are stored on the device. */
+  accessSpotId?: string;
+  /** User pullout edited from the identify popup. */
+  pulloutId?: string;
   title?: string;
   rows: [string, string][];
   links?: { label: string; url: string }[];

@@ -33,10 +33,11 @@ export function iconButton(icon: UiIcon, label: string, onclick: () => void, ext
 }
 
 let toastTimer = 0;
-export function toast(message: string, ms = 2600): void {
+export function toast(message: string, ms = 2600, tone?: 'warn'): void {
   const el = document.getElementById('toast');
   if (!el) return;
   el.textContent = message;
+  el.classList.toggle('warn', tone === 'warn');
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => el.classList.remove('show'), ms);

@@ -4,6 +4,7 @@ import type { LngLat, Track, Waypoint, WaypointIcon } from '../types';
 import type { AppContext } from './context';
 import { h, iconButton, toast } from './dom';
 import { iconPicker } from './itemDisplay';
+import { warnAboutRestrictions } from './restrictionWarning';
 
 /** An interactive map mode. The App routes map clicks to the active tool. */
 export interface Tool {
@@ -19,6 +20,7 @@ export async function createWaypoint(ctx: AppContext, coord: LngLat, icon: Waypo
     if (!ctx.visibility().showPins) await ctx.setTypeVisibility({ showPins: true });
     const wp = await ctx.repo.create<Waypoint>({ kind: 'waypoint', name: '', note: '', icon, coord: roundCoord(coord) });
     useFeature('marker_add');
+    warnAboutRestrictions(wp.coord);
     return wp;
   } catch {
     toast('Could not save pin');
