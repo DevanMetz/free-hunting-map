@@ -2,8 +2,12 @@ import { loadConditions } from '../conditions/cache';
 import { sunMoon } from '../conditions/astro';
 import { compass, weatherLabel, type DailyForecast, type Weather, type WeatherPoint } from '../conditions/weather';
 import { haversine } from '../map/geo';
+import { rememberedStand, rememberStand } from '../stands/selection';
+import { windMatches } from '../stands/winds';
+import type { Waypoint, WindDir } from '../types';
 import type { AppContext } from './context';
 import { fmtDateTime, fmtTime, h, iconButton } from './dom';
+import { displayName } from './itemDisplay';
 
 export function openConditionsPanel(ctx: AppContext): void {
   const body = h('div', { class: 'conditions' }, h('div', { class: 'spinner', 'aria-label': 'Loading' }));
@@ -13,6 +17,7 @@ export function openConditionsPanel(ctx: AppContext): void {
   let center: [number, number] = [0, 0];
   let selected = '';
   let focusDate = '';
+  let standId = rememberedStand() ?? '';
 
   const render = (): void => {
     if (ctx.sheet.current !== 'conditions') return;
@@ -25,6 +30,11 @@ export function openConditionsPanel(ctx: AppContext): void {
     const pendingFocus = focusDate;
     focusDate = '';
     const today = weather?.current.time.slice(0, 10) ?? '';
+    const stands = ctx.items().filter((item): item is Waypoint => item.kind === 'waypoint' && !!item.winds?.length);
+    if (standId && !stands.some(item => item.id === standId)) standId = '';
+    if (!standId && stands.length === 1) standId = stands[0]!.id;
+    const chosen = stands.find(item => item.id === standId) ?? null;
+    const winds = chosen?.winds ?? null;
     const selectDay = (date: string): void => {
       selected = date;
       focusDate = date;
@@ -35,12 +45,20 @@ export function openConditionsPanel(ctx: AppContext): void {
         ? h(
             'section',
             {},
-            nowBlock(weather),
+            nowBlock(weather, winds),
+            stands.length
+              ? h('div', { class: 'stand-switch', role: 'group', 'aria-label': 'Stand' }, ...stands.map(item => h('button', {
+                type: 'button',
+                class: item.id === chosen?.id ? 'selected' : '',
+                'aria-pressed': item.id === chosen?.id ? 'true' : 'false',
+                onclick: () => { standId = item.id; rememberStand(item.id); render(); },
+              }, displayName(item))))
+              : null,
             days.length
               ? h(
                   'div',
                   { class: 'day-strip', role: 'group', 'aria-label': 'Daily forecast' },
-                  ...days.map((item) => dayButton(item, item.date === today, item.date === day?.date, lat, lng, tz, () => selectDay(item.date))),
+                  ...days.map((item) => dayButton(item, item.date === today, item.date === day?.date, !!winds && windMatches(item.windDir, winds), lat, lng, tz, () => selectDay(item.date))),
                 )
               : null,
           )
@@ -49,7 +67,7 @@ export function openConditionsPanel(ctx: AppContext): void {
     ];
     if (weather) {
       const hours = hoursFor(weather, day?.date ?? null);
-      nodes.push(h('section', {}, hours.length ? hourlyTable(hours) : null, asOf(weather, stale, refresh)));
+      nodes.push(h('section', {}, hours.length ? hourlyTable(hours, winds) : null, asOf(weather, stale, refresh)));
     }
     body.replaceChildren(...nodes);
     if (pendingFocus) body.querySelector<HTMLButtonElement>(`button[data-date="${pendingFocus}"]`)?.focus();
@@ -77,15 +95,20 @@ function revealDay(strip: HTMLElement, day: HTMLElement): void {
   else if (dayBox.right > stripBox.right) strip.scrollLeft += dayBox.right - stripBox.right;
 }
 
-function nowBlock(w: Weather): HTMLElement {
+function nowBlock(w: Weather, winds: readonly WindDir[] | null): HTMLElement {
   const c = w.current;
+  const good = !!winds && windMatches(c.windDir, winds);
   return h(
     'div',
     { class: 'now' },
     h('div', { class: 'temp' }, `${Math.round(c.temp)}°`),
     h(
       'div',
-      { class: 'wind', 'aria-label': `Wind from ${compass(c.windDir)} ${Math.round(c.windSpeed)} mph, gusts ${Math.round(c.windGust)}` },
+      {
+        class: good ? 'wind good-wind' : 'wind',
+        title: good ? 'Good wind' : undefined,
+        'aria-label': `Wind from ${compass(c.windDir)} ${Math.round(c.windSpeed)} mph, gusts ${Math.round(c.windGust)}${good ? ', good wind' : ''}`,
+      },
       arrow(c.windDir, 36),
       h('div', {}, h('strong', {}, `${compass(c.windDir)} ${Math.round(c.windSpeed)}`), h('span', {}, ` mph · G ${Math.round(c.windGust)}`)),
     ),
@@ -97,6 +120,7 @@ function dayButton(
   day: DailyForecast,
   today: boolean,
   selected: boolean,
+  good: boolean,
   lat: number,
   lng: number,
   tz: string | undefined,
@@ -119,10 +143,10 @@ function dayButton(
     'button',
     {
       type: 'button',
-      class: selected ? 'day selected' : 'day',
+      class: `${selected ? 'day selected' : 'day'}${good ? ' good-wind' : ''}`,
       'data-date': day.date,
       'aria-pressed': selected ? 'true' : 'false',
-      'aria-label': `${name}, high ${high}, low ${low}, wind from ${wind} mph${gust ? `, gusts ${Math.round(day.windGust)}` : ''}${pop ? `, ${pop} precipitation` : ''}, sunrise ${rise}, sunset ${set}, legal light ${light} to ${last}`,
+      'aria-label': `${name}, high ${high}, low ${low}, wind from ${wind} mph${gust ? `, gusts ${Math.round(day.windGust)}` : ''}${pop ? `, ${pop} precipitation` : ''}, sunrise ${rise}, sunset ${set}, legal light ${light} to ${last}${good ? ', good wind' : ''}`,
       onclick: onSelect,
     },
     h('span', { class: 'day-name' }, name),
@@ -142,24 +166,25 @@ function hoursFor(w: Weather, date: string | null): WeatherPoint[] {
   return upcoming.length ? upcoming : onDay;
 }
 
-function hourlyTable(points: WeatherPoint[]): HTMLElement {
+function hourlyTable(points: WeatherPoint[], winds: readonly WindDir[] | null): HTMLElement {
   return h(
     'table',
     { class: 'hourly' },
     h(
       'tbody',
       {},
-      ...points.map((p) =>
-        h(
+      ...points.map((p) => {
+        const good = !!winds && windMatches(p.windDir, winds);
+        return h(
           'tr',
-          {},
+          { class: good ? 'good-wind' : undefined, title: good ? 'Good wind' : undefined },
           h('td', {}, hourLabel(p.time)),
           h('td', {}, `${Math.round(p.temp)}°`),
           h('td', { class: 'wind-cell' }, arrow(p.windDir, 16), `${compass(p.windDir)} ${Math.round(p.windSpeed)}`),
           h('td', {}, `G ${Math.round(p.windGust)}`),
           h('td', {}, p.precipProb === null ? '' : `${p.precipProb}%`),
-        ),
-      ),
+        );
+      }),
     ),
   );
 }

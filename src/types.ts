@@ -7,6 +7,10 @@ export type SightingSex = 'buck' | 'doe' | 'unknown';
 /** [longitude, latitude] — GeoJSON order everywhere. */
 export type LngLat = [number, number];
 
+/** Compass directions a pin hunts well on. */
+export const WIND_DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const;
+export type WindDir = (typeof WIND_DIRS)[number];
+
 /** Fields every syncable item carries. See src/sync/merge.ts for conflict rules. */
 export interface ItemMeta {
   /** Stable UUID, never changes, shared across devices. */
@@ -58,6 +62,8 @@ export interface Waypoint extends ItemMeta, ItemOrganization {
   seenAt?: number;
   /** Resized JPEG data URL. Kept out of file and QR exports. */
   photo?: string;
+  /** Directions the wind blows from when this pin hunts well. */
+  winds?: WindDir[];
 }
 
 export interface Track extends ItemMeta, ItemOrganization {

@@ -1,4 +1,4 @@
-import { WAYPOINT_ICONS, type FieldOfView, type Item, type LngLat, type SightingSex, type WaypointIcon } from '../types';
+import { WAYPOINT_ICONS, WIND_DIRS, type FieldOfView, type Item, type LngLat, type SightingSex, type WaypointIcon, type WindDir } from '../types';
 import { roundCoord } from '../map/geo';
 
 const MAX_TEXT = 2000;
@@ -27,7 +27,8 @@ export function sanitizeItem(raw: unknown): Item | null {
   if (r.kind === 'waypoint') {
     const coord = lngLat(r.coord);
     if (!coord) return null;
-    return { ...meta, ...organization, ...cameraFields(r), ...sightingFields(r), kind: 'waypoint', name, note, icon: icon(r.icon), coord, ...(typeof r.sourceUrl === 'string' && /^https?:\/\//i.test(r.sourceUrl) ? { sourceUrl: r.sourceUrl.slice(0, 8192) } : {}) };
+    const winds = windList(r.winds);
+    return { ...meta, ...organization, ...cameraFields(r), ...sightingFields(r), kind: 'waypoint', name, note, icon: icon(r.icon), coord, ...(typeof r.sourceUrl === 'string' && /^https?:\/\//i.test(r.sourceUrl) ? { sourceUrl: r.sourceUrl.slice(0, 8192) } : {}), ...(winds ? { winds } : {}) };
   }
   if (r.kind === 'track') {
     if (!Array.isArray(r.coords) || r.coords.length > MAX_COORDS) return null;
@@ -89,6 +90,14 @@ function sightingFields(r: Record<string, unknown>): Partial<import('../types').
     ...(seenAt !== null && seenAt > 946_684_800_000 && seenAt < 4_102_444_800_000 ? { seenAt } : {}),
     ...(photo ? { photo } : {}),
   };
+}
+
+function windList(value: unknown): WindDir[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const found = new Set<string>();
+  for (const item of value) if (typeof item === 'string') found.add(item);
+  const winds = WIND_DIRS.filter(dir => found.has(dir));
+  return winds.length ? winds : undefined;
 }
 
 function cameraFields(r: Record<string, unknown>): Partial<import('../types').Waypoint> {

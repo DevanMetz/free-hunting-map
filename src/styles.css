@@ -309,6 +309,58 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
 .day-strip .hi { font-weight: 700; }
 .day-strip .lo, .day-strip .meta, .day-strip .light { color: var(--muted); }
 .day-strip .wind-cell { gap: 2px; }
+.day-strip .day.good-wind { box-shadow: inset 0 -3px 0 var(--accent); }
+.hourly tr.good-wind td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.now .wind.good-wind { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+.wind-picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.wind-picks button {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+}
+.wind-picks button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #111; }
+.stand-finder .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.stand-finder output { color: var(--muted); min-height: 1.2em; }
+.stand-list { display: flex; flex-direction: column; gap: 6px; }
+.stand-row { display: flex; gap: 6px; align-items: stretch; }
+.stand-row .btn { flex: none; }
+.stand-spot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+}
+.stand-spot.selected { border-color: var(--accent); background: var(--panel-2); }
+.stand-spot .meta { color: var(--muted); font-size: 0.85rem; }
+.stand-switch { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-top: 8px; }
+.stand-switch::-webkit-scrollbar { display: none; }
+.stand-switch button {
+  flex: 0 0 auto;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+}
+.stand-switch button.selected { background: var(--accent); border-color: var(--accent); color: #111; }
 .as-of { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
 .as-of .icon-btn { margin-left: auto; }
 .as-of.stale { color: var(--accent); }
