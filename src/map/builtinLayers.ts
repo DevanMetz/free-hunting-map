@@ -36,6 +36,7 @@ import './layers/usfsClosedRoads';
 import './layers/osmTracks';
 import './layers/wiForestRoads';
 import './layers/community';
+import './layers/activity';
 import { registerLayers, type IdentifyResult } from './layerRegistry';
 import { PUBLIC_LANDS, publicLandExportUrl } from './publicLands';
 import { CACHE_ROUTES } from './cacheRoutes';

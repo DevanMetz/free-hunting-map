@@ -7,7 +7,7 @@ import { sanitizeRecord, portablePreferences, type SyncRecord, type HikeRecord }
 import { sanitizeItem } from '../sync/validate';
 import { legacyTakeoutCategory } from './takeoutMigration';
 import { contentId, uuid } from '../sync/ids';
-import { openHuntDB, type HuntDB, type OutboxEntry, type LidarRun, type RecordingPoint } from './db';
+import { openHuntDB, type HuntDB, type OutboxEntry, type LidarRun, type RecordingPoint, type ScoutRow } from './db';
 
 export interface ImportResult {
   received: number;
@@ -359,6 +359,29 @@ export class Repo extends EventTarget {
   }
   async pendingCommunity() { return this.db.getAll('communityQueue'); }
   async ackCommunity(id: string) { await this.db.delete('communityQueue', id); }
+
+  scoutRows(): Promise<ScoutRow[]> {
+    return this.db.getAll('scoutItems');
+  }
+
+  async putScoutRows(rows: ScoutRow[]): Promise<void> {
+    if (!rows.length) return;
+    const tx = this.db.transaction('scoutItems', 'readwrite');
+    for (const row of rows) await tx.store.put(row);
+    await tx.done;
+    this.notifyScout();
+  }
+
+  async deleteScoutRows(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    const tx = this.db.transaction('scoutItems', 'readwrite');
+    for (const id of ids) await tx.store.delete(id);
+    await tx.done;
+    this.notifyScout();
+  }
+
+  /** Party sync listens for this. It does not enter the personal cloud outbox. */
+  notifyScout(): void { this.dispatchEvent(new Event('scout')); }
 
   async getMeta<T>(key: string): Promise<T | undefined> {
     return (await this.db.get('meta', key)) as T | undefined;

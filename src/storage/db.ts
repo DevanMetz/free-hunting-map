@@ -26,8 +26,18 @@ export interface LidarRun { id: string; createdAt: number; box: Box; candidates:
 
 export interface RecordingPoint { trackId: string; index: number; coord: LngLat; t: number; acc: number; alt: number | null; altAcc: number | null; segmentStart?: boolean; nativeSeq?: number }
 
+/** A pin shared with a private party. Kept out of the personal sync outbox. */
+export interface ScoutRow {
+  id: string;
+  groupId: string;
+  item: Item;
+  pending: boolean;
+  owned: boolean;
+}
+
 export interface HuntDB extends DBSchema {
-  recordingPoints: { key: [string, number]; value: RecordingPoint }; 
+  recordingPoints: { key: [string, number]; value: RecordingPoint };
+  scoutItems: { key: string; value: ScoutRow };
   communityQueue: { key: string; value: { id: string; sharing: true; scan: WireScan } };
   records: { key: string; value: SyncRecord };
   lidarRuns: { key: string; value: LidarRun };
@@ -40,13 +50,14 @@ export interface HuntDB extends DBSchema {
 
 // Stable across rebrands so existing data remains accessible on this origin.
 export const DB_NAME = 'open-hunt-map';
-export const DB_VERSION = 6;
+export const DB_VERSION = 7;
 
 export function openHuntDB(name = DB_NAME): Promise<IDBPDatabase<HuntDB>> {
   let database: IDBPDatabase<HuntDB> | undefined;
   return openDB<HuntDB>(name, DB_VERSION, {
     blocking() { database?.close(); },
     upgrade(db, oldVersion) {
+      if (oldVersion < 7) db.createObjectStore('scoutItems', { keyPath: 'id' });
       if (oldVersion < 6) db.createObjectStore('recordingPoints', { keyPath: ['trackId', 'index'] });
       if (oldVersion < 5) db.createObjectStore('communityQueue', { keyPath: 'id' });
       // v4 categories reuse the generic records store; all v3 stores remain intact.

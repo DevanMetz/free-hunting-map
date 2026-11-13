@@ -15,6 +15,16 @@ export const ICON_STYLE: Record<WaypointIcon, { color: string; path: string; tit
     title: 'Rub',
     path: 'M11 4h2v16h-2zM13 7l4-3 1 1.4-5 3.6zM11 11l-4-3-1 1.4 5 3.6zM13 13l3.5-2.2.9 1.4-4.4 2.8z',
   },
+  scrape: {
+    color: '#8a6232',
+    title: 'Scrape',
+    path: 'M7 15c1.2-2 2.8-3 5-3s3.8 1 5 3c-1.4 1.6-3 2.4-5 2.4S8.4 16.6 7 15zM8.2 11.2a1.15 1.15 0 1 0 .01 0zM12 10a1.15 1.15 0 1 0 .01 0zM15.8 11.2a1.15 1.15 0 1 0 .01 0z',
+  },
+  deer: {
+    color: '#c4a35a',
+    title: 'Deer',
+    path: 'M12 20c-2.6 0-4.5-1.8-4.5-4.4 0-1.8.8-3.2 1.7-4.6L7.2 5.2l2.4 1.6L12 4l2.4 2.8 2.4-1.6-2 6c.9 1.4 1.7 2.8 1.7 4.6C16.5 18.2 14.6 20 12 20z',
+  },
   camp: { color: '#2e7d6b', title: 'Camp', path: 'M12 4l8 15H4zM12 11l-3 8h6z' },
   truck: {
     color: '#3f6fb5',

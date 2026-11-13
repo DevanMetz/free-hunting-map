@@ -91,7 +91,7 @@ export class App implements AppContext {
     );
 
     this.map.map.on('click', (e) => {
-      if (!document.querySelector('[data-lidar-drawing]')) this.onMapClick(e);
+      if (!document.querySelector('[data-lidar-drawing],[data-offline-drawing]')) this.onMapClick(e);
     });
     this.map.map.on('moveend', () => this.persistSettings());
     this.map.map.on('move', () => this.scheduleCoordChip());
@@ -118,6 +118,7 @@ export class App implements AppContext {
     await app.reloadItems(initialItems);
     await app.resumeRecording();
     void app.startAccount(root);
+    void import('../scout/client').then(({ startScout }) => startScout(app)).catch(err => console.error('Party sync could not start:', err));
     return app;
   }
 
@@ -373,6 +374,14 @@ export class App implements AppContext {
     const id = hit?.properties?.id as string | undefined;
     const item = id ? this.liveItems.find((i) => i.id === id) : undefined;
     if (item) { this.openItem(item); return; }
+    const scout = this.map.map.getLayer('scout-pins')
+      ? this.map.map.queryRenderedFeatures([[x - r, y - r], [x + r, y + r]], { layers: ['scout-pins'] })[0]
+      : undefined;
+    const scoutId = typeof scout?.properties?.id === 'string' ? scout.properties.id : undefined;
+    if (scoutId) {
+      void import('../scout/client').then(({ openScoutPin }) => openScoutPin(this, scoutId));
+      return;
+    }
     void this.identifyLayers(e, at);
   }
 
