@@ -15,7 +15,7 @@ export const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&
 const json = value => JSON.stringify(value).replace(/</g, '\\u003c');
 export const cta = '<a class="button" href="/">Open the map <span aria-hidden="true">↗</span></a>';
 export const header = `<a class="skip" href="#main">Skip to content</a><header class="site-header"><a class="brand" href="/features"><img src="/favicon.svg" width="32" height="32" alt="">Free Hunting Map</a><nav aria-label="Main"><a href="/">Map</a><a href="/features">Features</a><a href="/guides/">Guides</a><a href="/public-land/">Public land</a><a href="/faq">FAQ</a><a href="/about">About</a></nav></header>`;
-export const footer = '<footer class="site-footer"><a class="brand" href="/features">Free Hunting Map</a><nav aria-label="Footer"><a href="/links">Links</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="https://github.com/DevanMetz/free-hunting-map">GitHub</a><a href="/about">About</a></nav></footer>';
+export const footer = '<footer class="site-footer"><a class="brand" href="/features">Free Hunting Map</a><nav aria-label="Footer"><a href="/links">Links</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/download/free-hunting-map.apk">Android</a><a href="https://github.com/DevanMetz/free-hunting-map">GitHub</a><a href="/about">About</a></nav></footer>';
 const person = { '@type': 'Person', '@id': `${ORIGIN}/about#devan-metz`, name: 'Devan Metz', url: `${ORIGIN}/about` };
 export const application = {
   '@type': ['WebApplication', 'SoftwareApplication'], '@id': `${ORIGIN}/#app`, name: 'Free Hunting Map', url: `${ORIGIN}/`,

@@ -8,6 +8,7 @@ import { layerRegistry, layerSetting } from '../map/layerRegistry';
 import { formatLatLng, haversine, locationFromSearch, pathLength, shortDistance } from '../map/geo';
 import { HuntMap, LAYER_TRACKS, LAYER_WAYPOINTS } from '../map/map';
 import { WindPlume } from '../map/windPlume';
+import { clearRecordingService, drainFixes, recordingSession } from '../map/hikeRecorder';
 import { TrackRecorder } from '../map/recorder';
 import type { Repo } from '../storage/repo';
 import type { RecordingPoint } from '../storage/db';
@@ -46,6 +47,8 @@ export class App implements AppContext {
   private recordingStarted = 0;
   private recordingDistance = 0;
   private recordingTimer = 0;
+  private latestNativeSeq = 0;
+  private nativeSeqTimer = 0;
   private readonly buttons = new Map<string, HTMLButtonElement>();
   private readonly recChip: HTMLElement;
 
@@ -72,7 +75,7 @@ export class App implements AppContext {
     root.append(this.buildCoordChip());
     mountQuickLook(this, root, () => this.openLazyPanel('conditions', 'Conditions', () => import('./conditionsPanel').then(m => () => m.openConditionsPanel(this))));
     this.recorder = new TrackRecorder(
-      (coords, pos) => this.onRecordedPoint(coords, pos),
+      (coords, pos, nativeSeq) => this.onRecordedPoint(coords, pos, nativeSeq),
       (err) => toast(err.message || 'GPS error'),
       (message) => {
         this.stoppedCoords = [...this.recorder.coords];
@@ -83,6 +86,7 @@ export class App implements AppContext {
         this.queueRecordingSave(true);
         toast(message);
       },
+      seq => this.noteNativeSeq(seq),
     );
 
     this.map.map.on('click', (e) => {
@@ -98,10 +102,14 @@ export class App implements AppContext {
     repo.addEventListener('preferences', () => void this.applyPreferences());
     document.addEventListener('sheet-closed', () => this.syncToolbar());
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { this.recorder.markHidden(); this.queueRecordingSave(true); }
-      else { this.updateRecordingTimer(); void this.requestRecordingWakeLock(); }
+      if (document.hidden) { this.recorder.markHidden(); this.persistNativeSeq(); this.queueRecordingSave(true); }
+      else {
+        this.updateRecordingTimer();
+        void this.requestRecordingWakeLock();
+        if (this.recorder.active) void this.recorder.catchUp().then(() => this.queueRecordingSave(true));
+      }
     });
-    window.addEventListener('pagehide', () => this.queueRecordingSave(true));
+    window.addEventListener('pagehide', () => { this.persistNativeSeq(); this.queueRecordingSave(true); });
   }
 
   static async start(root: HTMLElement, repo: Repo, saved?: Partial<Settings>, initialItems?: Promise<[Item[], Category[]]>): Promise<App> {
@@ -337,7 +345,7 @@ export class App implements AppContext {
 
   private syncToolbar(): void {
     for (const [key, btn] of this.buttons) {
-      const active = key === 'record' ? this.recorder.active || this.stoppedCoords !== null : this.sheet.current === key || this.tool?.key === key.replace('tool:', '');
+      const active = key === 'record' ? this.recorder.needsStop || this.stoppedCoords !== null : this.sheet.current === key || this.tool?.key === key.replace('tool:', '');
       btn.classList.toggle('active', Boolean(active));
       btn.setAttribute('aria-pressed', String(Boolean(active)));
     }
@@ -405,14 +413,23 @@ export class App implements AppContext {
     const button = this.buttons.get('record');
     if (button) button.disabled = true;
     try {
-      if (this.recorder.active || this.stoppedCoords) {
-        if (this.recorder.active) {
-          this.stoppedCoords = [...this.recorder.stop()];
+      if (this.recorder.needsStop || this.stoppedCoords) {
+        if (this.recorder.needsStop) {
+          this.stoppedCoords = [...this.recorder.coords];
           void this.wakeLock?.release().catch(() => {});
           this.wakeLock = null;
+          try {
+            this.stoppedCoords = [...await this.recorder.stop()];
+          } catch {
+            this.setRecordIcon(true);
+            this.syncToolbar();
+            toast('Could not save recording. Tap stop to retry.');
+            return;
+          }
         }
         const coords = this.stoppedCoords!;
         const track = this.recording;
+        this.persistNativeSeq();
         await this.recordingSave;
         await this.flushRecordingPoints();
         if (track) {
@@ -423,6 +440,7 @@ export class App implements AppContext {
           }
         }
         if (track) await this.repo.clearRecording(track.id, coords.length >= 2);
+        if (Capacitor.getPlatform() === 'android') await clearRecordingService();
         this.recording = null;
         this.stoppedCoords = null;
         this.recChip.hidden = true;
@@ -438,9 +456,14 @@ export class App implements AppContext {
       this.recording = await this.repo.create<Track>({ kind: 'track', name, note: '', coords: [], recorded: true });
       try {
         this.recordingStarted = await this.repo.beginRecording(this.recording.id);
-        await this.recorder.start();
+        this.latestNativeSeq = 0;
+        const android = Capacitor.getPlatform() === 'android';
+        if (android) await this.repo.setMeta('recording.nativeSeq', { trackId: this.recording.id, seq: 0 });
+        await this.recorder.start([], [], 0, 0, android ? { trackId: this.recording.id, since: 0 } : undefined);
       } catch (error) {
         this.stoppedCoords = [];
+        try { await this.recorder.stop(); } catch { /* Start never armed the watcher. */ }
+        if (Capacitor.getPlatform() === 'android') await clearRecordingService().catch(() => {});
         await this.repo.remove(this.recording.id);
         await this.repo.clearRecording(this.recording.id);
         this.recording = null;
@@ -511,31 +534,37 @@ export class App implements AppContext {
 
   private async resumeRecording(): Promise<void> {
     try {
+      if (Capacitor.getPlatform() === 'android') await this.recoverNativeRecording();
       const active = await this.repo.activeRecording();
       if (!active) return;
       const track = await this.repo.get(active.trackId);
       const points = await this.repo.recordingPoints(active.trackId);
       if (!track || track.deleted || track.kind !== 'track') {
         await this.repo.clearRecording(active.trackId);
+        if (Capacitor.getPlatform() === 'android') await clearRecordingService().catch(() => {});
         return;
       }
       const coords = points.map(point => point.coord);
-      if (coords.length < 2) {
+      const session = Capacitor.getPlatform() === 'android' ? await recordingSession() : null;
+      const since = await this.nativeSince(track.id, points);
+      if (coords.length < 2 && !session?.recording && (session ? (await drainFixes(since)).length : 0) === 0) {
         await this.repo.remove(track.id);
         await this.repo.clearRecording(track.id);
+        if (session) await clearRecordingService().catch(() => {});
         return;
       }
       this.recording = track;
       const segments = points.filter(point => point.segmentStart).map(point => point.index);
+      this.latestNativeSeq = since;
       try {
-        await this.recorder.start(coords, segments, points.at(-1)?.t, points.at(-1)?.acc);
+        await this.recorder.start(coords, segments, points.at(-1)?.t ?? 0, points.at(-1)?.acc ?? 0, session ? { trackId: track.id, since } : undefined);
       } catch {
-        this.stoppedCoords = coords;
+        this.stoppedCoords = [...this.recorder.coords];
         toast('Could not resume GPS. Stop recording to save it.');
       }
       this.recChip.hidden = this.stoppedCoords !== null;
       this.recordingStarted = active.started;
-      this.recordingDistance = pathLength(coords, segments);
+      this.recordingDistance = pathLength(this.stoppedCoords ?? this.recorder.coords, this.recorder.segments);
       if (!this.stoppedCoords) this.startRecordingTimer();
       this.setRecordIcon(true);
       this.syncToolbar();
@@ -546,13 +575,50 @@ export class App implements AppContext {
     }
   }
 
-  private onRecordedPoint(coords: LngLat[], pos: GeolocationPosition): void {
+  private async recoverNativeRecording(): Promise<void> {
+    const status = await recordingSession();
+    if (!status.trackId) return;
+    if (await this.repo.activeRecording()) return;
+    if (!status.recording) {
+      await clearRecordingService();
+      return;
+    }
+    const track = await this.repo.get(status.trackId);
+    if (!track || track.deleted || track.kind !== 'track') {
+      await clearRecordingService();
+      return;
+    }
+    await this.repo.setMeta('active-recording', { trackId: status.trackId, started: status.startedAt, paused: false });
+  }
+
+  private async nativeSince(trackId: string, points: RecordingPoint[]): Promise<number> {
+    const marker = await this.repo.getMeta<{ trackId: string; seq: number }>('recording.nativeSeq');
+    const fromPoints = points.reduce((max, point) => Math.max(max, point.nativeSeq ?? 0), 0);
+    return Math.max(fromPoints, marker?.trackId === trackId ? marker.seq : 0);
+  }
+
+  private noteNativeSeq(seq: number): void {
+    if (seq <= this.latestNativeSeq) return;
+    this.latestNativeSeq = seq;
+    clearTimeout(this.nativeSeqTimer);
+    this.nativeSeqTimer = window.setTimeout(() => this.persistNativeSeq(), 1000);
+  }
+
+  private persistNativeSeq(): void {
+    clearTimeout(this.nativeSeqTimer);
+    const track = this.recording;
+    const seq = this.latestNativeSeq;
+    if (!track || seq <= 0) return;
+    this.recordingSave = this.recordingSave.then(() => this.repo.setMeta('recording.nativeSeq', { trackId: track.id, seq })).catch(() => {});
+  }
+
+  private onRecordedPoint(coords: LngLat[], pos: GeolocationPosition, nativeSeq?: number): void {
     if (coords.length > 1 && !this.recorder.segments.includes(coords.length - 1)) this.recordingDistance += haversine(coords[coords.length - 2]!, coords[coords.length - 1]!);
     this.updateRecordingTimer();
     const track = this.recording;
     if (!track) return;
     this.pendingPoints.push({ trackId: track.id, index: coords.length - 1, coord: coords[coords.length - 1]!,
-      t: pos.timestamp, acc: pos.coords.accuracy, alt: pos.coords.altitude, altAcc: pos.coords.altitudeAccuracy, segmentStart: this.recorder.segments.includes(coords.length - 1) });
+      t: pos.timestamp, acc: pos.coords.accuracy, alt: pos.coords.altitude, altAcc: pos.coords.altitudeAccuracy, segmentStart: this.recorder.segments.includes(coords.length - 1), ...(nativeSeq ? { nativeSeq } : {}) });
     this.queueRecordingSave(Date.now() - this.lastRecordingSnapshot >= RECORD_SAVE_INTERVAL);
   }
 

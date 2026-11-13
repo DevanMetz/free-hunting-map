@@ -14,6 +14,7 @@ export const NAVIGATION_FALLBACK_DENYLIST = [
   /^\/api(?:\/|$)/,
   /^\/(?:privacy|terms|features|about|free-onx-alternative|guides|public-land|links|faq)(?:\.html)?(?:\/|$|\?)/,
   /^\/(?:robots\.txt|sitemap\.xml|llms\.txt)(?:$|\?)/,
+  /^\/download(?:\/|$)/,
 ];
 
 /** CacheFirst for map imagery so previously viewed areas work offline. */

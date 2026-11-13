@@ -23,7 +23,7 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/tiles/*"],
+    "run_worker_first": ["/api/*", "/tiles/*", "/download/*"],
     // Unknown paths fall back to index.html (client-side routing / PWA shell).
     "not_found_handling": "single-page-application"
   },

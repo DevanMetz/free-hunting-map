@@ -29,14 +29,23 @@ function nativeCors(response: Response, origin: string): Response {
 }
 async function hash(value: string) { return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), n => n.toString(16).padStart(2,'0')).join(''); }
 function cookie(request: Request) { return request.headers.get('cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1); }
+function rawSession(request: Request): string | null {
+  const header = request.headers.get('authorization');
+  if (header) {
+    const token = /^Bearer ([0-9a-f]{64})$/i.exec(header.trim())?.[1];
+    return token ? token.toLowerCase() : null;
+  }
+  const token = cookie(request);
+  return token && /^[0-9a-f]{64}$/i.test(token) ? token : null;
+}
 async function rate(db: D1Database, key: string, limit: number, userId?: string) {
   const window = Math.floor(Date.now()/60_000);
   const row = await db.prepare('INSERT INTO rate_limits(key,window,count) SELECT ?,?,1 WHERE (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=?)) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END,window=excluded.window RETURNING count').bind(key,window,userId ?? null,userId ?? null).first<{ count: number }>();
   if ((row?.count ?? 0) > limit) throw new ApiError(429,'Too many requests');
 }
 async function user(request: Request, env: Env) {
-  const token = cookie(request);
-  if (!token || token.length > 128) return null;
+  const token = rawSession(request);
+  if (!token) return null;
   return env.DB.prepare('SELECT users.id,users.email,users.name,users.picture FROM sessions JOIN users ON sessions.user_id=users.id WHERE sessions.hash=? AND sessions.expires_at>?').bind(await hash(token),Date.now()).first<{id: string; email?: string; name?: string; picture?: string}>();
 }
 async function body(request: Request, cap = 8_000_000) {
@@ -74,14 +83,22 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
       try { return await communityTile(request,env.DB); } catch { return new Response(null,{status:503}); }
     }
     if (url.pathname === '/tiles' || url.pathname.startsWith('/tiles/')) return serveTiles(request, env.TILES, ctx);
+    if (url.pathname === '/download/free-hunting-map.apk') {
+      const asset = await env.ASSETS.fetch(request);
+      const headers = new Headers(asset.headers);
+      headers.set('Content-Type', 'application/vnd.android.package-archive');
+      headers.set('Content-Disposition', 'attachment; filename="free-hunting-map.apk"');
+      headers.set('Cache-Control', 'public, max-age=3600');
+      headers.set('X-Content-Type-Options', 'nosniff');
+      return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers });
+    }
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
     try {
       if (request.method === 'POST') {
         // Comparing to the actual request origin prevents cross-domain cookies/authentication attacks.
         const origin = request.headers.get('origin');
         const allowed = ['https://freehuntingmap.com','https://www.freehuntingmap.com','https://open-hunt-map.metzdevan.workers.dev'].includes(url.origin) || local(url);
-        // Native requests must not use browser cookies across origins; native authentication
-        // will use an explicit bearer token instead.
+        // The Android app sends its session as a bearer token. Cookies stay on the website.
         const native = origin !== null && nativeOrigins.has(origin) && !request.headers.has('cookie');
         if (!allowed || (origin !== url.origin && !native)) throw new ApiError(403,'Invalid origin');
       }
@@ -161,10 +178,11 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
           env.DB.prepare('DELETE FROM sessions WHERE expires_at<=?').bind(Date.now()),
           env.DB.prepare('DELETE FROM rate_limits WHERE window<?').bind(Math.floor(Date.now()/60_000)-60),
         ]);
-        return json({user:account},200,{'Set-Cookie':`${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${AGE}`});
+        const nativeClient = origin !== null && nativeOrigins.has(origin);
+        return json({ user: account, ...(nativeClient ? { token } : {}) }, 200, { 'Set-Cookie': `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${AGE}` });
       }
       if (url.pathname === '/api/auth/logout') {
-        const token = cookie(request);
+        const token = rawSession(request);
         if (token) await env.DB.prepare('DELETE FROM sessions WHERE hash=?').bind(await hash(token)).run();
         return json({user:null},200,clearCookie);
       }

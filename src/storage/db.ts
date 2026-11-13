@@ -24,7 +24,7 @@ export interface ImportLogEntry {
 
 export interface LidarRun { id: string; createdAt: number; box: Box; candidates: Candidates }
 
-export interface RecordingPoint { trackId: string; index: number; coord: LngLat; t: number; acc: number; alt: number | null; altAcc: number | null; segmentStart?: boolean }
+export interface RecordingPoint { trackId: string; index: number; coord: LngLat; t: number; acc: number; alt: number | null; altAcc: number | null; segmentStart?: boolean; nativeSeq?: number }
 
 export interface HuntDB extends DBSchema {
   recordingPoints: { key: [string, number]; value: RecordingPoint }; 

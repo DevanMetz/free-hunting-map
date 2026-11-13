@@ -4,4 +4,7 @@
     <string name="title_activity_main">Free Hunting Map</string>
     <string name="package_name">com.freehuntingmap.app</string>
     <string name="custom_url_scheme">com.freehuntingmap.app</string>
+    <string name="recording_channel">Hike recording</string>
+    <string name="recording_title">Recording hike</string>
+    <string name="recording_text">Free Hunting Map</string>
 </resources>

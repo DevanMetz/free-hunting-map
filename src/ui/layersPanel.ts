@@ -1,3 +1,4 @@
+import { usesNativeAccount } from '../sync/nativeAccount';
 import { privacyBlocked, usageAllowed, setUsageEnabled, useFeature } from '../usage';
 import { LABEL_SCALES } from '../map/labels';
 import { BASEMAP_IDS, BASEMAP_NAMES } from '../map/sources';
@@ -312,7 +313,7 @@ export function openLayersPanel(ctx: AppContext, persist: () => void, openTrailF
       storage,
       h('label', { class: 'layer-toggle' }, sharing, 'Share scan results'),
       h('label', { class: 'layer-toggle' }, h('input', { type: 'checkbox', role: 'switch', checked: usageAllowed(), disabled: privacyBlocked(), onchange: (e: Event) => setUsageEnabled((e.target as HTMLInputElement).checked) }), 'Usage analytics'),
-      h('nav', { class: 'policy-links', 'aria-label': 'Site' }, h('a', { href: '/features' }, 'Features'), h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'))));
+      h('nav', { class: 'policy-links', 'aria-label': 'Site' }, h('a', { href: '/features' }, 'Features'), h('a', { href: '/privacy' }, 'Privacy'), h('a', { href: '/terms' }, 'Terms'), usesNativeAccount() ? null : h('a', { href: '/download/free-hunting-map.apk' }, 'Android'))));
   ctx.sheet.open('layers', 'Layers', root, () => {
     offline.close(); unsubscribe(); ctx.map.map.off('moveend', moved); ctx.map.map.off('style.load', basemapChanged); close(); popover.remove();
     document.removeEventListener('pointerdown', outside);
