@@ -7,6 +7,13 @@ export interface TerrainSurface {
   height: Float32Array;
   indices: Uint16Array;
   heightRange: [number, number];
+  cols: number;
+  rows: number;
+  /** Ground metres per cell. */
+  dx: number;
+  dy: number;
+  /** Likely bedding cells, same order as height. */
+  bed?: Uint8Array;
 }
 
 type MercatorBox = [number, number, number, number];
@@ -118,7 +125,13 @@ function meshGrid(grid: ElevationGrid, origin: { x: number; y: number; z: number
     indices[triangle++] = a; indices[triangle++] = c; indices[triangle++] = b;
     indices[triangle++] = b; indices[triangle++] = c; indices[triangle++] = d;
   }
-  return { positions, height: elevation, indices, heightRange: hi > lo ? [lo, hi] : [lo, lo + 1] };
+  const midY = originY + height * dy * 0.5;
+  const lat = Math.atan(Math.sinh(midY / 6378137)) * 180 / Math.PI;
+  const scale = Math.max(0.2, Math.cos(lat * Math.PI / 180));
+  return {
+    positions, height: elevation, indices, heightRange: hi > lo ? [lo, hi] : [lo, lo + 1],
+    cols: width, rows: height, dx: Math.abs(dx) * scale, dy: Math.abs(dy) * scale,
+  };
 }
 
 /** Start the 3DEP download so it overlaps the point-cloud fetch. Mesh once the origin is known. */

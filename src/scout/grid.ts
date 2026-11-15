@@ -2,7 +2,7 @@ import type { Waypoint, WaypointIcon } from '../types';
 import { sanitizeItem } from '../sync/validate';
 
 /** Shareable with a private party. Stands and pins stay out of the public grid. */
-export const SHAREABLE_ICONS = ['pin', 'stand', 'rub', 'scrape', 'deer', 'trailcam'] as const satisfies readonly WaypointIcon[];
+export const SHAREABLE_ICONS = ['pin', 'stand', 'rub', 'scrape', 'deer', 'bed', 'trailcam'] as const satisfies readonly WaypointIcon[];
 /** Animal sign only. Hunter locations (pins, stands, camps) are never published. */
 export const SIGHTING_ICONS = ['deer', 'rub', 'scrape', 'trailcam'] as const satisfies readonly WaypointIcon[];
 
@@ -136,6 +136,7 @@ export function sharedWaypoint(item: Waypoint, memberId: string, deleted = item.
     ...(typeof item.setAt === 'number' ? { setAt: item.setAt } : {}),
     ...(typeof item.checkedAt === 'number' ? { checkedAt: item.checkedAt } : {}),
     ...(item.fov ? { fov: item.fov } : {}),
+    ...(item.bed ? { bed: item.bed } : {}),
     ...(item.color ? { color: item.color } : {}),
     ...(typeof item.iconOverride === 'boolean' ? { iconOverride: item.iconOverride } : {}),
   });

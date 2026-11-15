@@ -1,8 +1,25 @@
 /** Domain model shared by storage, sync, share and UI. */
 
-export const WAYPOINT_ICONS = ['pin', 'stand', 'blood', 'rub', 'scrape', 'deer', 'camp', 'truck', 'trailcam'] as const;
+export const WAYPOINT_ICONS = ['pin', 'stand', 'blood', 'rub', 'scrape', 'deer', 'bed', 'camp', 'truck', 'trailcam'] as const;
 export type WaypointIcon = (typeof WAYPOINT_ICONS)[number];
 export type SightingSex = 'buck' | 'doe' | 'unknown';
+export type BedAnimal = 'buck' | 'doe' | 'group';
+export type BedTerrain = 'hill' | 'flat' | 'farm' | 'piedmont' | 'mountain';
+
+export interface BedDetails {
+  animal?: BedAnimal;
+  /** When the bed was found, epoch ms. */
+  bedAt?: number;
+  /** Downhill aspect, degrees. */
+  aspect?: number;
+  /** Relative slope position, 0 at the pool and 100 at the peak. */
+  position?: number;
+  /** Positive openness, degrees. */
+  openness?: number;
+  /** Relief within 25 m, degrees. */
+  steepness?: number;
+  terrain?: BedTerrain;
+}
 
 /** [longitude, latitude] — GeoJSON order everywhere. */
 export type LngLat = [number, number];
@@ -64,6 +81,8 @@ export interface Waypoint extends ItemMeta, ItemOrganization {
   photo?: string;
   /** Directions the wind blows from when this pin hunts well. */
   winds?: WindDir[];
+  /** Logged deer bed. Omitted for other pins. */
+  bed?: BedDetails;
 }
 
 export interface Track extends ItemMeta, ItemOrganization {

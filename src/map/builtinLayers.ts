@@ -25,6 +25,7 @@ import './layers/ohioParcels';
 import './layers/stateLand';
 import './layers/communityHikes';
 import './layers/lidar';
+import './layers/bedding';
 import './layers/historicAerials';
 import './layers/historicTopo';
 import './layers/hazards';

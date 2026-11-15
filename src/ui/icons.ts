@@ -31,6 +31,7 @@ export const UI_ICONS = {
   scan: svg('<path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M7 12h10"/>'),
   lidar3d: svg('<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>'),
   stand: svg('<path d="M7 20V9M17 20V9M7 11h10M9 7h6M12 7V4"/>'),
+  beds: svg('<path d="M3 17h18M5 17V10h4l3 3 3-3h4v7M3 20h18"/>'),
   download: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
   upload: svg('<path d="M12 20V9M7 14l5-5 5 5M5 4h14"/>'),
   locate: svg('<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>'),

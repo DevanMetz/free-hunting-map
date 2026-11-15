@@ -91,7 +91,7 @@ export class App implements AppContext {
     );
 
     this.map.map.on('click', (e) => {
-      if (!document.querySelector('[data-lidar-drawing],[data-offline-drawing],[data-stand-drawing]')) this.onMapClick(e);
+      if (!document.querySelector('[data-lidar-drawing],[data-offline-drawing],[data-stand-drawing],[data-bed-drawing]')) this.onMapClick(e);
     });
     this.map.map.on('moveend', () => this.persistSettings());
     this.map.map.on('move', () => this.scheduleCoordChip());
@@ -119,6 +119,8 @@ export class App implements AppContext {
     await app.resumeRecording();
     void app.startAccount(root);
     void import('../scout/client').then(({ startScout }) => startScout(app)).catch(err => console.error('Party sync could not start:', err));
+    void import('../beds/session').then(({ bindBedding }) => bindBedding(repo)).catch(err => console.error('Bedding could not start:', err));
+    void import('../beds/share').then(({ startBedShare }) => startBedShare(repo)).catch(err => console.error('Bed sharing could not start:', err));
     return app;
   }
 
@@ -263,6 +265,7 @@ export class App implements AppContext {
       add('tool:track', 'track', 'Draw track', () => this.toggleTool('track')),
       add('trails', 'scan', 'Trail finder', () => this.openTrailFinder()),
       add('stands', 'stand', 'Stands', () => this.openLazyPanel('stands', 'Stands', () => import('./standsPanel').then(m => () => m.openStandsPanel(this)))),
+      add('beds', 'beds', 'Beds', () => this.openLazyPanel('beds', 'Beds', () => import('./bedsPanel').then(m => () => m.openBedsPanel(this)))),
       add('lidar3d', 'lidar3d', '3D lidar', () => this.openLidar3d()),
       add('record', 'record', 'Record GPS track', () => void this.toggleRecording()),
       add('tool:measure', 'measure', 'Measure', () => this.toggleTool('measure')),
@@ -362,6 +365,7 @@ export class App implements AppContext {
     this.inspectPopup?.remove();
     this.inspectPopup = null;
     const at: LngLat = [e.lngLat.lng, e.lngLat.lat];
+    if (document.body.dataset.bedPin != null) return;
     if (this.tool) {
       cancelAccessPlacement();
       this.tool.onMapClick(at);

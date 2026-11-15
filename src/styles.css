@@ -324,7 +324,28 @@ video.scanner { width: 100%; max-height: 42vh; border-radius: 10px; background: 
   font-weight: 600;
 }
 .wind-picks button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #111; }
-.stand-finder .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.beds-panel .button-row, .stand-finder .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.bed-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.bed-presets button, .beds-panel .btn[aria-pressed="true"] {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+}
+.bed-presets button[aria-checked="true"], .beds-panel .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #111; }
+.bed-presets button.suggested { outline: 2px solid var(--accent); outline-offset: 1px; }
+.aspect-dial { width: 168px; height: 168px; touch-action: none; align-self: center; }
+.aspect-dial .ring { fill: none; stroke: var(--line); stroke-width: 2; }
+.aspect-dial .wedge { fill: var(--accent); opacity: 0.8; }
+.aspect-dial .handle { fill: var(--text); }
+.aspect-dial text { fill: var(--muted); font-size: 12px; font-weight: 700; }
+.bed-range { display: grid; grid-template-columns: 5.6rem 1fr 1fr; gap: 6px; align-items: center; }
+.bed-range .field { width: 100%; min-width: 0; padding: 8px; }
+.bed-acres, .bed-compare { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.bed-acres div, .bed-compare div { display: flex; justify-content: space-between; gap: 12px; }
+.bed-compare, .bed-note { color: var(--muted); }
 .stand-finder output { color: var(--muted); min-height: 1.2em; }
 .stand-list { display: flex; flex-direction: column; gap: 6px; }
 .stand-row { display: flex; gap: 6px; align-items: stretch; }

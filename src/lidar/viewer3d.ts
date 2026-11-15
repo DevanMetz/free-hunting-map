@@ -128,6 +128,9 @@ export function mountPointCloud(cloud: PointCloud, basemap: BasemapId, onClose: 
   let meshColors: Float32BufferAttribute | undefined;
   let terrain: Mesh | undefined;
   let drapeTex: CanvasTexture | undefined;
+  let bedGeom: BufferGeometry | undefined;
+  let bedMat: MeshBasicMaterial | undefined;
+  let bedMesh: Mesh | undefined;
   const surface = cloud.surface;
   const drapeAbort = new AbortController();
   if (surface) {
@@ -152,6 +155,33 @@ export function mountPointCloud(cloud: PointCloud, basemap: BasemapId, onClose: 
     scene.add(sun);
     terrain = new Mesh(meshGeom, meshMat);
     scene.add(terrain);
+    const bed = surface.bed;
+    if (bed?.some(cell => cell === 1)) {
+      const kept: number[] = [];
+      for (let i = 0; i < surface.indices.length; i += 3) {
+        const a = surface.indices[i]!;
+        const b = surface.indices[i + 1]!;
+        const c = surface.indices[i + 2]!;
+        if (bed[a] || bed[b] || bed[c]) kept.push(a, b, c);
+      }
+      if (kept.length) {
+        bedGeom = new BufferGeometry();
+        bedGeom.setAttribute('position', new Float32BufferAttribute(surface.positions, 3));
+        bedGeom.setIndex(new Uint16BufferAttribute(new Uint16Array(kept), 1));
+        bedMat = new MeshBasicMaterial({
+          color: 0xc47a2c,
+          transparent: true,
+          opacity: 0.55,
+          depthWrite: false,
+          side: DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        });
+        bedMesh = new Mesh(bedGeom, bedMat);
+        scene.add(bedMesh);
+      }
+    }
     const position = meshGeom.getAttribute('position');
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (let i = 0; i < position.count; i++) {
@@ -237,6 +267,7 @@ export function mountPointCloud(cloud: PointCloud, basemap: BasemapId, onClose: 
       terrain.visible = mode !== 'points';
       terrain.material = (mode === 'map' || mode === 'both') && mapMat ? mapMat : meshMat!;
     }
+    if (bedMesh) bedMesh.visible = mode !== 'points';
     for (const [button, on] of [[mapBtn, mode === 'map'], [surfaceBtn, mode === 'surface'], [pointsBtn, mode === 'points'], [bothBtn, mode === 'both']] as const) {
       button.classList.toggle('primary', on);
       button.setAttribute('aria-pressed', String(on));
@@ -273,6 +304,8 @@ export function mountPointCloud(cloud: PointCloud, basemap: BasemapId, onClose: 
     texture.dispose();
     meshGeom?.dispose();
     meshMat?.dispose();
+    bedGeom?.dispose();
+    bedMat?.dispose();
     mapMat?.dispose();
     drapeTex?.dispose();
     renderer.dispose();
