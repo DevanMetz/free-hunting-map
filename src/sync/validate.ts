@@ -1,4 +1,4 @@
-import { WAYPOINT_ICONS, WIND_DIRS, type FieldOfView, type Item, type LngLat, type SightingSex, type WaypointIcon, type WindDir } from '../types';
+import { WAYPOINT_ICONS, WIND_DIRS, type BedAnimal, type BedDetails, type BedTerrain, type FieldOfView, type Item, type LngLat, type SightingSex, type WaypointIcon, type WindDir } from '../types';
 import { roundCoord } from '../map/geo';
 
 const MAX_TEXT = 2000;
@@ -28,7 +28,7 @@ export function sanitizeItem(raw: unknown): Item | null {
     const coord = lngLat(r.coord);
     if (!coord) return null;
     const winds = windList(r.winds);
-    return { ...meta, ...organization, ...cameraFields(r), ...sightingFields(r), kind: 'waypoint', name, note, icon: icon(r.icon), coord, ...(typeof r.sourceUrl === 'string' && /^https?:\/\//i.test(r.sourceUrl) ? { sourceUrl: r.sourceUrl.slice(0, 8192) } : {}), ...(winds ? { winds } : {}) };
+    return { ...meta, ...organization, ...cameraFields(r), ...sightingFields(r), ...bedFields(r), kind: 'waypoint', name, note, icon: icon(r.icon), coord, ...(typeof r.sourceUrl === 'string' && /^https?:\/\//i.test(r.sourceUrl) ? { sourceUrl: r.sourceUrl.slice(0, 8192) } : {}), ...(winds ? { winds } : {}) };
   }
   if (r.kind === 'track') {
     if (!Array.isArray(r.coords) || r.coords.length > MAX_COORDS) return null;
@@ -90,6 +90,30 @@ function sightingFields(r: Record<string, unknown>): Partial<import('../types').
     ...(seenAt !== null && seenAt > 946_684_800_000 && seenAt < 4_102_444_800_000 ? { seenAt } : {}),
     ...(photo ? { photo } : {}),
   };
+}
+
+const BED_TERRAIN = new Set<BedTerrain>(['hill', 'flat', 'farm', 'piedmont', 'mountain']);
+
+function bedFields(r: Record<string, unknown>): { bed?: BedDetails } {
+  if (!r.bed || typeof r.bed !== 'object') return {};
+  const bed = r.bed as Record<string, unknown>;
+  const animal: BedAnimal | undefined = bed.animal === 'buck' || bed.animal === 'doe' || bed.animal === 'group' ? bed.animal : undefined;
+  const bedAt = num(bed.bedAt);
+  const aspect = num(bed.aspect);
+  const position = num(bed.position);
+  const openness = num(bed.openness);
+  const steepness = num(bed.steepness);
+  const terrain = typeof bed.terrain === 'string' && BED_TERRAIN.has(bed.terrain as BedTerrain) ? bed.terrain as BedTerrain : undefined;
+  const details: BedDetails = {
+    ...(animal ? { animal } : {}),
+    ...(bedAt !== null && bedAt > 946_684_800_000 && bedAt < 4_102_444_800_000 ? { bedAt } : {}),
+    ...(aspect !== null && aspect >= 0 && aspect < 360 ? { aspect } : {}),
+    ...(position !== null && position >= 0 && position <= 100 ? { position } : {}),
+    ...(openness !== null && openness >= 40 && openness <= 130 ? { openness } : {}),
+    ...(steepness !== null && steepness >= 0 && steepness <= 70 ? { steepness } : {}),
+    ...(terrain ? { terrain } : {}),
+  };
+  return Object.keys(details).length ? { bed: details } : {};
 }
 
 function windList(value: unknown): WindDir[] | undefined {

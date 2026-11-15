@@ -10,6 +10,7 @@ import { usageReport } from './usageReport';
 import { verifyGoogleToken } from './token';
 import { createKey, listKeys, revokeKey } from './v1Keys';
 import { apiV1 } from './v1';
+import { readBedStats, writeBedStats } from './beds';
 import { ApiError, sync } from './sync';
 export interface Env { DB: D1Database; TILES?: R2Bucket; ASSETS: Fetcher; GOOGLE_CLIENT_ID?: string; DEV_AUTH?: string; ADMIN_EMAILS?: string; COMMUNITY_ADMIN_TOKEN?: string; USAGE?: AnalyticsEngineDataset; RL_ANON?: RateLimit; RL_KEY?: RateLimit; RL_UPSTREAM?: RateLimit }
 // Random values are only allowed inside handlers; this salt lives for the isolate.
@@ -120,6 +121,10 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
         return json(await usageReport(env.DB,url.searchParams));
       }
       if (request.method === 'GET' && url.pathname === '/api/community/export') return await exportCommunity(request,env.DB,env.TILES,env.COMMUNITY_ADMIN_TOKEN);
+      if (request.method === 'GET' && url.pathname === '/api/community/beds') {
+        await rate(env.DB, `beds-read:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`, 60);
+        return await readBedStats(env.DB, url);
+      }
       if (request.method !== 'POST') return json({ error:'Not found' },404);
       if (['/api/ping','/api/events'].includes(url.pathname)) {
         const ua=request.headers.get('User-Agent');
@@ -139,6 +144,11 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
         if(action==='unshare')return await unshareHike(request,env.DB,input);
         if(action==='report')return await reportHike(request,env.DB,input,(key,limit)=>rate(env.DB,key,limit));
         return json({error:'Not found'},404);
+      }
+      if (url.pathname === '/api/community/beds') {
+        const input = await body(request, 32_000);
+        await rate(env.DB, `beds:${await hash((pingSalt ??= crypto.randomUUID()) + (request.headers.get('CF-Connecting-IP') ?? 'local'))}`, 30);
+        return await writeBedStats(env.DB, input);
       }
       if (url.pathname === '/api/community/scans') {
         const input=await body(request,4_000_000);

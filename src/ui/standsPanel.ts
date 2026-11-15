@@ -2,6 +2,8 @@ import type { FeatureCollection } from 'geojson';
 import type { GeoJSONSource, Map as MlMap, MapMouseEvent } from 'maplibre-gl';
 import { BoxDrawing, type Point } from '../lidar/boxDrawing';
 import { shortDistance } from '../map/geo';
+import { loadProfile } from '../beds/profile';
+import { prepareBeds, type BedHint } from '../beds/stands';
 import { applyWind, findStands, type StandSpot } from '../stands/analyze';
 import { limitBox, loadGround, StandSearchError, type BBox, type Ground } from '../stands/load';
 import { clearPressure, collectPressure } from '../stands/pressure';
@@ -24,6 +26,7 @@ export function openStandsPanel(ctx: AppContext): void {
   let wind = windDir(0);
   let windTouched = false;
   let ground: Ground | null = null;
+  let bedding: BedHint | undefined;
   let spots: StandSpot[] = [];
   let selected = 0;
   let box: BBox | null = null;
@@ -42,7 +45,7 @@ export function openStandsPanel(ctx: AppContext): void {
     wind = dir;
     windTouched = true;
     if (ground && spots.length) {
-      applyWind(ground, spots, wind);
+      applyWind(ground, spots, wind, bedding);
       paint();
     }
   });
@@ -151,10 +154,12 @@ export function openStandsPanel(ctx: AppContext): void {
     void Promise.all([
       loadGround(limited, controller.signal),
       collectPressure(map, limited, pins, controller.signal),
-    ]).then(([nextGround, pressure]) => {
+    ]).then(async ([nextGround, pressure]) => {
       if (id !== searchId || !root.isConnected) return;
       ground = nextGround;
-      spots = findStands(nextGround, pressure, wind);
+      const profile = await loadProfile(ctx.repo);
+      bedding = prepareBeds(nextGround.z, nextGround.cover, nextGround.cols, nextGround.rows, nextGround.cellM, profile);
+      spots = findStands(nextGround, pressure, wind, bedding);
       selected = 0;
       status.textContent = spots.length ? '' : 'No spots';
       paint();
@@ -292,7 +297,7 @@ export function openStandsPanel(ctx: AppContext): void {
     wind = windDir(deg);
     picks.set([wind]);
     if (ground && spots.length) {
-      applyWind(ground, spots, wind);
+      applyWind(ground, spots, wind, bedding);
       paint();
     }
   });

@@ -1,3 +1,4 @@
+import { bedPlacement, type BedHint } from '../beds/stands';
 import { haversine, roundCoord } from '../map/geo';
 import type { LngLat } from '../types';
 import type { WindDir } from '../types';
@@ -20,7 +21,7 @@ const FOREST = new Set([41, 42, 43]);
 const FIELD = new Set([71, 81, 82]);
 const DRY = new Set([31, 41, 42, 43, 52, 71, 81]);
 const WET = new Set([90, 95]);
-const REASONS = ['Saddle', 'Bluff base', 'Bench', 'Pinch', 'Dry knob', 'Marsh edge', 'Woods edge', 'Sanctuary edge'] as const;
+const REASONS = ['Saddle', 'Bluff base', 'Bench', 'Pinch', 'Dry knob', 'Marsh edge', 'Woods edge', 'Sanctuary edge', 'Bedding'] as const;
 
 interface Part { reason: (typeof REASONS)[number]; score: number; winds: number[] }
 
@@ -92,7 +93,7 @@ class Heap {
   }
 }
 
-export function findStands(grid: Ground, pressure: Pressure, wind: WindDir): StandSpot[] {
+export function findStands(grid: Ground, pressure: Pressure, wind: WindDir, bedding?: BedHint): StandSpot[] {
   const { cols, rows, cellM } = grid;
   const at = (row: number, col: number): number => row * cols + col;
   const inside = (row: number, col: number): boolean => row >= 0 && col >= 0 && row < rows && col < cols;
@@ -118,6 +119,7 @@ export function findStands(grid: Ground, pressure: Pressure, wind: WindDir): Sta
     const cover = coverAt(row, col);
     if (!Number.isFinite(z0) || !Number.isFinite(slope) || slope > 32) continue;
     if (blockedCover(cover) || cover === 21 || cover === 22) continue;
+    if (bedding?.mask[index]) continue;
     const found: Part[] = [];
     const reach = room(row, col);
 
@@ -299,6 +301,15 @@ export function findStands(grid: Ground, pressure: Pressure, wind: WindDir): Sta
       found.push({ reason: 'Sanctuary edge', score, winds: [meanBearing(sanctuary)] });
     }
 
+    if (bedding) {
+      const place = bedPlacement(bedding, row, col);
+      if (place?.between) found.push({ reason: 'Bedding', score: 0.36, winds: [place.axis + 90, place.axis - 90] });
+      else if (place?.near && found.length) {
+        const first = found[0];
+        if (first) first.score += 0.12;
+      }
+    }
+
     if (!found.length) continue;
     const here = roundCoord(coord(row, col));
     const roadM = pressure.roadM(here);
@@ -366,7 +377,7 @@ export function findStands(grid: Ground, pressure: Pressure, wind: WindDir): Sta
     });
     if (spots.length === 8) break;
   }
-  applyWind(grid, spots, wind);
+  applyWind(grid, spots, wind, bedding);
   return spots;
 }
 
@@ -389,7 +400,7 @@ function terrainCost(grid: Ground, index: number): number {
   return cost;
 }
 
-function walkIn(grid: Ground, goalRow: number, goalCol: number, windFrom: number, access: LngLat | null): LngLat[] {
+function walkIn(grid: Ground, goalRow: number, goalCol: number, windFrom: number, access: LngLat | null, bedding?: BedHint): LngLat[] {
   const { cols, rows } = grid;
   const at = (row: number, col: number): number => row * cols + col;
   const coord = (row: number, col: number): LngLat => roundCoord([grid.lngOf(col), grid.latOf(row)]);
@@ -415,6 +426,9 @@ function walkIn(grid: Ground, goalRow: number, goalCol: number, windFrom: number
     fromAccess = access;
   } else {
     const down = (windFrom + 180) % 360;
+    const face = bedding?.aspect[at(goalRow, goalCol)];
+    const fromRidge = typeof face === 'number' && Number.isFinite(face) && angleDiff(windFrom, face) < 75;
+    const fromCreek = typeof face === 'number' && Number.isFinite(face) && angleDiff(windFrom, (face + 180) % 360) < 75;
     let best: { row: number; col: number; cost: number } | null = null;
     for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) {
       const point = coord(row, col);
@@ -422,7 +436,16 @@ function walkIn(grid: Ground, goalRow: number, goalCol: number, windFrom: number
       if (dist < 320 || dist > 900) continue;
       const diff = angleDiff(bearing(goal, point), down);
       if (diff > 70) continue;
-      const cost = dist / 80 + terrainCost(grid, at(row, col)) + diff / 25;
+      const cell = at(row, col);
+      if (bedding?.hillside[cell]) continue;
+      const slopePos = bedding?.position[cell];
+      let bias = 0;
+      if (bedding && typeof slopePos === 'number' && Number.isFinite(slopePos)) {
+        if (fromRidge && slopePos >= 62) bias -= 5;
+        else if (fromCreek && slopePos <= 20) bias -= 5;
+        else if (!fromRidge && !fromCreek && (slopePos >= 62 || slopePos <= 20)) bias -= 2;
+      }
+      const cost = dist / 80 + terrainCost(grid, cell) + diff / 25 + bias;
       if (!best || cost < best.cost) best = { row, col, cost };
     }
     if (best) start = best;
@@ -464,6 +487,7 @@ function walkIn(grid: Ground, goalRow: number, goalCol: number, windFrom: number
       const point = coord(r, c);
       const dist = haversine(goal, point);
       let stepCost = terrainCost(grid, next) * (dr !== 0 && dc !== 0 ? 1.414 : 1);
+      if (bedding?.hillside[next]) stepCost += 28;
       if (dist > 30 && dist < 320) {
         const diff = angleDiff(bearing(goal, point), windFrom);
         if (diff < 80) stepCost += dist < 160 ? 22 : 8;
@@ -532,7 +556,7 @@ function pointSegment(p: LngLat, a: LngLat, b: LngLat): number {
   return Math.hypot(ax + dx * t, ay + dy * t);
 }
 
-export function applyWind(grid: Ground, spots: StandSpot[], wind: WindDir): void {
+export function applyWind(grid: Ground, spots: StandSpot[], wind: WindDir, bedding?: BedHint): void {
   const deg = WIND_BEARING[wind];
-  for (const spot of spots) spot.walk = walkIn(grid, spot.row, spot.col, deg, spot.access && spot.access.meters <= 5000 ? spot.access.coord : null);
+  for (const spot of spots) spot.walk = walkIn(grid, spot.row, spot.col, deg, spot.access && spot.access.meters <= 5000 ? spot.access.coord : null, bedding);
 }

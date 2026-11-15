@@ -25,6 +25,11 @@ export const ICON_STYLE: Record<WaypointIcon, { color: string; path: string; tit
     title: 'Deer',
     path: 'M12 20c-2.6 0-4.5-1.8-4.5-4.4 0-1.8.8-3.2 1.7-4.6L7.2 5.2l2.4 1.6L12 4l2.4 2.8 2.4-1.6-2 6c.9 1.4 1.7 2.8 1.7 4.6C16.5 18.2 14.6 20 12 20z',
   },
+  bed: {
+    color: '#a56b3c',
+    title: 'Bed',
+    path: 'M4 16h16v3H4zM5 16V9h3.2v7M15.8 16V9H19v7M8 13.2h8',
+  },
   camp: { color: '#2e7d6b', title: 'Camp', path: 'M12 4l8 15H4zM12 11l-3 8h6z' },
   truck: {
     color: '#3f6fb5',

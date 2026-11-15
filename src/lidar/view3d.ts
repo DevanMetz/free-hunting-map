@@ -252,12 +252,19 @@ export function createLidar3d(app: AppContext): Lidar3d {
     status.textContent = 'Loading';
     void loadPointCloud(selected, controller.signal, p => {
       if (id === loadId) status.textContent = p.stage ?? (p.total ? `Loading ${p.done}/${p.total}` : 'Loading');
-    }).then(cloud => {
+    }).then(async cloud => {
       if (id !== loadId || controller.signal.aborted) return;
       busy(false);
       if (!cloud.count) { status.textContent = 'No lidar coverage'; return; }
       status.textContent = '';
       try {
+        if (cloud.surface) {
+          const { loadProfile } = await import('../beds/profile');
+          const { computeMetrics, maskOf } = await import('../beds/metrics');
+          const surface = cloud.surface;
+          const metrics = computeMetrics(surface.height, surface.cols, surface.rows, surface.dx, surface.dy);
+          surface.bed = maskOf(metrics, await loadProfile(app.repo), 'all');
+        }
         closeViewer = mountPointCloud(cloud, app.map.mapState.basemap, () => app.sheet.close());
       } catch (err) {
         closeViewer = undefined;
