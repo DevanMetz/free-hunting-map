@@ -11,7 +11,7 @@ export function prefersMarkdown(request: Request): boolean {
   let htmlQ = -1;
   for (const part of accept.split(',')) {
     const [rawType, ...params] = part.trim().split(';');
-    const type = rawType.trim().toLowerCase();
+    const type = (rawType ?? '').trim().toLowerCase();
     let q = 1;
     for (const param of params) {
       const [key, value] = param.trim().split('=');
