@@ -1,3 +1,4 @@
+import { maybeMarkdown } from './markdown-negotiation';
 import { activityTile, createScoutGroup, publishActivity, syncScout } from './scout';
 import { shareHike, unshareHike, reportHike, moderateHikes, hikesTile } from './communityHikes';
 import { exportCommunity } from './communityExport';
@@ -97,7 +98,7 @@ async function handle(request: Request, env: Env, ctx?: Pick<ExecutionContext, '
       headers.set('X-Content-Type-Options', 'nosniff');
       return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers });
     }
-    if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
+    if (!url.pathname.startsWith('/api/')) return maybeMarkdown(request, await env.ASSETS.fetch(request));
     try {
       if (request.method === 'POST') {
         // Comparing to the actual request origin prevents cross-domain cookies/authentication attacks.

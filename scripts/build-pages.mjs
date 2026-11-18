@@ -178,7 +178,7 @@ export async function buildPages({ outDir = join(ROOT, '.generated-pages'), cont
   }
   const urls = ['/', ...pages.map(page => page.path), '/privacy', '/terms'];
   await writeFile(join(outDir, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(path => `  <url><loc>${ORIGIN}${path}</loc><lastmod>${DATE}</lastmod></url>`).join('\n')}\n</urlset>\n`);
-  await writeFile(join(outDir, 'robots.txt'), `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api\nSitemap: ${ORIGIN}/sitemap.xml\n`);
+  await writeFile(join(outDir, 'robots.txt'), `User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=yes\nAllow: /\nDisallow: /admin\nDisallow: /api\nSitemap: ${ORIGIN}/sitemap.xml\n`);
   return { pages, urls, features: active.map(f => f.id), states: states.length };
 }
 
