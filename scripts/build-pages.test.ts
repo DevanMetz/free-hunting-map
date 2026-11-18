@@ -90,7 +90,7 @@ describe('prerendered content', () => {
     const urls = [...sitemap.querySelectorAll('loc')].map(node => node.textContent);
     expect(urls.sort()).toEqual([...documents.keys()].map(path => 'https://freehuntingmap.com' + path).sort());
     expect(new Set(urls).size).toBe(urls.length);
-    expect(await readFile(join(temporary, 'site/robots.txt'), 'utf8')).toContain('Disallow: /admin\nDisallow: /api\n');
+    expect(await readFile(join(temporary, 'site/robots.txt'), 'utf8')).toBe('User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=yes\nAllow: /\nDisallow: /admin\nDisallow: /api\nSitemap: https://freehuntingmap.com/sitemap.xml\n');
   });
 
   it('keeps content and API routes out of the app navigation fallback', () => {
